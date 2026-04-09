@@ -61,4 +61,27 @@ describe('CreateVisitorDto', () => {
             expect(phoneErrors.length).toBeGreaterThan(0);
         });
     });
+
+    describe('personId', () => {
+        it('should pass with numeric personId', async () => {
+            const dto = plainToInstance(CreateVisitorDto, validPayload);
+            const errors = await validate(dto);
+            const pidErrors = errors.filter(e => e.property === 'personId');
+            expect(pidErrors).toHaveLength(0);
+        });
+
+        it('should reject non-numeric personId', async () => {
+            const dto = plainToInstance(CreateVisitorDto, { ...validPayload, personId: 'abc123' });
+            const errors = await validate(dto);
+            const pidErrors = errors.filter(e => e.property === 'personId');
+            expect(pidErrors.length).toBeGreaterThan(0);
+        });
+
+        it('should reject personId with spaces', async () => {
+            const dto = plainToInstance(CreateVisitorDto, { ...validPayload, personId: '123 456' });
+            const errors = await validate(dto);
+            const pidErrors = errors.filter(e => e.property === 'personId');
+            expect(pidErrors.length).toBeGreaterThan(0);
+        });
+    });
 });

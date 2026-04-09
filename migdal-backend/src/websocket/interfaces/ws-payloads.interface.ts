@@ -22,6 +22,7 @@ export interface WorkstationBindFailedPayload {
 export interface WorkstationDeviceStatus {
     providerType: IntegrationProvider;
     isConnected: boolean;
+    deviceConnected: boolean | null;
     agentVersion: string | null;
     lastSeenAt: string | null;
     capabilities: string[] | null;
@@ -77,6 +78,7 @@ export interface DeviceStatusChangedPayload {
     workstationId: string;
     providerType: IntegrationProvider;
     isConnected: boolean;
+    deviceConnected: boolean | null;
     agentVersion: string | null;
 }
 
@@ -108,6 +110,7 @@ export interface AgentRegisterPayload {
     hostname: string;
     version: string;
     capabilities: string[];
+    deviceConnected?: boolean;
     metadata?: Record<string, unknown>;
 }
 
@@ -151,4 +154,11 @@ export interface AgentExecuteScanPayload {
     correlationId: string;
     actionType: string;
     metadata?: Record<string, unknown>;
+}
+
+/** Agent -> Backend: device hardware status update */
+export interface AgentStatusUpdatePayload {
+    status: string;
+    deviceConnected?: boolean;
+    [key: string]: unknown;
 }

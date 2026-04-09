@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { BehaviorSubject, Subscription } from 'rxjs';
 import { UserWebSocketService } from '../websocket/user-websocket.service';
 import { WorkstationSessionService } from './workstation-session.service';
 import { WsEvent } from '../websocket/ws-events.enum';
@@ -14,6 +14,7 @@ export class DeviceStatusService {
     private readonly devicesSubject = new BehaviorSubject<WorkstationDeviceStatus[]>([]);
     readonly devices$ = this.devicesSubject.asObservable();
     private subscribed = false;
+    private wsSubs: Subscription[] = [];
 
     constructor(
         private userWs: UserWebSocketService,
@@ -24,27 +25,14 @@ export class DeviceStatusService {
         if (this.subscribed) return;
         this.subscribed = true;
 
-        // Listen for full status updates
-        this.userWs.on<DevicesStatusCurrentPayload>(WsEvent.DevicesStatusCurrent).subscribe((data) => {
-            this.devicesSubject.next(data.devices);
-        });
-
-        // Listen for printer status changes
-        this.userWs.on<DeviceStatusChangedPayload>(WsEvent.DevicesPrinterStatusChanged).subscribe((data) => {
-            this.updateDeviceStatus(data);
-        });
-
-        // Listen for scanner status changes
-        this.userWs.on<DeviceStatusChangedPayload>(WsEvent.DevicesScannerStatusChanged).subscribe((data) => {
-            this.updateDeviceStatus(data);
-        });
-
-        // Sync with workstation state
+        // Subscribe/unsubscribe to WS device events based on workstation bound state
         this.workstationSession.state$.subscribe((state) => {
             if (state.bound) {
                 this.devicesSubject.next(state.devices);
+                this.subscribeToWsEvents();
             } else {
                 this.devicesSubject.next([]);
+                this.unsubscribeFromWsEvents();
             }
         });
     }
@@ -62,8 +50,38 @@ export class DeviceStatusService {
     }
 
     reset(): void {
+        this.unsubscribeFromWsEvents();
         this.devicesSubject.next([]);
         this.subscribed = false;
+    }
+
+    private subscribeToWsEvents(): void {
+        if (this.wsSubs.length > 0) return;
+
+        this.wsSubs.push(
+            this.userWs.on<DevicesStatusCurrentPayload>(WsEvent.DevicesStatusCurrent).subscribe((data) => {
+                this.devicesSubject.next(data.devices);
+            }),
+        );
+
+        this.wsSubs.push(
+            this.userWs.on<DeviceStatusChangedPayload>(WsEvent.DevicesPrinterStatusChanged).subscribe((data) => {
+                this.updateDeviceStatus(data);
+            }),
+        );
+
+        this.wsSubs.push(
+            this.userWs.on<DeviceStatusChangedPayload>(WsEvent.DevicesScannerStatusChanged).subscribe((data) => {
+                this.updateDeviceStatus(data);
+            }),
+        );
+    }
+
+    private unsubscribeFromWsEvents(): void {
+        for (const sub of this.wsSubs) {
+            sub.unsubscribe();
+        }
+        this.wsSubs = [];
     }
 
     private updateDeviceStatus(update: DeviceStatusChangedPayload): void {
@@ -76,6 +94,7 @@ export class DeviceStatusService {
         const updated: WorkstationDeviceStatus = {
             providerType: update.providerType,
             isConnected: update.isConnected,
+            deviceConnected: update.deviceConnected ?? null,
             agentVersion: update.agentVersion,
             lastSeenAt: new Date().toISOString(),
             capabilities: idx >= 0 ? devices[idx].capabilities : null,

@@ -101,4 +101,27 @@ describe('VisitVisitorItemDto', () => {
             expect(phoneErrors.length).toBeGreaterThan(0);
         });
     });
+
+    describe('personId', () => {
+        it('should pass with numeric personId', async () => {
+            const dto = plainToInstance(VisitVisitorItemDto, validPayload);
+            const errors = await validate(dto);
+            const pidErrors = errors.filter(e => e.property === 'personId');
+            expect(pidErrors).toHaveLength(0);
+        });
+
+        it('should reject non-numeric personId', async () => {
+            const dto = plainToInstance(VisitVisitorItemDto, { ...validPayload, personId: 'ABC' });
+            const errors = await validate(dto);
+            const pidErrors = errors.filter(e => e.property === 'personId');
+            expect(pidErrors.length).toBeGreaterThan(0);
+        });
+
+        it('should reject personId with special characters', async () => {
+            const dto = plainToInstance(VisitVisitorItemDto, { ...validPayload, personId: '123-456' });
+            const errors = await validate(dto);
+            const pidErrors = errors.filter(e => e.property === 'personId');
+            expect(pidErrors.length).toBeGreaterThan(0);
+        });
+    });
 });

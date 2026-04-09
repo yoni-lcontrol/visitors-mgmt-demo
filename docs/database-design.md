@@ -250,7 +250,7 @@ Each notification event has a separate SMS template per target group (`system_us
 
 | Key | Value | Type | Group | Public |
 |-----|-------|------|-------|--------|
-| `app.name` | Migdal Platform | string | general | Yes |
+| `app.name` | Migdal Visitors | string | general | Yes |
 | `app.timezone` | Asia/Jerusalem | string | general | Yes |
 | `auth.sessionTimeout` | 900 | number | auth | No |
 | `auth.maxRefreshDays` | 7 | number | auth | No |

@@ -35,6 +35,7 @@ export class CreateBlacklistDto {
     @ValidateIf((o) => o.blacklistType === 'person')
     @IsString()
     @IsNotEmpty()
+    @Matches(/^\d+$/, { message: 'idNumber must contain only digits' })
     idNumber?: string;
 
     @ApiPropertyOptional({ example: '0501234567' })

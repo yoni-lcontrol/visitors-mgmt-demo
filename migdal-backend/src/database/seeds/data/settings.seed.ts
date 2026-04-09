@@ -1,7 +1,7 @@
 export const settingsSeed = [
     {
         key: 'app.name',
-        value: 'Migdal Platform',
+        value: 'Migdal Visitors',
         type: 'string',
         group: 'general',
         label: 'Application Name',

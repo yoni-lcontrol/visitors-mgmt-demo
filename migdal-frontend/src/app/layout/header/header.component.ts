@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Output, inject } from '@angular/core';
 import { AuthService } from '../../core/auth/auth.service';
 import { TranslationService } from '../../core/i18n/translation.service';
+import { WorkstationSessionService } from '../../core/services/workstation-session.service';
 import { AsyncPipe } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { AgentStatusIconsComponent } from './agent-status-icons.component';
@@ -19,8 +20,12 @@ import { AgentStatusIconsComponent } from './agent-status-icons.component';
         <h2>{{ 'APP.NAME' | translate }}</h2>
       </div>
       <div class="header-right">
-        <app-agent-status-icons />
-        <div class="header-separator"></div>
+        @if (wsSession.state$ | async; as ws) {
+          @if (ws.bound) {
+            <app-agent-status-icons />
+            <div class="header-separator"></div>
+          }
+        }
         <button class="btn-lang" (click)="translation.toggleLanguage()" [title]="translation.currentLang === 'en' ? 'עברית' : 'English'">
           {{ translation.currentLang === 'en' ? 'HE' : 'EN' }}
         </button>
@@ -119,6 +124,7 @@ import { AgentStatusIconsComponent } from './agent-status-icons.component';
 export class HeaderComponent {
   authService = inject(AuthService);
   translation = inject(TranslationService);
+  wsSession = inject(WorkstationSessionService);
 
   @Output() toggleSidebar = new EventEmitter<void>();
 

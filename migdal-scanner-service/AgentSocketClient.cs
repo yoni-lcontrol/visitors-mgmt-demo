@@ -225,6 +225,7 @@ namespace ScannerService
                 await _socket.EmitAsync("agent:status:update", new Dictionary<string, object>
                 {
                     ["status"] = status,
+                    ["deviceConnected"] = current == ScannerState.Connected,
                     ["scannerType"] = _lifecycle?.Scanner?.ScannerName ?? "unknown",
                     ["scannerState"] = current.ToString(),
                     ["previousState"] = previous.ToString(),
@@ -416,6 +417,7 @@ namespace ScannerService
                 await _socket.EmitAsync("agent:status:update", new Dictionary<string, object>
                 {
                     ["status"] = scannerReady ? "ready" : "not-ready",
+                    ["deviceConnected"] = scannerReady,
                     ["scannerType"] = _lifecycle?.Scanner?.ScannerName ?? "unknown",
                     ["scannerState"] = stateStr,
                 });
@@ -462,6 +464,7 @@ namespace ScannerService
                 ["hostname"] = Environment.MachineName,
                 ["version"] = _config.Version,
                 ["capabilities"] = new[] { "scan-id", "scan-passport" },
+                ["deviceConnected"] = _lifecycle?.State == ScannerState.Connected,
             };
 
             Log.Information("Sending agent:register (clientId={ClientId})", _config.ClientId);

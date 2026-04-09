@@ -201,8 +201,19 @@ The following WebSocket events are retained for backward compatibility (server p
 |-------|-----------|---------|
 | `devices:status:get-current` | User → Backend | `{}` |
 | `devices:status:current` | Backend → User | `{ devices[] }` |
-| `devices:printer:status-changed` | Backend → User | `{ workstationId, providerType, isConnected, agentVersion }` |
-| `devices:scanner:status-changed` | Backend → User | `{ workstationId, providerType, isConnected, agentVersion }` |
+| `devices:printer:status-changed` | Backend → User | `{ workstationId, providerType, isConnected, deviceConnected, agentVersion }` |
+| `devices:scanner:status-changed` | Backend → User | `{ workstationId, providerType, isConnected, deviceConnected, agentVersion }` |
+
+> **Device status fields:**
+> - `isConnected` (boolean): Whether the agent service is connected to the backend via WebSocket.
+> - `deviceConnected` (boolean | null): Whether the physical hardware device (scanner/printer) is detected by the agent.
+>   - `true` — device hardware is connected and operational
+>   - `false` — agent service is running but device hardware is not detected (shown as warning/amber in UI)
+>   - `null` — unknown (legacy agents that do not report device status)
+>
+> **Device detection mechanisms:**
+> - **Scanner**: The `ScannerLifecycleManager` polls `IsScannerValid` every 500ms in its run loop. On disconnect, fires `OnStateChanged` → `AgentSocketClient.OnScannerHardwareStateChanged` → emits `agent:status:update`.
+> - **Printer**: The `PrinterManager` polls `EnumUSBDevices()` every 3 seconds via a background timer. On USB plug/unplug, fires `OnDeviceStateChanged` → `AgentSocketClient.OnPrinterDeviceStateChanged` → emits `agent:status:update`.
 
 > **Note:** Device status change events (`devices:printer:status-changed`, `devices:scanner:status-changed`) are emitted only to users who have an active `UserWorkstationSession` bound to the affected workstation. The backend looks up active sessions via `WorkstationSessionService.findActiveSessionsByWorkstation(workstationId)` and emits to each user's `user:{userId}` room. Users not bound to that workstation do not receive the event.
 
@@ -253,12 +264,12 @@ POST /api/visits/:visitId/visitors/:visitorId/print-card
 
 | Event | Direction | Payload |
 |-------|-----------|---------|
-| `agent:register` | Agent → Backend | `{ clientId, timestamp, signature, providerType, machineId, hostname, version, capabilities }` |
+| `agent:register` | Agent → Backend | `{ clientId, timestamp, signature, providerType, machineId, hostname, version, capabilities, deviceConnected? }` |
 | `agent:registered` | Backend → Agent | `{ agentId, workstationId }` |
 | `agent:enroll` | Agent → Backend | `{ enrollmentToken, providerType, machineId, hostname, version, capabilities }` |
 | `agent:enrolled` | Backend → Agent | `{ clientId, clientSecret, workstationId }` |
 | `agent:heartbeat` | Agent → Backend | `{ clientId, timestamp }` |
-| `agent:status:update` | Agent → Backend | `{ status, scannerType?, scannerState?, previousState? }` |
+| `agent:status:update` | Agent → Backend | `{ status, deviceConnected?, scannerType?, scannerState?, printerType? }` |
 | `agent:command-ack` | Agent → Backend | `{ correlationId }` |
 | `agent:command-result` | Agent → Backend | `{ correlationId, success, result?, errorMessage? }` |
 | `agent:error` | Backend → Agent | `{ reason }` |

@@ -1,6 +1,6 @@
 {
     "APP": {
-        "NAME": "פלטפורמת מגדל",
+        "NAME": "מגדל זימון מבקרים",
         "LOADING": "טוען..."
     },
     "DASHBOARD": {
@@ -42,7 +42,8 @@
         "PRINTER": "מדפסת",
         "SCANNER": "סורק",
         "CONNECTED": "מחובר",
-        "DISCONNECTED": "מנותק",
+        "DISCONNECTED": "שירות מנותק",
+        "DEVICE_DISCONNECTED": "התקן לא זוהה",
         "NO_WORKSTATIONS": "אין עמדות זמינות"
     },
     "WORKSTATIONS": {
@@ -937,7 +938,8 @@
             "access-control": "בקרת גישה",
             "workstations": "עמדות עבודה",
             "visits": "ביקורים",
-            "notifications": "התראות"
+            "notifications": "התראות",
+            "buildings": "מבנים"
         },
         "ACTIONS": {
             "CREATE": "יצירה",

@@ -114,6 +114,7 @@ export class UsersGateway
                     return {
                         providerType: provider,
                         isConnected: !!agent,
+                        deviceConnected: agent?.deviceConnected ?? null,
                         agentVersion: agent?.version ?? null,
                         lastSeenAt: agent?.lastSeenAt ? agent.lastSeenAt.toISOString() : null,
                         capabilities: agent?.capabilitiesJson ? JSON.parse(agent.capabilitiesJson) : null,
@@ -154,6 +155,7 @@ export class UsersGateway
                 return {
                     providerType: provider,
                     isConnected: !!agent,
+                    deviceConnected: agent?.deviceConnected ?? null,
                     agentVersion: agent?.version ?? null,
                     lastSeenAt: agent?.lastSeenAt ? agent.lastSeenAt.toISOString() : null,
                     capabilities: agent?.capabilitiesJson ? JSON.parse(agent.capabilitiesJson) : null,

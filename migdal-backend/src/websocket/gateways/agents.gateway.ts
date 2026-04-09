@@ -23,6 +23,7 @@ import {
     AgentHeartbeatPayload,
     AgentCommandAckPayload,
     AgentCommandResultPayload,
+    AgentStatusUpdatePayload,
 } from '../interfaces/ws-payloads.interface';
 
 @WebSocketGateway({
@@ -78,6 +79,7 @@ export class AgentsGateway
                 agent.workstationId,
                 agent.providerType,
                 false,
+                null,
             );
 
             // Handle any pending commands that were targeting this agent
@@ -138,7 +140,7 @@ export class AgentsGateway
             );
 
             // Notify users bound to this workstation about device coming online
-            await this.notifyDeviceStatusChanged(workstationId, payload.providerType, true);
+            await this.notifyDeviceStatusChanged(workstationId, payload.providerType, true, payload.deviceConnected ?? null);
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : 'Registration failed';
             this.logger.error(`Agent registration failed: ${message}`);
@@ -226,6 +228,29 @@ export class AgentsGateway
     ): Promise<void> {
         if (!(client as any).agentRegistered) return;
         await this.agentRegistry.updateHeartbeat(client.id);
+    }
+
+    @SubscribeMessage(WsEvent.AgentStatusUpdate)
+    async handleStatusUpdate(
+        @ConnectedSocket() client: Socket,
+        @MessageBody() payload: AgentStatusUpdatePayload,
+    ): Promise<void> {
+        if (!(client as any).agentRegistered) return;
+
+        const deviceConnected =
+            typeof payload?.deviceConnected === 'boolean'
+                ? payload.deviceConnected
+                : payload?.status === 'ready';
+
+        const agent = await this.agentRegistry.updateDeviceConnected(client.id, deviceConnected);
+        if (agent) {
+            await this.notifyDeviceStatusChanged(
+                agent.workstationId,
+                agent.providerType,
+                true,
+                deviceConnected,
+            );
+        }
     }
 
     @SubscribeMessage(WsEvent.AgentCommandAck)
@@ -328,6 +353,7 @@ export class AgentsGateway
         workstationId: string,
         providerType: string,
         isConnected: boolean,
+        deviceConnected: boolean | null,
     ): Promise<void> {
         const userNs = this.server.server?.of('/ws/users');
         if (!userNs) return;
@@ -341,6 +367,7 @@ export class AgentsGateway
             workstationId,
             providerType,
             isConnected,
+            deviceConnected,
             agentVersion: null,
         };
 

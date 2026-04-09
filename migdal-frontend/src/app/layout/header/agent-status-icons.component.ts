@@ -6,31 +6,37 @@ import { WorkstationSessionService } from '../../core/services/workstation-sessi
 import { DeviceStatusService } from '../../core/services/device-status.service';
 
 interface AgentIcon {
-    providerType: 'printer' | 'scanner';
-    isConnected: boolean;
-    icon: string;
+  providerType: 'printer' | 'scanner';
+  isConnected: boolean;
+  deviceConnected: boolean | null;
+  icon: string;
+  /** 'connected' = green, 'device-disconnected' = amber, 'disconnected' = red */
+  status: 'connected' | 'device-disconnected' | 'disconnected';
 }
 
 @Component({
-    selector: 'app-agent-status-icons',
-    standalone: true,
-    imports: [AsyncPipe, TranslateModule],
-    template: `
+  selector: 'app-agent-status-icons',
+  standalone: true,
+  imports: [AsyncPipe, TranslateModule],
+  template: `
     @if (vm$ | async; as vm) {
       @if (vm.bound) {
         <div class="agent-status-icons">
           @for (agent of vm.agents; track agent.providerType) {
             <span
               class="agent-icon"
-              [class.connected]="agent.isConnected"
-              [class.disconnected]="!agent.isConnected"
+              [class.connected]="agent.status === 'connected'"
+              [class.device-disconnected]="agent.status === 'device-disconnected'"
+              [class.disconnected]="agent.status === 'disconnected'"
               [title]="(agent.providerType === 'printer'
                 ? ('WORKSTATION.PRINTER' | translate)
                 : ('WORKSTATION.SCANNER' | translate))
                 + ': '
-                + (agent.isConnected
+                + (agent.status === 'connected'
                   ? ('WORKSTATION.CONNECTED' | translate)
-                  : ('WORKSTATION.DISCONNECTED' | translate))"
+                  : agent.status === 'device-disconnected'
+                    ? ('WORKSTATION.DEVICE_DISCONNECTED' | translate)
+                    : ('WORKSTATION.DISCONNECTED' | translate))"
             >
               <i class="pi" [class.pi-print]="agent.providerType === 'printer'" [class.pi-camera]="agent.providerType === 'scanner'"></i>
               <span class="status-dot"></span>
@@ -40,7 +46,7 @@ interface AgentIcon {
       }
     }
   `,
-    styles: [`
+  styles: [`
     .agent-status-icons {
       display: flex;
       align-items: center;
@@ -62,6 +68,10 @@ interface AgentIcon {
       color: #15803d;
       background: #dcfce7;
     }
+    .agent-icon.device-disconnected {
+      color: #b45309;
+      background: #fef3c7;
+    }
     .agent-icon.disconnected {
       color: #dc2626;
       background: #fef2f2;
@@ -78,38 +88,60 @@ interface AgentIcon {
     .agent-icon.connected .status-dot {
       background: #22c55e;
     }
+    .agent-icon.device-disconnected .status-dot {
+      background: #f59e0b;
+    }
     .agent-icon.disconnected .status-dot {
       background: #ef4444;
     }
   `],
 })
 export class AgentStatusIconsComponent {
-    private wsSession = inject(WorkstationSessionService);
-    private deviceStatus = inject(DeviceStatusService);
+  private wsSession = inject(WorkstationSessionService);
+  private deviceStatus = inject(DeviceStatusService);
 
-    vm$ = combineLatest([
-        this.wsSession.state$,
-        this.deviceStatus.devices$,
-    ]).pipe(
-        map(([state, devices]) => {
-            if (!state.bound) {
-                return { bound: false as const, agents: [] as AgentIcon[] };
-            }
+  vm$ = combineLatest([
+    this.wsSession.state$,
+    this.deviceStatus.devices$,
+  ]).pipe(
+    map(([state, devices]) => {
+      if (!state.bound) {
+        return { bound: false as const, agents: [] as AgentIcon[] };
+      }
 
-            const agents: AgentIcon[] = [
-                {
-                    providerType: 'printer',
-                    isConnected: devices.some((d) => d.providerType === 'printer' && d.isConnected),
-                    icon: 'pi-print',
-                },
-                {
-                    providerType: 'scanner',
-                    isConnected: devices.some((d) => d.providerType === 'scanner' && d.isConnected),
-                    icon: 'pi-camera',
-                },
-            ];
+      const agents: AgentIcon[] = [
+        this.buildAgentIcon('printer', devices),
+        this.buildAgentIcon('scanner', devices),
+      ];
 
-            return { bound: true as const, agents };
-        }),
-    );
+      return { bound: true as const, agents };
+    }),
+  );
+
+  private buildAgentIcon(
+    providerType: 'printer' | 'scanner',
+    devices: { providerType: string; isConnected: boolean; deviceConnected?: boolean | null }[],
+  ): AgentIcon {
+    const device = devices.find((d) => d.providerType === providerType);
+    const isConnected = device?.isConnected ?? false;
+    const deviceConnected = device?.deviceConnected ?? null;
+
+    let status: AgentIcon['status'];
+    if (!isConnected) {
+      status = 'disconnected';
+    } else if (deviceConnected === false) {
+      status = 'device-disconnected';
+    } else {
+      // deviceConnected === true or null (unknown/legacy) → show as connected
+      status = 'connected';
+    }
+
+    return {
+      providerType,
+      isConnected,
+      deviceConnected,
+      icon: providerType === 'printer' ? 'pi-print' : 'pi-camera',
+      status,
+    };
+  }
 }

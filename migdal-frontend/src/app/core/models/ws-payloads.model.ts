@@ -16,6 +16,7 @@ export interface WorkstationBindFailedPayload {
 export interface WorkstationDeviceStatus {
     providerType: 'printer' | 'scanner';
     isConnected: boolean;
+    deviceConnected: boolean | null;
     agentVersion: string | null;
     lastSeenAt: string | null;
     capabilities: string[] | null;
@@ -63,6 +64,7 @@ export interface DeviceStatusChangedPayload {
     workstationId: string;
     providerType: 'printer' | 'scanner';
     isConnected: boolean;
+    deviceConnected: boolean | null;
     agentVersion: string | null;
 }
 

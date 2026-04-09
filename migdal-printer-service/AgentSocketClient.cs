@@ -23,6 +23,8 @@ public sealed class AgentSocketClient : BackgroundService
         _config = config;
         _printer = printer;
         _log = logger;
+
+        _printer.OnDeviceStateChanged += OnPrinterDeviceStateChanged;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -333,16 +335,54 @@ public sealed class AgentSocketClient : BackgroundService
     {
         try
         {
-            var status = _printer.GetStatus();
+            var status = _printer.IsDeviceConnected ? _printer.GetStatus() : "device-disconnected";
             await _socket!.EmitAsync("agent:status:update", new Dictionary<string, object>
             {
                 ["status"] = status,
+                ["deviceConnected"] = _printer.IsDeviceConnected,
                 ["printerType"] = "CuCustomWnd",
             });
         }
         catch (Exception ex)
         {
             _log.LogError(ex, "Error handling get-status request");
+        }
+    }
+
+    /// <summary>
+    /// Called when the USB printer device is connected or disconnected.
+    /// Reports the new state to the backend via the agent socket.
+    /// Mirrors the scanner service's OnScannerHardwareStateChanged pattern.
+    /// </summary>
+    private async void OnPrinterDeviceStateChanged(bool previousConnected, bool currentConnected)
+    {
+        _log.LogInformation(
+            "Printer device state changed: {Previous} -> {Current}, reporting to backend",
+            previousConnected ? "connected" : "disconnected",
+            currentConnected ? "connected" : "disconnected");
+
+        if (!_registered || _socket?.Connected != true)
+        {
+            _log.LogDebug("Cannot report printer device state change — agent not registered");
+            return;
+        }
+
+        try
+        {
+            await _socket.EmitAsync("agent:status:update", new Dictionary<string, object>
+            {
+                ["status"] = currentConnected ? "ready" : "device-disconnected",
+                ["deviceConnected"] = currentConnected,
+                ["printerType"] = "CuCustomWnd",
+            });
+
+            _log.LogInformation(
+                "Reported printer device status to backend: deviceConnected={DeviceConnected}",
+                currentConnected);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Failed to report printer device state change to backend");
         }
     }
 
@@ -379,6 +419,7 @@ public sealed class AgentSocketClient : BackgroundService
             ["hostname"] = Environment.MachineName,
             ["version"] = _config.Version,
             ["capabilities"] = new[] { "print-card", "print-text", "print-template" },
+            ["deviceConnected"] = _printer.IsDeviceConnected,
         };
 
         _log.LogInformation("Sending agent:register (clientId={ClientId})", _config.ClientId);
@@ -442,6 +483,7 @@ public sealed class AgentSocketClient : BackgroundService
     public override async Task StopAsync(CancellationToken cancellationToken)
     {
         _log.LogInformation("Stopping PrinterService agent...");
+        _printer.OnDeviceStateChanged -= OnPrinterDeviceStateChanged;
         StopHeartbeat();
         _registered = false;
 

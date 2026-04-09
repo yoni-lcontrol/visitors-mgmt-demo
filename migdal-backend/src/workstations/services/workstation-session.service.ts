@@ -129,7 +129,7 @@ export class WorkstationSessionService {
         workstationId: string;
         code: string;
         displayName: string;
-        devices: Array<{ providerType: string; isConnected: boolean; agentVersion: string | null; lastSeenAt: string | null; capabilities: string[] | null }>;
+        devices: Array<{ providerType: string; isConnected: boolean; deviceConnected: boolean | null; agentVersion: string | null; lastSeenAt: string | null; capabilities: string[] | null }>;
     }> {
         const { workstation } = await this.bindUserToWorkstation(userId, userSocketId, workstationId, userRoleIds);
         return this.buildWorkstationDeviceStatus(workstation);
@@ -137,14 +137,25 @@ export class WorkstationSessionService {
 
     async getActiveSessionWithDeviceStatus(
         userId: string,
+        userRoleIds: string[] = [],
     ): Promise<{
         workstationId: string;
         code: string;
         displayName: string;
-        devices: Array<{ providerType: string; isConnected: boolean; agentVersion: string | null; lastSeenAt: string | null; capabilities: string[] | null }>;
+        devices: Array<{ providerType: string; isConnected: boolean; deviceConnected: boolean | null; agentVersion: string | null; lastSeenAt: string | null; capabilities: string[] | null }>;
     } | null> {
         const session = await this.getActiveSession(userId);
         if (!session?.workstation) return null;
+
+        // Validate user still has access to this workstation
+        const hasAccess = await this.checkUserAccess(userId, userRoleIds, session.workstationId);
+        if (!hasAccess) {
+            // Deactivate stale session
+            this.logger.log(`Deactivating stale session for user ${userId} — workstation ${session.workstationId} no longer accessible`);
+            await this.sessionRepo.update(session.id, { isActive: false, disconnectedAt: new Date() });
+            return null;
+        }
+
         return this.buildWorkstationDeviceStatus(session.workstation);
     }
 
@@ -154,7 +165,7 @@ export class WorkstationSessionService {
         workstationId: string;
         code: string;
         displayName: string;
-        devices: Array<{ providerType: string; isConnected: boolean; agentVersion: string | null; lastSeenAt: string | null; capabilities: string[] | null }>;
+        devices: Array<{ providerType: string; isConnected: boolean; deviceConnected: boolean | null; agentVersion: string | null; lastSeenAt: string | null; capabilities: string[] | null }>;
     }> {
         const agents = await this.deviceAgentRepo.find({
             where: {
@@ -169,6 +180,7 @@ export class WorkstationSessionService {
             return {
                 providerType: provider,
                 isConnected: agent?.isConnected ?? false,
+                deviceConnected: agent?.deviceConnected ?? null,
                 agentVersion: agent?.version ?? null,
                 lastSeenAt: agent?.lastSeenAt ? agent.lastSeenAt.toISOString() : null,
                 capabilities: agent?.capabilitiesJson ? JSON.parse(agent.capabilitiesJson) : null,
@@ -190,7 +202,7 @@ export class WorkstationSessionService {
             displayName: string;
             machineId: string | null;
             hostname: string | null;
-            devices: Array<{ providerType: string; isConnected: boolean }>;
+            devices: Array<{ providerType: string; isConnected: boolean; deviceConnected: boolean | null }>;
         }>
     > {
         const workstations = await this.workstationRepo.find({
@@ -213,6 +225,7 @@ export class WorkstationSessionService {
                 devices: wsAgents.map((a) => ({
                     providerType: a.providerType,
                     isConnected: true,
+                    deviceConnected: a.deviceConnected ?? null,
                 })),
             };
         });

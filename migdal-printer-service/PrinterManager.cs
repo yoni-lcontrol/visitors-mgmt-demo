@@ -10,11 +10,24 @@ public sealed class PrinterManager : IHostedService
 {
     public bool IsSdkInitialized => _api != null;
 
+    /// <summary>
+    /// Whether a USB printer device is currently detected.
+    /// Updated by the background polling loop.
+    /// </summary>
+    public bool IsDeviceConnected { get; private set; }
+
+    /// <summary>
+    /// Fired when USB printer connection state changes (previousConnected, currentConnected).
+    /// </summary>
+    public event Action<bool, bool>? OnDeviceStateChanged;
+
     private readonly object _sync = new object();
     private readonly ILogger<PrinterManager> _log;
 
     private CuCustomWndAPIWrap? _api;
     private CuCustomWndDevice? _dev;
+    private System.Threading.Timer? _pollTimer;
+    private const int PollIntervalMs = 3_000;
 
     public PrinterManager(ILogger<PrinterManager> log)
     {
@@ -154,7 +167,14 @@ public sealed class PrinterManager : IHostedService
                 _log.LogWarning(ex, "Printer SDK initialization failed — service will run without printer hardware.");
                 _api = null;
             }
+
+            // Perform initial USB device check
+            IsDeviceConnected = CheckUsbDevicePresent();
+            _log.LogInformation("Initial USB printer detection: IsDeviceConnected={IsConnected}", IsDeviceConnected);
         }
+
+        // Start background polling for USB device presence
+        _pollTimer = new System.Threading.Timer(PollUsbDevicePresence, null, PollIntervalMs, PollIntervalMs);
 
         return Task.CompletedTask;
     }
@@ -211,6 +231,9 @@ public sealed class PrinterManager : IHostedService
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
+        _pollTimer?.Dispose();
+        _pollTimer = null;
+
         lock (_sync)
         {
             _log.LogInformation("Stopping PrinterManager");
@@ -1050,6 +1073,59 @@ public sealed class PrinterManager : IHostedService
         _dev = _api.OpenPrinterUSB(usb[0]);
 
         _log.LogDebug("Printer device opened successfully");
+    }
+
+    // ─── USB Device Polling ───────────────────────────────────────────
+
+    /// <summary>
+    /// Check if any USB printer device is present via the SDK.
+    /// Returns false if SDK is not initialized or no USB devices found.
+    /// </summary>
+    private bool CheckUsbDevicePresent()
+    {
+        lock (_sync)
+        {
+            if (_api == null) return false;
+
+            try
+            {
+                var usb = _api.EnumUSBDevices();
+                return usb != null && usb.Length > 0;
+            }
+            catch (Exception ex)
+            {
+                _log.LogDebug(ex, "USB device enumeration failed during poll");
+                return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Timer callback: periodically checks for USB printer presence
+    /// and fires OnDeviceStateChanged when the state changes.
+    /// </summary>
+    private void PollUsbDevicePresence(object? state)
+    {
+        bool currentlyConnected = CheckUsbDevicePresent();
+        bool previouslyConnected = IsDeviceConnected;
+
+        if (currentlyConnected == previouslyConnected) return;
+
+        IsDeviceConnected = currentlyConnected;
+
+        _log.LogInformation(
+            "Printer USB device state changed: {Previous} -> {Current}",
+            previouslyConnected ? "connected" : "disconnected",
+            currentlyConnected ? "connected" : "disconnected");
+
+        try
+        {
+            OnDeviceStateChanged?.Invoke(previouslyConnected, currentlyConnected);
+        }
+        catch (Exception ex)
+        {
+            _log.LogWarning(ex, "Error in OnDeviceStateChanged handler");
+        }
     }
 }
 

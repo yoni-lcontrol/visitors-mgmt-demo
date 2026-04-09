@@ -40,7 +40,7 @@ export class WorkstationsController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get the current active workstation session with device status' })
     async getCurrentSession(@CurrentUser() user: JwtPayload) {
-        return this.workstationSessionService.getActiveSessionWithDeviceStatus(user.sub);
+        return this.workstationSessionService.getActiveSessionWithDeviceStatus(user.sub, user.roleIds || []);
     }
 
     @Get()

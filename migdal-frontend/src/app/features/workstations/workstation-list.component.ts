@@ -54,7 +54,11 @@ import { CardTemplate } from '../settings/card-templates/models/card-template.mo
             <td>{{ ws.machineId || '-' }}</td>
             <td>
               @for (d of ws.devices; track d.providerType) {
-                <span class="device-badge" [class.connected]="d.isConnected" [class.disconnected]="!d.isConnected">
+                <span class="device-badge"
+                  [class.connected]="d.isConnected && d.deviceConnected !== false"
+                  [class.device-disconnected]="d.isConnected && d.deviceConnected === false"
+                  [class.disconnected]="!d.isConnected"
+                  [title]="d.providerType + ': ' + (!d.isConnected ? ('WORKSTATION.DISCONNECTED' | translate) : d.deviceConnected === false ? ('WORKSTATION.DEVICE_DISCONNECTED' | translate) : ('WORKSTATION.CONNECTED' | translate))">
                   <i class="pi" [class.pi-print]="d.providerType === 'printer'" [class.pi-camera]="d.providerType === 'scanner'"></i>
                   {{ d.providerType }}
                 </span>
@@ -189,6 +193,7 @@ import { CardTemplate } from '../settings/card-templates/models/card-template.mo
       margin-inline-end: 0.3rem;
     }
     .device-badge.connected { background: #dcfce7; color: #15803d; }
+    .device-badge.device-disconnected { background: #fef3c7; color: #b45309; }
     .device-badge.disconnected { background: #f1f5f9; color: #64748b; }
     .text-muted { color: var(--color-text-muted, #9896ad); }
     .dialog-fields { display: flex; flex-direction: column; gap: 1rem; }
@@ -273,16 +278,19 @@ export class WorkstationListComponent implements OnInit, OnDestroy {
       workstationId: string;
       providerType: string;
       isConnected: boolean;
+      deviceConnected: boolean | null;
     }>(WsEvent.DevicesStatusChanged).subscribe((update) => {
       const ws = this.workstations.find((w) => w.id === update.workstationId);
       if (!ws) return;
       const device = ws.devices.find((d) => d.providerType === update.providerType);
       if (device) {
         device.isConnected = update.isConnected;
+        device.deviceConnected = update.deviceConnected ?? null;
       } else {
         ws.devices.push({
           providerType: update.providerType,
           isConnected: update.isConnected,
+          deviceConnected: update.deviceConnected ?? null,
           agentVersion: null,
         });
       }

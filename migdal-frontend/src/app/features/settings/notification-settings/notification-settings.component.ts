@@ -109,14 +109,14 @@ const EVENTS = ['visitor_arrived', 'visit_created', 'visit_updated', 'visit_dele
         <div class="sms-group-tabs">
           @for (group of targetGroups; track group) {
             <button class="sms-group-tab" [class.active]="selectedSmsGroup === group"
-              (click)="selectedSmsGroup = group">
+              (click)="selectSmsGroup(group)">
               <i class="pi" [class]="getGroupIcon(group)"></i>
               <span>{{ 'NOTIFICATION_SETTINGS.GROUP_' + group.toUpperCase() | translate }}</span>
             </button>
           }
         </div>
 
-        <div class="sms-templates-grid">
+        <div class="sms-templates-grid" [class.sms-grid-entering]="smsGridAnimating">
           @for (tpl of getSmsTemplatesForGroup(selectedSmsGroup); track tpl.event) {
             <div class="card sms-template-card">
               <div class="sms-template-header">
@@ -590,6 +590,13 @@ const EVENTS = ['visitor_arrived', 'visit_created', 'visit_updated', 'visit_dele
 
     .sms-templates-grid {
       display: grid; grid-template-columns: 1fr; gap: 1rem; margin-top: 1.15rem;
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    .sms-templates-grid.sms-grid-entering {
+      opacity: 0;
+      transform: translateY(6px);
     }
     .sms-template-card { padding: 0 !important; overflow: hidden; }
     .sms-template-header {
@@ -750,6 +757,16 @@ export class NotificationSettingsComponent implements OnInit, HasUnsavedChanges 
   smsDirty = false;
   placeholdersExpanded = false;
   selectedSmsGroup: string = TARGET_GROUPS[0];
+  smsGridAnimating = false;
+
+  selectSmsGroup(group: string): void {
+    if (group === this.selectedSmsGroup) return;
+    this.smsGridAnimating = true;
+    setTimeout(() => {
+      this.selectedSmsGroup = group;
+      this.smsGridAnimating = false;
+    }, 180);
+  }
 
   hasUnsavedChanges(): boolean {
     return this.dirty || this.smsDirty;

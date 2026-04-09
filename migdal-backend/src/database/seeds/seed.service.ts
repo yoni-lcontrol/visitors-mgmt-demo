@@ -114,9 +114,9 @@ export class SeedService implements OnModuleInit {
             // 4. Seed SMS templates (upsert — add missing event+targetGroup templates)
             const smsRepo = queryRunner.manager.getRepository(SmsTemplate);
             const existingSmsTemplates = await smsRepo.find();
-            const existingKeys = new Set(existingSmsTemplates.map((t) => `${t.event}::${t.targetGroup}`));
+            const existingSmsKeys = new Set(existingSmsTemplates.map((t) => `${t.event}::${t.targetGroup}`));
 
-            const newTemplates = smsTemplatesSeed.filter((t) => !existingKeys.has(`${t.event}::${t.targetGroup}`));
+            const newTemplates = smsTemplatesSeed.filter((t) => !existingSmsKeys.has(`${t.event}::${t.targetGroup}`));
             if (newTemplates.length > 0) {
                 this.logger.log(`Seeding ${newTemplates.length} SMS template(s)...`);
                 for (const t of newTemplates) {

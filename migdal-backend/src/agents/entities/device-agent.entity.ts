@@ -36,6 +36,9 @@ export class DeviceAgent extends BaseEntity {
     @Column({ type: 'bit', default: false })
     isConnected!: boolean;
 
+    @Column({ type: 'bit', nullable: true })
+    deviceConnected!: boolean | null;
+
     @Column({ type: 'datetime2', nullable: true })
     connectedAt!: Date | null;
 

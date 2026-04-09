@@ -75,7 +75,7 @@ import { TranslateModule } from '@ngx-translate/core';
           </a>
           <ul class="submenu" [@submenu]="visitsOpen ? 'expanded' : 'collapsed'">
             <li>
-              <a routerLink="/visits" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" (click)="menuItemClicked.emit()">
+              <a routerLink="/visits" [class.active]="isVisitListActive()" (click)="menuItemClicked.emit()">
                 <i class="pi pi-calendar-plus"></i>
                 <span>{{ 'NAV.VISITS' | translate }}</span>
               </a>
@@ -341,6 +341,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
   isSettingsActive(): boolean {
     return this.router.url.startsWith('/settings');
+  }
+
+  isVisitListActive(): boolean {
+    const url = this.router.url.split('?')[0];
+    return url === '/visits' || /^\/visits\/[0-9a-f-]{36}$/i.test(url);
   }
 
   toggleAccessControl(): void {

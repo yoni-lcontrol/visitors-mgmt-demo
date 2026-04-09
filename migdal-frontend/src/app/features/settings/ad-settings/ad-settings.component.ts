@@ -29,6 +29,12 @@ import { AdConfiguration } from '@core/models/entities.model';
         [value]="configs"
         [loading]="loading"
         dataKey="id"
+        [paginator]="true"
+        [rows]="10"
+        [rowsPerPageOptions]="[10, 25, 50]"
+        [showCurrentPageReport]="true"
+        currentPageReportTemplate="{first}-{last} / {totalRecords}"
+        paginatorDropdownAppendTo="body"
         styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines"
       >
         <ng-template pTemplate="header">

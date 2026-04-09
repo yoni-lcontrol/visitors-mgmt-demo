@@ -37,6 +37,7 @@ describe('AgentRegistryService', () => {
             hostname: 'ws-01',
             version: '1.0.0',
             capabilities: ['card-print'],
+            deviceConnected: true,
         };
 
         it('should register agent and update connection state on DeviceAgent', async () => {
@@ -55,6 +56,7 @@ describe('AgentRegistryService', () => {
                 expect.objectContaining({
                     version: '1.0.0',
                     isConnected: true,
+                    deviceConnected: true,
                     socketId: 'socket-123',
                 }),
             );
@@ -126,17 +128,19 @@ describe('AgentRegistryService', () => {
                 id: 'agent-id',
                 socketId: 'socket-1',
                 isConnected: true,
+                deviceConnected: true,
                 workstationId: 'ws-1',
                 providerType: IntegrationProvider.Printer,
             };
             deviceAgentRepo.findOne.mockResolvedValue(agent);
-            deviceAgentRepo.save.mockResolvedValue({ ...agent, isConnected: false, socketId: null });
+            deviceAgentRepo.save.mockResolvedValue({ ...agent, isConnected: false, deviceConnected: null, socketId: null });
 
             const result = await service.markDisconnected('socket-1');
 
             expect(result).toBeDefined();
             expect(deviceAgentRepo.save).toHaveBeenCalledWith(expect.objectContaining({
                 isConnected: false,
+                deviceConnected: null,
                 socketId: null,
             }));
         });
@@ -171,6 +175,37 @@ describe('AgentRegistryService', () => {
                 { socketId: 'socket-1', isConnected: true },
                 expect.objectContaining({ lastSeenAt: expect.any(Date) }),
             );
+        });
+    });
+
+    describe('updateDeviceConnected', () => {
+        it('should update deviceConnected and lastSeenAt on connected agent', async () => {
+            const agent = {
+                id: 'agent-id',
+                socketId: 'socket-1',
+                isConnected: true,
+                deviceConnected: null,
+                workstationId: 'ws-1',
+                providerType: IntegrationProvider.Scanner,
+            };
+            deviceAgentRepo.findOne.mockResolvedValue(agent);
+            deviceAgentRepo.save.mockResolvedValue({ ...agent, deviceConnected: true });
+
+            const result = await service.updateDeviceConnected('socket-1', true);
+
+            expect(result).toBeDefined();
+            expect(deviceAgentRepo.save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    deviceConnected: true,
+                    lastSeenAt: expect.any(Date),
+                }),
+            );
+        });
+
+        it('should return null if no connected agent with that socket', async () => {
+            deviceAgentRepo.findOne.mockResolvedValue(null);
+            const result = await service.updateDeviceConnected('unknown-socket', false);
+            expect(result).toBeNull();
         });
     });
 

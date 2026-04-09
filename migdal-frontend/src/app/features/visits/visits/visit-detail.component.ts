@@ -183,7 +183,7 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
               <div class="field">
                 <label><i class="pi pi-id-card"></i> {{ 'VISITORS.PERSON_ID' | translate }} <span class="required">*</span></label>
                 <div class="input-wrapper">
-                  <input type="text" [(ngModel)]="v.personId" required #vPersonId="ngModel"
+                  <input type="text" [(ngModel)]="v.personId" required pattern="[0-9]*" #vPersonId="ngModel"
                     (ngModelChange)="onNewVisitorPersonIdChange($index, $event)"
                     (focus)="onNewPersonIdFocus($index)"
                     (blur)="onNewPersonIdBlur($index)"
@@ -215,7 +215,10 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                   </div>
                 }
                 @if (vPersonId.invalid && vPersonId.touched) {
-                  <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+                  <small class="field-error">
+                    @if (vPersonId.errors?.['required']) { {{ 'VALIDATION.REQUIRED' | translate }} }
+                    @else if (vPersonId.errors?.['pattern']) { {{ 'VALIDATION.DIGITS_ONLY' | translate }} }
+                  </small>
                 }
                 @if (blacklistMap.get($index)?.blacklisted) {
                   <small class="field-error">{{ 'VALIDATION.BLACKLISTED' | translate }}</small>
@@ -1610,6 +1613,13 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
       this.searchLoading.delete(index);
       return;
     }
+    // Skip search/blacklist if input contains non-digit characters
+    if (!/^\d+$/.test(value.trim())) {
+      this.visitorSuggestions.delete(index);
+      this.showNoResults.delete(index);
+      this.searchLoading.delete(index);
+      return;
+    }
     // Blacklist check
     let subj = this.blacklistSubjects.get(index);
     if (!subj) {
@@ -1700,6 +1710,13 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   onEditVisitorPersonIdChange(value: string): void {
     if (!value || !value.trim()) {
       this.editBlacklistStatus = null;
+      this.editVisitorSuggestions = [];
+      this.editShowNoResults = false;
+      this.editSearchLoading = false;
+      return;
+    }
+    // Skip search/blacklist if input contains non-digit characters
+    if (!/^\d+$/.test(value.trim())) {
       this.editVisitorSuggestions = [];
       this.editShowNoResults = false;
       this.editSearchLoading = false;

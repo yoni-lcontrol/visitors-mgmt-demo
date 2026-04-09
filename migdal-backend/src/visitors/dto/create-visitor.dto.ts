@@ -3,6 +3,7 @@ import {
     IsString,
     IsOptional,
     IsEmail,
+    Matches,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -11,6 +12,7 @@ export class CreateVisitorDto {
     @ApiProperty({ example: '12345678' })
     @IsString()
     @IsNotEmpty()
+    @Matches(/^\d+$/, { message: 'personId must contain only digits' })
     personId!: string;
 
     @ApiProperty({ example: 'Jane' })

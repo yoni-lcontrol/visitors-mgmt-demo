@@ -234,9 +234,12 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
 
         <div class="form-row">
           <div class="field"><label>{{ 'BLACKLIST.ID_NUMBER' | translate }} <span class="required">*</span></label>
-            <input type="text" [(ngModel)]="form.idNumber" required #idNumberField="ngModel" [placeholder]="'PLACEHOLDER.ENTER_ID_NUMBER' | translate" />
-            @if (idNumberField.invalid && idNumberField.touched) {
+            <input type="text" [(ngModel)]="form.idNumber" required pattern="[0-9]*" #idNumberField="ngModel" [placeholder]="'PLACEHOLDER.ENTER_ID_NUMBER' | translate" />
+            @if (idNumberField.errors?.['required'] && idNumberField.touched) {
               <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+            }
+            @if (idNumberField.errors?.['pattern'] && idNumberField.touched) {
+              <small class="field-error">{{ 'VALIDATION.DIGITS_ONLY' | translate }}</small>
             }
           </div>
           <div class="field"><label>{{ 'BLACKLIST.PHONE_NUMBER' | translate }}</label>

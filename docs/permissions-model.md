@@ -36,9 +36,8 @@ User
 | `buildings` | create, read, update | `buildings.create`, `buildings.read`, `buildings.update` |
 | `blacklist` | create, read, update, delete, check | `blacklist.create`, `blacklist.read`, `blacklist.update`, `blacklist.delete`, `blacklist.check` |
 | `parking` | request, auto-approve, approve | `parking.request`, `parking.auto-approve`, `parking.approve` |
-| `sites` | create, read, update, delete, assign-users | `sites.create`, `sites.read`, `sites.update`, `sites.delete`, `sites.assign-users` |
 
-**Total: 52 permissions**
+**Total: 47 permissions**
 
 ## Default Roles
 

@@ -7,7 +7,7 @@ export class CreateSettingDto {
     @IsNotEmpty()
     key!: string;
 
-    @ApiProperty({ example: 'Migdal Platform' })
+    @ApiProperty({ example: 'Migdal Visitors' })
     @IsString()
     @IsNotEmpty()
     value!: string;

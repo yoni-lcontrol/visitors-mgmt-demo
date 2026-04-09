@@ -56,6 +56,7 @@ export class AgentRegistryService {
         deviceAgent.version = payload.version;
         deviceAgent.socketId = socketId;
         deviceAgent.isConnected = true;
+        deviceAgent.deviceConnected = payload.deviceConnected ?? null;
         deviceAgent.connectedAt = now;
         deviceAgent.lastSeenAt = now;
         deviceAgent.disconnectedAt = null;
@@ -108,11 +109,31 @@ export class AgentRegistryService {
         if (!agent) return null;
 
         agent.isConnected = false;
+        agent.deviceConnected = null;
         agent.socketId = null;
         agent.disconnectedAt = new Date();
         await this.deviceAgentRepo.save(agent);
 
         this.logger.log(`Agent disconnected: socket=${socketId}, workstation=${agent.workstationId}`);
+        return agent;
+    }
+
+    async updateDeviceConnected(
+        socketId: string,
+        deviceConnected: boolean,
+    ): Promise<DeviceAgent | null> {
+        const agent = await this.deviceAgentRepo.findOne({
+            where: { socketId, isConnected: true },
+        });
+        if (!agent) return null;
+
+        agent.deviceConnected = deviceConnected;
+        agent.lastSeenAt = new Date();
+        await this.deviceAgentRepo.save(agent);
+
+        this.logger.log(
+            `Agent device status updated: socket=${socketId}, workstation=${agent.workstationId}, deviceConnected=${deviceConnected}`,
+        );
         return agent;
     }
 

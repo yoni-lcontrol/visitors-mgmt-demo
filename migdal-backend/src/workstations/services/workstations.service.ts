@@ -56,7 +56,7 @@ export class WorkstationsService {
             machineId: string | null;
             hostname: string | null;
             isActive: boolean;
-            devices: Array<{ providerType: string; isConnected: boolean; agentVersion: string | null }>;
+            devices: Array<{ providerType: string; isConnected: boolean; deviceConnected: boolean | null; agentVersion: string | null }>;
             assignedUsers: number;
             assignedRoles: number;
         }>
@@ -95,6 +95,7 @@ export class WorkstationsService {
             const devices = wsAgents.map((agent) => ({
                 providerType: agent.providerType,
                 isConnected: agent.isConnected,
+                deviceConnected: agent.deviceConnected ?? null,
                 agentVersion: agent.version,
             }));
 

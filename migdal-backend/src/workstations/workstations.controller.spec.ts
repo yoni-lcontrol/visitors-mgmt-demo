@@ -230,7 +230,7 @@ describe('WorkstationsController', () => {
         it('should return active session with device status', async () => {
             const result = await controller.getCurrentSession(mockUser as any);
 
-            expect(sessionService.getActiveSessionWithDeviceStatus).toHaveBeenCalledWith('user-1');
+            expect(sessionService.getActiveSessionWithDeviceStatus).toHaveBeenCalledWith('user-1', ['role-1']);
             expect(result?.workstationId).toBe('ws-1');
             expect(result?.devices).toHaveLength(2);
         });

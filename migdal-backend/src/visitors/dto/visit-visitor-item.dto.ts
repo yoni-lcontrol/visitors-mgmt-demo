@@ -38,6 +38,7 @@ export class VisitVisitorItemDto {
     @ApiProperty({ example: '123456789' })
     @IsString()
     @IsNotEmpty()
+    @Matches(/^\d+$/, { message: 'personId must contain only digits' })
     personId!: string;
 
     @ApiPropertyOptional({ example: false, description: 'Whether the visitor is coming with a vehicle' })

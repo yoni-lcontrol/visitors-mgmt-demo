@@ -135,7 +135,7 @@ GO
 -- =============================================
 INSERT INTO [Settings] ([id], [key], [value], [type], [group], [label], [description], [isPublic], [createdAt], [updatedAt])
 VALUES
-  (NEWID(), 'app.name',               'Migdal Platform',       'string',  'general',  'Application Name',              'Display name of the platform',  1, GETUTCDATE(), GETUTCDATE()),
+  (NEWID(), 'app.name',               'Migdal Visitors',       'string',  'general',  'Application Name',              'Display name of the platform',  1, GETUTCDATE(), GETUTCDATE()),
   (NEWID(), 'app.timezone',           'Asia/Jerusalem',        'string',  'general',  'Default Timezone',              'System default timezone',       1, GETUTCDATE(), GETUTCDATE()),
   (NEWID(), 'auth.sessionTimeout',    '900',                   'number',  'auth',     'Session Timeout (seconds)',     'JWT access token lifetime',     0, GETUTCDATE(), GETUTCDATE()),
   (NEWID(), 'auth.maxRefreshDays',    '7',                     'number',  'auth',     'Refresh Token Lifetime (days)', 'Refresh token validity',        0, GETUTCDATE(), GETUTCDATE()),

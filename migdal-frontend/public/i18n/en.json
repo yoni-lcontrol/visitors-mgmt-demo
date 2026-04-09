@@ -1,6 +1,6 @@
 {
     "APP": {
-        "NAME": "Migdal Platform",
+        "NAME": "Migdal Visitors",
         "LOADING": "Loading..."
     },
     "DASHBOARD": {
@@ -42,7 +42,8 @@
         "PRINTER": "Printer",
         "SCANNER": "Scanner",
         "CONNECTED": "Connected",
-        "DISCONNECTED": "Disconnected",
+        "DISCONNECTED": "Service disconnected",
+        "DEVICE_DISCONNECTED": "Device not detected",
         "NO_WORKSTATIONS": "No workstations available"
     },
     "WORKSTATIONS": {
@@ -937,7 +938,8 @@
             "access-control": "Access Control",
             "workstations": "Workstations",
             "visits": "Visits",
-            "notifications": "Notifications"
+            "notifications": "Notifications",
+            "buildings": "Buildings"
         },
         "ACTIONS": {
             "CREATE": "Create",

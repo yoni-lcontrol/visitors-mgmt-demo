@@ -27,7 +27,10 @@ import { BuildingsApiService, Building } from '../../services/buildings-api.serv
         <div class="card table-card">
             <p-table [value]="buildings" [loading]="loading" [paginator]="true" [rows]="20"
                 [showCurrentPageReport]="true" [rowsPerPageOptions]="[10, 20, 50]"
-                currentPageReportTemplate="{{ 'COMMON.SHOWING' | translate }} {first} - {last} {{ 'COMMON.OF' | translate }} {totalRecords}">
+                dataKey="id"
+                styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines"
+                currentPageReportTemplate="{first}-{last} / {totalRecords}"
+                paginatorDropdownAppendTo="body">
                 <ng-template pTemplate="header">
                     <tr>
                         <th>{{ 'BUILDINGS.NAME' | translate }}</th>
@@ -45,18 +48,16 @@ import { BuildingsApiService, Building } from '../../services/buildings-api.serv
                                 {{ (b.active ? 'COMMON.ACTIVE' : 'COMMON.INACTIVE') | translate }}
                             </span>
                         </td>
-                        <td>
-                            <div class="action-buttons">
-                                <button class="btn-icon" *hasPermission="'buildings.update'" (click)="openDialog(b)" title="{{ 'COMMON.EDIT' | translate }}">
+                        <td class="actions">
+                                <button class="btn-icon" *hasPermission="'buildings.update'" (click)="openDialog(b)" [title]="'COMMON.EDIT' | translate">
                                     <i class="pi pi-pencil"></i>
                                 </button>
-                            </div>
                         </td>
                     </tr>
                 </ng-template>
                 <ng-template pTemplate="emptymessage">
                     <tr>
-                        <td colspan="4" class="text-center">{{ 'COMMON.NO_DATA' | translate }}</td>
+                        <td colspan="4" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td>
                     </tr>
                 </ng-template>
             </p-table>
@@ -85,31 +86,33 @@ import { BuildingsApiService, Building } from '../../services/buildings-api.serv
                         </select>
                     </div>
                 </div>
-                <div class="dialog-footer">
-                    <button class="btn btn-secondary" (click)="showDialog = false">{{ 'COMMON.CANCEL' | translate }}</button>
-                    <button class="btn btn-primary" [disabled]="!form.name.trim() || saving" (click)="save()">
-                        @if (saving) { <i class="pi pi-spin pi-spinner"></i> }
-                        {{ 'COMMON.SAVE' | translate }}
-                    </button>
-                </div>
             }
+            <ng-template pTemplate="footer">
+                <button class="btn btn-secondary" (click)="showDialog = false">{{ 'COMMON.CANCEL' | translate }}</button>
+                <button class="btn btn-primary" [disabled]="!form.name.trim() || saving" (click)="save()">
+                    @if (saving) { <i class="pi pi-spin pi-spinner"></i> }
+                    {{ 'COMMON.SAVE' | translate }}
+                </button>
+            </ng-template>
         </p-dialog>
     `,
     styles: [`
+        :host { display: block; }
+        .table-card { padding: 0; overflow: hidden; }
+        :host ::ng-deep .table-card .p-datatable-wrapper { padding-top: 0.85rem; }
         .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem; }
         .header-info h1 { margin: 0; font-size: 1.5rem; }
         .header-description { color: var(--color-text-secondary, #5c5a78); margin: 0.25rem 0 0; font-size: 0.9rem; }
         .status-badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-weight: 500; }
         .status-badge.active { background: #e8f5e9; color: #2e7d32; }
         .status-badge.inactive { background: #fce4ec; color: #c62828; }
-        .action-buttons { display: flex; gap: 0.5rem; }
+        .actions { display: flex; gap: 0.3rem; align-items: center; }
         .dialog-form { display: flex; flex-direction: column; gap: 1rem; }
         .dialog-form .field label { display: block; margin-bottom: 0.35rem; font-weight: 500; font-size: 0.9rem; }
         .dialog-form .field input, .dialog-form .field select { width: 100%; padding: 0.5rem 0.75rem; border: 1.5px solid var(--color-border, #e4e2f0); border-radius: var(--radius-sm, 6px); font-size: 0.9rem; font-family: inherit; }
         .dialog-form .field input:focus, .dialog-form .field select:focus { outline: none; border-color: var(--color-accent, #6c63ff); box-shadow: 0 0 0 3px rgba(108,99,255,0.12); }
         .dialog-form .field input.ng-invalid.ng-touched, .dialog-form .field select.ng-invalid.ng-touched { border-color: var(--color-danger, #e53935); background: rgba(229, 57, 53, 0.02); }
         .dialog-form .field input.ng-invalid.ng-touched:focus, .dialog-form .field select.ng-invalid.ng-touched:focus { border-color: var(--color-danger, #e53935); box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.10); }
-        .dialog-footer { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--color-border-light, #eeedfa); }
         .required { color: var(--color-danger, #e74c3c); }
     `],
 })

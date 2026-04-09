@@ -339,6 +339,7 @@ export interface AuditLog {
 export interface WorkstationDevice {
     providerType: string;
     isConnected: boolean;
+    deviceConnected: boolean | null;
     agentVersion: string | null;
 }
 

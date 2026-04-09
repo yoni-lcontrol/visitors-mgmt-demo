@@ -259,7 +259,7 @@ import { PermissionService } from '@core/permissions/permission.service';
                   <div class="field">
                     <label><i class="pi pi-id-card"></i> {{ 'VISITORS.PERSON_ID' | translate }} <span class="required">*</span></label>
                     <div class="input-wrapper">
-                      <input type="text" [(ngModel)]="v.personId" required #vPersonId="ngModel"
+                      <input type="text" [(ngModel)]="v.personId" required pattern="[0-9]*" #vPersonId="ngModel"
                         (ngModelChange)="onPersonIdChange($index, $event)"
                         (focus)="onPersonIdFocus($index)"
                         (blur)="onPersonIdBlur($index)"
@@ -291,7 +291,10 @@ import { PermissionService } from '@core/permissions/permission.service';
                       </div>
                     }
                     @if (vPersonId.invalid && vPersonId.touched) {
-                      <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+                      <small class="field-error">
+                        @if (vPersonId.errors?.['required']) { {{ 'VALIDATION.REQUIRED' | translate }} }
+                        @else if (vPersonId.errors?.['pattern']) { {{ 'VALIDATION.DIGITS_ONLY' | translate }} }
+                      </small>
                     }
                     @if (blacklistMap.get($index)?.blacklisted) {
                       <small class="field-error">{{ 'VALIDATION.BLACKLISTED' | translate }}</small>
@@ -1335,6 +1338,13 @@ export class VisitDialogComponent implements OnDestroy {
   onPersonIdChange(index: number, value: string): void {
     if (!value || !value.trim()) {
       this.blacklistMap.delete(index);
+      this.visitorSuggestions.delete(index);
+      this.showNoResults.delete(index);
+      this.searchLoading.delete(index);
+      return;
+    }
+    // Skip search/blacklist if input contains non-digit characters
+    if (!/^\d+$/.test(value.trim())) {
       this.visitorSuggestions.delete(index);
       this.showNoResults.delete(index);
       this.searchLoading.delete(index);

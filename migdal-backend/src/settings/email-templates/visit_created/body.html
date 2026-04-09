@@ -1,0 +1,42 @@
+<h2 style="margin:0 0 16px 0;font-size:20px;color:#020140;font-weight:700;">ביקור חדש נוצר</h2>
+<p style="margin:0 0 20px 0;font-size:15px;color:#555;line-height:1.5;">
+    ביקור חדש נוצר במערכת. להלן פרטי הביקור:
+</p>
+<table role="presentation"
+       width="100%"
+       cellpadding="0"
+       cellspacing="0"
+       border="0"
+       style="background-color:#f8f9fa;border-radius:8px;overflow:hidden;">
+    <tr>
+        <td
+            style="padding:14px 18px;border-bottom:1px solid #e9ecef;font-weight:600;color:#020140;width:120px;font-size:14px;">
+            כותרת</td>
+        <td style="padding:14px 18px;border-bottom:1px solid #e9ecef;color:#333;font-size:14px;">{{visit.title}}</td>
+    </tr>
+    <tr>
+        <td style="padding:14px 18px;border-bottom:1px solid #e9ecef;font-weight:600;color:#020140;font-size:14px;">
+            תאריך התחלה</td>
+        <td style="padding:14px 18px;border-bottom:1px solid #e9ecef;color:#333;font-size:14px;">{{visit.startTime}}
+        </td>
+    </tr>
+    <tr>
+        <td style="padding:14px 18px;border-bottom:1px solid #e9ecef;font-weight:600;color:#020140;font-size:14px;">
+            תאריך סיום</td>
+        <td style="padding:14px 18px;border-bottom:1px solid #e9ecef;color:#333;font-size:14px;">{{visit.endTime}}</td>
+    </tr>
+    <tr>
+        <td style="padding:14px 18px;border-bottom:1px solid #e9ecef;font-weight:600;color:#020140;font-size:14px;">מארח
+        </td>
+        <td style="padding:14px 18px;border-bottom:1px solid #e9ecef;color:#333;font-size:14px;">{{visit.hostName}}</td>
+    </tr>
+    <tr>
+        <td style="padding:14px 18px;border-bottom:1px solid #e9ecef;font-weight:600;color:#020140;font-size:14px;">אתר
+        </td>
+        <td style="padding:14px 18px;border-bottom:1px solid #e9ecef;color:#333;font-size:14px;">{{visit.siteName}}</td>
+    </tr>
+    <tr>
+        <td style="padding:14px 18px;font-weight:600;color:#020140;font-size:14px;">מבקר</td>
+        <td style="padding:14px 18px;color:#333;font-size:14px;">{{visitor.firstName}} {{visitor.lastName}}</td>
+    </tr>
+</table>

@@ -1,0 +1,65 @@
+import { Routes } from '@angular/router';
+import { permissionGuard } from '../../core/permissions/permission.guard';
+import { unsavedChangesGuard } from '../../core/guards/unsaved-changes.guard';
+
+export const SETTINGS_ROUTES: Routes = [
+    {
+        path: '',
+        loadComponent: () =>
+            import('./settings-list/settings-list.component').then(
+                (m) => m.SettingsListComponent,
+            ),
+        canDeactivate: [unsavedChangesGuard],
+    },
+    {
+        path: 'notifications',
+        loadComponent: () =>
+            import('./notification-settings/notification-settings.component').then(
+                (m) => m.NotificationSettingsComponent,
+            ),
+        canDeactivate: [unsavedChangesGuard],
+    },
+    {
+        path: 'active-directory',
+        loadComponent: () =>
+            import('./ad-settings/ad-settings.component').then(
+                (m) => m.AdSettingsComponent,
+            ),
+    },
+    {
+        path: 'card-templates',
+        canActivate: [permissionGuard],
+        data: { permission: 'settings.card-templates.read' },
+        loadComponent: () =>
+            import('./card-templates/card-template-list/card-template-list.component').then(
+                (m) => m.CardTemplateListComponent,
+            ),
+    },
+    {
+        path: 'card-templates/new',
+        canActivate: [permissionGuard],
+        data: { permission: 'settings.card-templates.create' },
+        loadComponent: () =>
+            import('./card-templates/card-designer/card-designer.component').then(
+                (m) => m.CardDesignerComponent,
+            ),
+    },
+    {
+        path: 'card-templates/:id/edit',
+        canActivate: [permissionGuard],
+        data: { permission: 'settings.card-templates.update' },
+        loadComponent: () =>
+            import('./card-templates/card-designer/card-designer.component').then(
+                (m) => m.CardDesignerComponent,
+            ),
+    },
+    {
+        path: 'buildings',
+        canActivate: [permissionGuard],
+        data: { permission: 'buildings.read' },
+        loadComponent: () =>
+            import('./buildings/building-list/building-list.component').then(
+                (m) => m.BuildingListComponent,
+            ),
+    },
+];

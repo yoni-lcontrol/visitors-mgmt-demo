@@ -1,0 +1,1 @@
+מבקר הגיע: {{visitor.firstName}} {{visitor.lastName}}

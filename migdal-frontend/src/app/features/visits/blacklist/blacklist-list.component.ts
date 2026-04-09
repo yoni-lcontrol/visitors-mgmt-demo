@@ -1,0 +1,716 @@
+import { Component, OnInit, inject, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NgClass } from '@angular/common';
+import { DateFormatPipe } from '@shared/pipes/date-format.pipe';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { FormsModule } from '@angular/forms';
+import { TableModule } from 'primeng/table';
+import { InputTextModule } from 'primeng/inputtext';
+import { DialogModule } from 'primeng/dialog';
+import { MultiSelectModule } from 'primeng/multiselect';
+import { CalendarModule } from 'primeng/calendar';
+import { TooltipModule } from 'primeng/tooltip';
+import { DropdownModule } from 'primeng/dropdown';
+import { ApiService } from '@core/api/api.service';
+import { HasPermissionDirective } from '@core/permissions/has-permission.directive';
+import { NotificationService } from '@core/notifications/notification.service';
+import { ConfirmService } from '@core/services/confirm.service';
+import { downloadBlob } from '@core/utils/download.util';
+import { buildVehicleTypeOptions, getVehicleTypeLabel } from '@core/utils/vehicle-type.util';
+import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.model';
+
+@Component({
+  selector: 'app-blacklist-list',
+  standalone: true,
+  imports: [NgClass, DateFormatPipe, TranslateModule, FormsModule, HasPermissionDirective, TableModule, InputTextModule, DialogModule, MultiSelectModule, CalendarModule, TooltipModule, DropdownModule],
+  template: `
+    <div class="page-header">
+      <h1>{{ 'BLACKLIST.TITLE' | translate }}</h1>
+      <div class="header-actions">
+        <div class="type-toggle">
+          <button class="toggle-btn" [class.active]="activeType === 'person'" (click)="switchType('person')">
+            <i class="pi pi-user"></i> {{ 'BLACKLIST.PERSON_TAB' | translate }}
+          </button>
+          <button class="toggle-btn" [class.active]="activeType === 'vehicle'" (click)="switchType('vehicle')">
+            <i class="pi pi-car"></i> {{ 'BLACKLIST.VEHICLE_TAB' | translate }}
+          </button>
+        </div>
+        <button class="btn btn-outline" *hasPermission="'blacklist.read'" (click)="exportData()" [disabled]="exporting">
+          <i class="pi" [ngClass]="exporting ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i> {{ 'COMMON.EXPORT' | translate }}
+        </button>
+        <button class="btn btn-primary" *hasPermission="'blacklist.create'" (click)="openDialog()">
+          <i class="pi pi-plus"></i> {{ (activeType === 'person' ? 'BLACKLIST.ADD_PERSON' : 'BLACKLIST.ADD_VEHICLE') | translate }}
+        </button>
+      </div>
+    </div>
+    <div class="card table-card">
+      @if (activeType === 'person') {
+      <p-table
+        #dt
+        [value]="items"
+        [lazy]="true"
+        (onLazyLoad)="onLazyLoad($event)"
+        [loading]="loading"
+        [totalRecords]="totalRecords"
+        [paginator]="true"
+        [rows]="rows"
+        [first]="first"
+        [showCurrentPageReport]="true"
+        [rowsPerPageOptions]="[10, 20, 50]"
+        [globalFilterFields]="['firstName', 'lastName', 'idNumber', 'phoneNumber', 'reason']"
+        dataKey="id"
+        styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines"
+        currentPageReportTemplate="{first}-{last} / {totalRecords}"
+        paginatorDropdownAppendTo="body"
+      >
+        <ng-template pTemplate="caption">
+          <div class="table-header">
+            <span class="p-input-icon-left">
+              <i class="pi pi-search"></i>
+              <input pInputText type="text" (input)="dt.filterGlobal($any($event.target).value, 'contains')" [placeholder]="'COMMON.SEARCH' | translate" />
+            </span>
+          </div>
+        </ng-template>
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="firstName">{{ 'COMMON.NAME' | translate }} <p-sortIcon field="firstName" /> <p-columnFilter field="firstName" type="text" display="menu"></p-columnFilter></th>
+            <th pSortableColumn="idNumber">{{ 'BLACKLIST.ID_NUMBER' | translate }} <p-sortIcon field="idNumber" /> <p-columnFilter field="idNumber" type="text" display="menu"></p-columnFilter></th>
+            <th pSortableColumn="phoneNumber">{{ 'BLACKLIST.PHONE_NUMBER' | translate }} <p-sortIcon field="phoneNumber" /> <p-columnFilter field="phoneNumber" type="text" display="menu"></p-columnFilter></th>
+            <th pSortableColumn="reason">{{ 'BLACKLIST.REASON' | translate }} <p-sortIcon field="reason" /> <p-columnFilter field="reason" type="text" display="menu"></p-columnFilter></th>
+            <th>{{ 'BLACKLIST.DURATION' | translate }}</th>
+            <th pSortableColumn="blockedAt">{{ 'BLACKLIST.BLOCKED_AT' | translate }} <p-sortIcon field="blockedAt" /> <p-columnFilter field="blockedAt" type="date" display="menu"></p-columnFilter></th>
+            <th pSortableColumn="createdByUser.firstName">{{ 'BLACKLIST.CREATED_BY' | translate }} <p-sortIcon field="createdByUser.firstName" /> <p-columnFilter field="createdByUser.firstName" type="text" display="menu"></p-columnFilter></th>
+            <th>{{ 'BLACKLIST.NOTIFY_USERS' | translate }}</th>
+            <th>{{ 'COMMON.ACTIONS' | translate }}</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-entry>
+          <tr>
+            <td class="name-cell">{{ entry.firstName }} {{ entry.lastName }}</td>
+            <td>{{ entry.idNumber }}</td>
+            <td>{{ entry.phoneNumber }}</td>
+            <td>{{ entry.reason }}</td>
+            <td>
+              @if (entry.isPermanent) {
+                <span class="duration-badge permanent"><i class="pi pi-ban"></i> {{ 'BLACKLIST.PERMANENT' | translate }}</span>
+              } @else {
+                <span class="duration-badge limited"><i class="pi pi-calendar"></i> <span dir="ltr">{{ entry.startDate | dateFormat:'date' }}</span> – <span dir="ltr">{{ entry.endDate | dateFormat:'date' }}</span></span>
+              }
+            </td>
+            <td dir="ltr">{{ entry.blockedAt | dateFormat }}</td>
+            <td>{{ getCreatedByName(entry) }}</td>
+            <td>
+              @if (entry.notifyUsers?.length) {
+                <span class="notify-badge active" [pTooltip]="getNotifyTooltip(entry)" tooltipPosition="top">
+                  <i class="pi pi-bell"></i>
+                  <span class="notify-badge-count">{{ entry.notifyUsers.length }}</span>
+                  <span class="notify-badge-label">{{ 'BLACKLIST.NOTIFY_ACTIVE' | translate }}</span>
+                </span>
+              } @else {
+                <span class="notify-badge inactive" [pTooltip]="('BLACKLIST.NOTIFY_NONE' | translate)" tooltipPosition="top">
+                  <i class="pi pi-bell-slash"></i>
+                  <span class="notify-badge-label">{{ 'BLACKLIST.NOTIFY_OFF' | translate }}</span>
+                </span>
+              }
+            </td>
+            <td class="actions">
+              <button class="btn-icon" *hasPermission="'blacklist.update'" (click)="openDialog(entry)" [title]="'COMMON.EDIT' | translate">
+                <i class="pi pi-pencil"></i>
+              </button>
+              <button class="btn-icon danger" *hasPermission="'blacklist.delete'" (click)="onDelete(entry)" [title]="'COMMON.DELETE' | translate">
+                <i class="pi pi-trash"></i>
+              </button>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="9" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
+        </ng-template>
+      </p-table>
+      } @else {
+      <p-table
+        #dtVehicle
+        [value]="items"
+        [lazy]="true"
+        (onLazyLoad)="onLazyLoad($event)"
+        [loading]="loading"
+        [totalRecords]="totalRecords"
+        [paginator]="true"
+        [rows]="rows"
+        [first]="first"
+        [showCurrentPageReport]="true"
+        [rowsPerPageOptions]="[10, 20, 50]"
+        [globalFilterFields]="['carNumber', 'vehicleType', 'reason']"
+        dataKey="id"
+        styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines"
+        currentPageReportTemplate="{first}-{last} / {totalRecords}"
+        paginatorDropdownAppendTo="body"
+      >
+        <ng-template pTemplate="caption">
+          <div class="table-header">
+            <span class="p-input-icon-left">
+              <i class="pi pi-search"></i>
+              <input pInputText type="text" (input)="dtVehicle.filterGlobal($any($event.target).value, 'contains')" [placeholder]="'COMMON.SEARCH' | translate" />
+            </span>
+          </div>
+        </ng-template>
+        <ng-template pTemplate="header">
+          <tr>
+            <th pSortableColumn="carNumber">{{ 'BLACKLIST.CAR_NUMBER' | translate }} <p-sortIcon field="carNumber" /> <p-columnFilter field="carNumber" type="text" display="menu"></p-columnFilter></th>
+            <th pSortableColumn="vehicleType">{{ 'VISITORS.VEHICLE_TYPE' | translate }} <p-sortIcon field="vehicleType" /> <p-columnFilter field="vehicleType" type="text" display="menu"></p-columnFilter></th>
+            <th pSortableColumn="reason">{{ 'BLACKLIST.REASON' | translate }} <p-sortIcon field="reason" /> <p-columnFilter field="reason" type="text" display="menu"></p-columnFilter></th>
+            <th>{{ 'BLACKLIST.DURATION' | translate }}</th>
+            <th pSortableColumn="blockedAt">{{ 'BLACKLIST.BLOCKED_AT' | translate }} <p-sortIcon field="blockedAt" /> <p-columnFilter field="blockedAt" type="date" display="menu"></p-columnFilter></th>
+            <th pSortableColumn="createdByUser.firstName">{{ 'BLACKLIST.CREATED_BY' | translate }} <p-sortIcon field="createdByUser.firstName" /> <p-columnFilter field="createdByUser.firstName" type="text" display="menu"></p-columnFilter></th>
+            <th>{{ 'BLACKLIST.NOTIFY_USERS' | translate }}</th>
+            <th>{{ 'COMMON.ACTIONS' | translate }}</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-entry>
+          <tr>
+            <td class="name-cell">{{ entry.carNumber }}</td>
+            <td>{{ getVehicleTypeLabel(entry.vehicleType) }}</td>
+            <td>{{ entry.reason }}</td>
+            <td>
+              @if (entry.isPermanent) {
+                <span class="duration-badge permanent"><i class="pi pi-ban"></i> {{ 'BLACKLIST.PERMANENT' | translate }}</span>
+              } @else {
+                <span class="duration-badge limited"><i class="pi pi-calendar"></i> <span dir="ltr">{{ entry.startDate | dateFormat:'date' }}</span> – <span dir="ltr">{{ entry.endDate | dateFormat:'date' }}</span></span>
+              }
+            </td>
+            <td dir="ltr">{{ entry.blockedAt | dateFormat }}</td>
+            <td>{{ getCreatedByName(entry) }}</td>
+            <td>
+              @if (entry.notifyUsers?.length) {
+                <span class="notify-badge active" [pTooltip]="getNotifyTooltip(entry)" tooltipPosition="top">
+                  <i class="pi pi-bell"></i>
+                  <span class="notify-badge-count">{{ entry.notifyUsers.length }}</span>
+                  <span class="notify-badge-label">{{ 'BLACKLIST.NOTIFY_ACTIVE' | translate }}</span>
+                </span>
+              } @else {
+                <span class="notify-badge inactive" [pTooltip]="('BLACKLIST.NOTIFY_NONE' | translate)" tooltipPosition="top">
+                  <i class="pi pi-bell-slash"></i>
+                  <span class="notify-badge-label">{{ 'BLACKLIST.NOTIFY_OFF' | translate }}</span>
+                </span>
+              }
+            </td>
+            <td class="actions">
+              <button class="btn-icon" *hasPermission="'blacklist.update'" (click)="openDialog(entry)" [title]="'COMMON.EDIT' | translate">
+                <i class="pi pi-pencil"></i>
+              </button>
+              <button class="btn-icon danger" *hasPermission="'blacklist.delete'" (click)="onDelete(entry)" [title]="'COMMON.DELETE' | translate">
+                <i class="pi pi-trash"></i>
+              </button>
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr><td colspan="8" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
+        </ng-template>
+      </p-table>
+      }
+
+    <!-- Create / Edit Dialog -->
+    <p-dialog [header]="editing ? ('BLACKLIST.EDIT_ENTRY' | translate) : (activeType === 'person' ? ('BLACKLIST.ADD_PERSON' | translate) : ('BLACKLIST.ADD_VEHICLE' | translate))"
+      [(visible)]="showDialog" (onHide)="onDialogHide()" [modal]="true" [style]="{width: '600px'}" [draggable]="false">
+      @if (showDialog) {
+      <div class="dialog-form">
+        @if (activeType === 'person') {
+        <!-- Person fields -->
+        <div class="form-row">
+          <div class="field"><label>{{ 'BLACKLIST.FIRST_NAME' | translate }} <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="form.firstName" required #firstNameField="ngModel" [placeholder]="'PLACEHOLDER.ENTER_FIRST_NAME' | translate" />
+            @if (firstNameField.invalid && firstNameField.touched) {
+              <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+            }
+          </div>
+          <div class="field"><label>{{ 'BLACKLIST.LAST_NAME' | translate }} <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="form.lastName" required #lastNameField="ngModel" [placeholder]="'PLACEHOLDER.ENTER_LAST_NAME' | translate" />
+            @if (lastNameField.invalid && lastNameField.touched) {
+              <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+            }
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="field"><label>{{ 'BLACKLIST.ID_NUMBER' | translate }} <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="form.idNumber" required #idNumberField="ngModel" [placeholder]="'PLACEHOLDER.ENTER_ID_NUMBER' | translate" />
+            @if (idNumberField.invalid && idNumberField.touched) {
+              <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+            }
+          </div>
+          <div class="field"><label>{{ 'BLACKLIST.PHONE_NUMBER' | translate }}</label>
+            <input type="text" [(ngModel)]="form.phoneNumber" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" />
+          </div>
+        </div>
+        } @else {
+        <!-- Vehicle fields -->
+        <div class="form-row">
+          <div class="field"><label>{{ 'BLACKLIST.CAR_NUMBER' | translate }} <span class="required">*</span></label>
+            <input type="text" [(ngModel)]="form.carNumber" required #carNumberField="ngModel" [placeholder]="'PLACEHOLDER.ENTER_CAR_NUMBER' | translate" />
+            @if (carNumberField.invalid && carNumberField.touched) {
+              <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+            }
+          </div>
+          <div class="field"><label>{{ 'VISITORS.VEHICLE_TYPE' | translate }} <span class="required">*</span></label>
+            <p-dropdown
+              [(ngModel)]="form.vehicleType"
+              [options]="vehicleTypeOptions"
+              [placeholder]="'VISITORS.SELECT_VEHICLE_TYPE' | translate"
+              required
+              #vehicleTypeField="ngModel"
+              appendTo="body"
+              [style]="{'width':'100%'}"
+            ></p-dropdown>
+            @if (vehicleTypeField.invalid && vehicleTypeField.touched) {
+              <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+            }
+          </div>
+        </div>
+        }
+
+        <div class="field"><label>{{ 'BLACKLIST.REASON' | translate }} <span class="required">*</span></label>
+          <input type="text" [(ngModel)]="form.reason" required #reasonField="ngModel" [placeholder]="'PLACEHOLDER.ENTER_REASON' | translate" />
+          @if (reasonField.invalid && reasonField.touched) {
+            <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+          }
+        </div>
+
+        <!-- Duration Section -->
+        <div class="section-divider">
+          <span class="section-label"><i class="pi pi-clock"></i> {{ 'BLACKLIST.DURATION' | translate }}</span>
+        </div>
+
+        <div class="duration-toggle">
+          <button type="button" class="toggle-btn" [class.active]="form.isPermanent" (click)="form.isPermanent = true">
+            <i class="pi pi-ban"></i> {{ 'BLACKLIST.PERMANENT' | translate }}
+          </button>
+          <button type="button" class="toggle-btn" [class.active]="!form.isPermanent" (click)="form.isPermanent = false">
+            <i class="pi pi-calendar"></i> {{ 'BLACKLIST.LIMITED_RANGE' | translate }}
+          </button>
+        </div>
+
+        @if (!form.isPermanent) {
+          <div class="form-row">
+            <div class="field"><label>{{ 'BLACKLIST.START_DATE' | translate }} <span class="required">*</span></label>
+              <p-calendar
+                [(ngModel)]="form.startDate"
+                [dateFormat]="'dd/mm/yy'"
+                [showIcon]="true"
+                [placeholder]="'BLACKLIST.START_DATE' | translate"
+                required
+                #startDateField="ngModel"
+                appendTo="body"
+                [style]="{'width':'100%'}"
+                [inputStyle]="{'width':'100%'}"
+              ></p-calendar>
+              @if (startDateField.invalid && startDateField.touched) {
+                <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+              }
+            </div>
+            <div class="field"><label>{{ 'BLACKLIST.END_DATE' | translate }} <span class="required">*</span></label>
+              <p-calendar
+                [(ngModel)]="form.endDate"
+                [dateFormat]="'dd/mm/yy'"
+                [showIcon]="true"
+                [placeholder]="'BLACKLIST.END_DATE' | translate"
+                [minDate]="form.startDate"
+                required
+                #endDateField="ngModel"
+                appendTo="body"
+                [style]="{'width':'100%'}"
+                [inputStyle]="{'width':'100%'}"
+              ></p-calendar>
+              @if (endDateField.invalid && endDateField.touched) {
+                <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+              }
+              @if (form.startDate && form.endDate && form.endDate < form.startDate) {
+                <small class="field-error">{{ 'VALIDATION.END_BEFORE_START' | translate }}</small>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Notification Section -->
+        <div class="section-divider">
+          <span class="section-label"><i class="pi pi-bell"></i> {{ 'BLACKLIST.NOTIFICATIONS' | translate }}</span>
+        </div>
+
+        <div class="field">
+          <label>{{ 'BLACKLIST.NOTIFY_USERS' | translate }}</label>
+          <p-multiSelect
+            [(ngModel)]="selectedNotifyUserIds"
+            [options]="allUsers"
+            optionLabel="firstName"
+            optionValue="id"
+            [optionDisabled]="'_disabled'"
+            [filter]="true"
+            [filterBy]="'firstName,lastName,email,phone'"
+            [placeholder]="'PLACEHOLDER.SEARCH_USERS' | translate"
+            [emptyFilterMessage]="'COMMON.NO_DATA' | translate"
+            [showToggleAll]="false"
+            appendTo="body"
+            display="chip"
+            [style]="{'width':'100%'}"
+            [panelStyle]="{'max-width':'560px'}"
+            styleClass="notify-users-multiselect"
+          >
+            <ng-template let-user pTemplate="item">
+              <div class="user-option" [class.user-disabled]="user._disabled">
+                <div class="user-option-main">
+                  <span class="user-option-name">{{ user.firstName }} {{ user.lastName }}</span>
+                </div>
+                <div class="user-option-details">
+                  @if (user.email) {
+                    <span class="user-detail"><i class="pi pi-envelope"></i> {{ user.email }}</span>
+                  }
+                  @if (user.phone) {
+                    <span class="user-detail"><i class="pi pi-phone"></i> {{ user.phone }}</span>
+                  }
+                  @if (!user.email && !user.phone) {
+                    <span class="user-detail user-detail-warn"><i class="pi pi-exclamation-circle"></i> {{ 'BLACKLIST.USER_NO_CONTACT' | translate }}</span>
+                  }
+                </div>
+              </div>
+            </ng-template>
+            <ng-template let-user pTemplate="selectedItems">
+              @if (selectedNotifyUserIds.length) {
+                @for (uid of selectedNotifyUserIds; track uid) {
+                  <div class="user-chip">
+                    <span class="user-chip-name">{{ getUserName(uid) }}</span>
+                  </div>
+                }
+              } @else {
+                <span class="multiselect-placeholder">{{ 'PLACEHOLDER.SEARCH_USERS' | translate }}</span>
+              }
+            </ng-template>
+          </p-multiSelect>
+        </div>
+
+        <div class="field"><label>{{ 'BLACKLIST.NOTES' | translate }}</label>
+          <textarea [(ngModel)]="form.notes" rows="3" [placeholder]="'PLACEHOLDER.ENTER_NOTES' | translate"></textarea></div>
+      </div>
+      }
+      <ng-template pTemplate="footer">
+        <button class="btn btn-secondary" (click)="showDialog = false">{{ 'COMMON.CANCEL' | translate }}</button>
+        <button class="btn btn-primary" (click)="save()" [disabled]="!isFormValid() || saving">{{ 'COMMON.SAVE' | translate }}</button>
+      </ng-template>
+    </p-dialog>
+  `,
+  styles: [`
+    :host { display: block; }
+    .table-card { padding: 0; overflow: hidden; }
+    .table-header { display: flex; align-items: center; gap: 0.5rem; }
+    .p-input-icon-left { position: relative; }
+    .p-input-icon-left i { position: absolute; top: 50%; transform: translateY(-50%); inset-inline-start: 0.75rem; color: var(--color-text-muted, #9896ad); }
+    .p-input-icon-left input { padding-inline-start: 2.25rem; }
+    .name-cell { font-weight: 500; }
+    .header-actions { display: flex; gap: 0.75rem; align-items: center; }
+    .type-toggle { display: flex; gap: 0; border: 1.5px solid var(--color-border, #e0dfe6); border-radius: 999px; overflow: hidden; }
+    .type-toggle .toggle-btn { border: none; border-radius: 0; padding: 0.45rem 1rem; font-size: 0.85rem; }
+    .type-toggle .toggle-btn:first-child { border-radius: 999px 0 0 999px; }
+    .type-toggle .toggle-btn:last-child { border-radius: 0 999px 999px 0; }
+    .actions { display: flex; gap: 0.3rem; align-items: center; }
+    .empty { text-align: center; color: var(--color-text-muted); padding: 2rem !important; font-size: 0.88rem; }
+    .text-muted { color: var(--color-text-muted); }
+    .dialog-form { display: flex; flex-direction: column; gap: 1rem; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .dialog-form .field { display: flex; flex-direction: column; gap: 0.3rem; }
+    .dialog-form .field label { font-weight: 500; font-size: 0.85rem; color: var(--color-text-secondary); }
+    .duration-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.78rem; font-weight: 500; }
+    .duration-badge.permanent { background: rgba(239,68,68,0.10); color: #dc2626; }
+    .duration-badge.limited { background: rgba(59,130,246,0.10); color: #2563eb; }
+    .duration-badge i { font-size: 0.75rem; }
+    .notify-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.7rem; border-radius: 999px; font-size: 0.78rem; font-weight: 500; cursor: default; transition: all 0.2s ease; }
+    .notify-badge i { font-size: 0.8rem; }
+    .notify-badge.active { background: rgba(34,197,94,0.10); color: #16a34a; }
+    .notify-badge.active:hover { background: rgba(34,197,94,0.18); }
+    .notify-badge.active .notify-badge-count { display: inline-flex; align-items: center; justify-content: center; min-width: 1.15rem; height: 1.15rem; border-radius: 50%; background: #16a34a; color: #fff; font-size: 0.7rem; font-weight: 700; }
+    .notify-badge.inactive { background: rgba(156,163,175,0.10); color: #9ca3af; }
+    .notify-badge.inactive:hover { background: rgba(156,163,175,0.18); }
+    .notify-badge-label { font-size: 0.76rem; }
+    .section-divider { border-top: 1.5px solid var(--color-border, #e4e2f0); padding-top: 0.75rem; margin-top: 0.25rem; }
+    .section-label { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--color-primary, #020140); }
+    .section-label i { color: var(--color-accent, #6c63ff); font-size: 0.9rem; }
+    .duration-toggle { display: flex; gap: 0.5rem; }
+    .toggle-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1.1rem; border-radius: 999px; font-size: 0.85rem; font-weight: 500; border: 1.5px solid var(--color-border, #e0dfe6); background: var(--color-surface, #fff); color: var(--color-text-muted, #9896ad); cursor: pointer; transition: all 0.2s ease; font-family: inherit; }
+    .toggle-btn:hover { border-color: var(--color-text-secondary, #6b7280); }
+    .toggle-btn.active { background: var(--color-accent, #6c63ff); color: #fff; border-color: var(--color-accent, #6c63ff); }
+    .toggle-btn i { font-size: 0.85rem; }
+    .user-option { padding: 0.35rem 0; }
+    .user-option-main { display: flex; align-items: center; gap: 0.4rem; }
+    .user-option-name { font-weight: 600; font-size: 0.88rem; color: var(--color-text, #1a1a2e); }
+    .user-option-details { display: flex; gap: 0.75rem; margin-top: 0.2rem; flex-wrap: wrap; }
+    .user-disabled { opacity: 0.5; }
+    .user-disabled .user-option-name { color: var(--color-text-muted, #9896ad); }
+    .user-detail { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.78rem; color: var(--color-text-muted, #9896ad); }
+    .user-detail i { font-size: 0.72rem; }
+    .user-detail-warn { color: #d97706; font-style: italic; }
+    .user-detail-warn i { color: #d97706; }
+    .user-chip { display: inline-flex; align-items: center; gap: 0.3rem; background: var(--color-accent-subtle, #ddd9ff); color: var(--color-primary, #020140); border-radius: 999px; padding: 0.15rem 0.6rem; font-size: 0.82rem; margin: 0.1rem 0.15rem; }
+    .user-chip-name { font-weight: 500; }
+    .multiselect-placeholder { color: var(--color-text-muted, #9896ad); font-size: 0.9rem; }
+    :host ::ng-deep .notify-users-multiselect .p-multiselect { width: 100%; min-height: 38px; border: 1.5px solid var(--color-border, #e4e2f0); border-radius: var(--radius-sm, 6px); transition: border-color 0.2s, box-shadow 0.2s; }
+    :host ::ng-deep .notify-users-multiselect .p-multiselect:hover { border-color: var(--color-accent, #6c63ff); }
+    :host ::ng-deep .notify-users-multiselect .p-multiselect.p-focus { border-color: var(--color-accent, #6c63ff); box-shadow: 0 0 0 3px rgba(108,99,255,0.12); }
+    :host ::ng-deep .notify-users-multiselect .p-multiselect-label { padding: 0.35rem 0.5rem; display: flex; flex-wrap: wrap; gap: 0.2rem; align-items: center; }
+    :host ::ng-deep .p-multiselect-panel { border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    :host ::ng-deep .p-multiselect-panel .p-multiselect-item.p-disabled { opacity: 1; pointer-events: none; }
+    :host ::ng-deep .p-multiselect-panel .p-multiselect-item.p-disabled .p-checkbox { opacity: 0.35; }
+    :host ::ng-deep .p-multiselect-filter-container { padding: 0.5rem; }
+    :host ::ng-deep .p-calendar { width: 100%; }
+    :host ::ng-deep .p-calendar .p-inputtext { width: 100%; }
+    :host ::ng-deep p-dropdown.ng-invalid.ng-touched .p-dropdown,
+    :host ::ng-deep p-dropdown.ng-invalid.ng-dirty .p-dropdown { border-color: var(--color-danger, #e53935); background: rgba(229, 57, 53, 0.02); }
+    :host ::ng-deep p-dropdown.ng-invalid.ng-touched .p-dropdown.p-focus,
+    :host ::ng-deep p-dropdown.ng-invalid.ng-dirty .p-dropdown.p-focus { border-color: var(--color-danger, #e53935); box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.10); }
+    :host ::ng-deep p-dropdown.ng-valid.ng-touched .p-dropdown,
+    :host ::ng-deep p-dropdown.ng-valid.ng-dirty .p-dropdown { border-color: var(--color-success, #2e7d32); }
+    :host ::ng-deep p-dropdown.ng-valid.ng-touched .p-dropdown.p-focus,
+    :host ::ng-deep p-dropdown.ng-valid.ng-dirty .p-dropdown.p-focus { border-color: var(--color-success, #2e7d32); box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.10); }
+  `],
+})
+export class BlacklistListComponent implements OnInit {
+  private api = inject(ApiService);
+  private notify = inject(NotificationService);
+
+  activeType: 'person' | 'vehicle' = 'person';
+  items: BlacklistEntry[] = [];
+  totalRecords = 0;
+  rows = 20;
+  first = 0;
+  sortField = 'blockedAt';
+  sortOrder = -1;
+  loading = false;
+  saving = false;
+  exporting = false;
+  private lastLazyEvent: any = { first: 0, rows: 20, sortField: 'blockedAt', sortOrder: -1, filters: {} };
+
+  showDialog = false;
+  editing: BlacklistEntry | null = null;
+  form = {
+    firstName: '', lastName: '', idNumber: '', phoneNumber: '', carNumber: '', vehicleType: '' as string, reason: '',
+    isPermanent: true as boolean,
+    startDate: null as Date | null, endDate: null as Date | null,
+    notes: '',
+  };
+  selectedNotifyUserIds: string[] = [];
+  allUsers: any[] = [];
+  vehicleTypeOptions: { label: string; value: string }[] = [];
+
+  private translate = inject(TranslateService);
+  private destroyRef = inject(DestroyRef);
+  private confirmService = inject(ConfirmService);
+
+  ngOnInit(): void {
+    this.loadData();
+    this.loadAllUsers();
+    this.vehicleTypeOptions = buildVehicleTypeOptions(this.translate);
+    this.translate.onLangChange.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.vehicleTypeOptions = buildVehicleTypeOptions(this.translate));
+  }
+
+  switchType(type: 'person' | 'vehicle'): void {
+    if (this.activeType === type) return;
+    this.activeType = type;
+    this.first = 0;
+    this.lastLazyEvent = { first: 0, rows: this.rows, sortField: 'blockedAt', sortOrder: -1, filters: {} };
+    this.loadData();
+  }
+
+  loadAllUsers(): void {
+    this.api.get<PaginatedResult<User>>('/users', { limit: 100 }).subscribe((res) => {
+      const users = res.items.map(u => ({
+        ...u,
+        _label: `${u.firstName} ${u.lastName}`,
+        _disabled: !u.email && !u.phone,
+      }));
+      if (res.total > res.items.length) {
+        const pages = Math.ceil(res.total / 100);
+        for (let p = 2; p <= pages; p++) {
+          this.api.get<PaginatedResult<User>>('/users', { page: p, limit: 100 }).subscribe((r) => {
+            this.allUsers = [
+              ...this.allUsers,
+              ...r.items.map(u => ({
+                ...u,
+                _label: `${u.firstName} ${u.lastName}`,
+                _disabled: !u.email && !u.phone,
+              })),
+            ];
+          });
+        }
+      }
+      this.allUsers = users;
+    });
+  }
+
+  getUserName(uid: string): string {
+    const u = this.allUsers.find(x => x.id === uid);
+    return u ? u._label : uid;
+  }
+
+  getNotifyTooltip(entry: BlacklistEntry): string {
+    if (!entry.notifyUsers?.length) return '';
+    const names = entry.notifyUsers.map(u => `${u.firstName} ${u.lastName}`);
+    return names.join('\n');
+  }
+
+  loadData(event: any = this.lastLazyEvent): void {
+    this.loading = true;
+    this.lastLazyEvent = event;
+    this.first = event.first ?? 0;
+    this.rows = event.rows ?? 20;
+    this.sortField = event.sortField || 'blockedAt';
+    this.sortOrder = event.sortOrder || -1;
+
+    const page = Math.floor(this.first / this.rows) + 1;
+    const params: Record<string, string | number> = {
+      page,
+      limit: this.rows,
+      sortBy: this.sortField,
+      sortOrder: this.sortOrder === 1 ? 'ASC' : 'DESC',
+      filters: JSON.stringify(event.filters ?? {}),
+      type: this.activeType,
+    };
+    const global = event.filters?.global?.value;
+    if (global) params['search'] = global;
+
+    this.api.get<PaginatedResult<BlacklistEntry>>('/visitors/blacklist', params).subscribe((r) => {
+      this.items = r.items;
+      this.totalRecords = r.total;
+      this.loading = false;
+    });
+  }
+
+  onLazyLoad(event: any): void {
+    this.loadData(event);
+  }
+
+  exportData(): void {
+    this.exporting = true;
+    const event = this.lastLazyEvent ?? {};
+    const params: Record<string, string | number> = {
+      sortBy: event.sortField || 'blockedAt',
+      sortOrder: (event.sortOrder || -1) === 1 ? 'ASC' : 'DESC',
+      filters: JSON.stringify(event.filters ?? {}),
+      type: this.activeType,
+    };
+    const global = event.filters?.global?.value;
+    if (global) params['search'] = global;
+
+    const filename = this.activeType === 'vehicle' ? 'vehicle-blacklist.xlsx' : 'person-blacklist.xlsx';
+    this.api.download('/visitors/blacklist/export', params).subscribe({
+      next: (blob) => {
+        downloadBlob(blob, filename);
+        this.exporting = false;
+      },
+      error: (err) => { this.exporting = false; this.notify.error(err); },
+    });
+  }
+
+  openDialog(entry?: BlacklistEntry): void {
+    this.editing = entry ?? null;
+    if (entry) {
+      this.form = {
+        firstName: entry.firstName ?? '',
+        lastName: entry.lastName ?? '',
+        idNumber: entry.idNumber ?? '',
+        phoneNumber: entry.phoneNumber ?? '',
+        carNumber: entry.carNumber ?? '',
+        vehicleType: entry.vehicleType ?? '',
+        reason: entry.reason,
+        isPermanent: entry.isPermanent,
+        startDate: entry.startDate ? new Date(entry.startDate) : null,
+        endDate: entry.endDate ? new Date(entry.endDate) : null,
+        notes: entry.notes ?? '',
+      };
+      this.selectedNotifyUserIds = entry.notifyUsers ? entry.notifyUsers.map(u => u.id) : [];
+    } else {
+      this.form = {
+        firstName: '', lastName: '', idNumber: '', phoneNumber: '', carNumber: '', vehicleType: '', reason: '',
+        isPermanent: true, startDate: null, endDate: null, notes: '',
+      };
+      this.selectedNotifyUserIds = [];
+    }
+    this.showDialog = true;
+  }
+
+  isFormValid(): boolean {
+    if (this.activeType === 'person') {
+      if (!this.form.firstName || !this.form.lastName || !this.form.idNumber || !this.form.reason) return false;
+    } else {
+      if (!this.form.carNumber || !this.form.vehicleType || !this.form.reason) return false;
+    }
+    if (!this.form.isPermanent) {
+      if (!this.form.startDate || !this.form.endDate) return false;
+      if (this.form.endDate < this.form.startDate) return false;
+    }
+    return true;
+  }
+
+  save(): void {
+    if (!this.isFormValid()) return;
+    this.saving = true;
+    const body: any = {
+      blacklistType: this.activeType,
+      reason: this.form.reason,
+      isPermanent: this.form.isPermanent,
+      notifyUserIds: this.selectedNotifyUserIds,
+    };
+    if (this.activeType === 'person') {
+      body.firstName = this.form.firstName;
+      body.lastName = this.form.lastName;
+      body.idNumber = this.form.idNumber;
+      if (this.form.phoneNumber) body.phoneNumber = this.form.phoneNumber;
+    } else {
+      body.carNumber = this.form.carNumber;
+      body.vehicleType = this.form.vehicleType;
+    }
+    if (!this.form.isPermanent) {
+      body.startDate = this.form.startDate instanceof Date ? this.form.startDate.toISOString().slice(0, 10) : this.form.startDate;
+      body.endDate = this.form.endDate instanceof Date ? this.form.endDate.toISOString().slice(0, 10) : this.form.endDate;
+    }
+    if (this.form.notes) body.notes = this.form.notes;
+
+    const req$ = this.editing
+      ? this.api.patch(`/visitors/blacklist/${this.editing.id}`, body)
+      : this.api.post('/visitors/blacklist', body);
+    req$.subscribe({
+      next: () => { this.saving = false; this.showDialog = false; this.notify.success('COMMON.SUCCESS'); this.loadData(); },
+      error: (err) => { this.saving = false; this.notify.error(err); },
+    });
+  }
+
+  async onDelete(entry: BlacklistEntry): Promise<void> {
+    const displayName = entry.blacklistType === 'vehicle'
+      ? entry.carNumber
+      : entry.firstName + ' ' + entry.lastName;
+    if (await this.confirmService.confirm('BLACKLIST.DELETE_CONFIRM')) {
+      this.api.delete(`/visitors/blacklist/${entry.id}`).subscribe({
+        next: () => { this.notify.success('COMMON.SUCCESS'); this.loadData(); },
+        error: (err) => this.notify.error(err),
+      });
+    }
+  }
+
+  onDialogHide(): void {
+    this.form = {
+      firstName: '', lastName: '', idNumber: '', phoneNumber: '', carNumber: '', vehicleType: '', reason: '',
+      isPermanent: true,
+      startDate: null, endDate: null,
+      notes: '',
+    };
+    this.editing = null;
+    this.selectedNotifyUserIds = [];
+  }
+
+  getVehicleTypeLabel(type: string | null): string {
+    return getVehicleTypeLabel(type, this.translate);
+  }
+
+  getCreatedByName(entry: BlacklistEntry): string {
+    if (entry.createdByUser) {
+      return `${entry.createdByUser.firstName} ${entry.createdByUser.lastName}`;
+    }
+    return '-';
+  }
+}

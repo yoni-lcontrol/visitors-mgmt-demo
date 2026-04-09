@@ -1,0 +1,41 @@
+import {
+    IsNotEmpty,
+    IsString,
+    IsOptional,
+    IsEmail,
+} from 'class-validator';
+import { Transform } from 'class-transformer';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export class CreateVisitorDto {
+    @ApiProperty({ example: '12345678' })
+    @IsString()
+    @IsNotEmpty()
+    personId!: string;
+
+    @ApiProperty({ example: 'Jane' })
+    @IsString()
+    @IsNotEmpty()
+    firstName!: string;
+
+    @ApiProperty({ example: 'Smith' })
+    @IsString()
+    @IsNotEmpty()
+    lastName!: string;
+
+    @ApiPropertyOptional({ example: 'jane@example.com' })
+    @Transform(({ value }) => (value === '' ? undefined : value))
+    @IsOptional()
+    @IsEmail()
+    email?: string;
+
+    @ApiProperty({ example: '+972501234567' })
+    @IsString()
+    @IsNotEmpty()
+    phone!: string;
+
+    @ApiPropertyOptional({ example: '12-345-67' })
+    @IsOptional()
+    @IsString()
+    carNumber?: string;
+}

@@ -1,0 +1,1544 @@
+/* Global styles — Migdal Platform */
+@import 'primeng/resources/primeng.min.css';
+
+/* ========== PrimeNG font override ========== */
+/* Replace "Inter var" variable font (causes OTS parsing errors) with system font stack */
+@font-face {
+    font-family: "Inter var";
+    font-weight: 100 900;
+    font-display: swap;
+    font-style: normal;
+    src: local("Inter"), local("Segoe UI"), local("Arial");
+}
+
+@font-face {
+    font-family: "Inter var";
+    font-weight: 100 900;
+    font-display: swap;
+    font-style: italic;
+    src: local("Inter"), local("Segoe UI"), local("Arial");
+}
+
+/* ========== Design Tokens ========== */
+:root {
+    /* Brand palette — derived from rgba(2,1,64,1) */
+    --color-primary: #020140;
+    --color-primary-light: #1a1968;
+    --color-primary-lighter: #2d2b80;
+    --color-primary-wash: #eeedf8;
+    --color-accent: #6c63ff;
+    --color-accent-hover: #5a52e0;
+    --color-accent-subtle: #ddd9ff;
+
+    /* Semantic */
+    --color-danger: #e53935;
+    --color-success: #2e7d32;
+    --color-warning: #f9a825;
+
+    /* Surfaces */
+    --color-bg: #f5f4fa;
+    --color-surface: #ffffff;
+    --color-surface-alt: #f8f7fc;
+    --color-border: #e4e2f0;
+    --color-border-light: #eeedfa;
+
+    /* Text */
+    --color-text: #1a1a2e;
+    --color-text-secondary: #5c5a78;
+    --color-text-muted: #9896ad;
+
+    /* Layout */
+    --sidebar-width: 260px;
+    --sidebar-collapsed-width: 0px;
+    --header-height: 62px;
+    --content-padding: 1.75rem;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --shadow-sm: 0 1px 3px rgba(2, 1, 64, 0.06);
+    --shadow-md: 0 4px 12px rgba(2, 1, 64, 0.08);
+    --shadow-lg: 0 8px 30px rgba(2, 1, 64, 0.12);
+    --transition-speed: 0.25s;
+}
+
+/* ========== Reset & Base ========== */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-size: 14.5px;
+    background: var(--color-bg);
+    color: var(--color-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ========== Typography ========== */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    color: var(--color-primary);
+    font-weight: 600;
+}
+
+a {
+    color: var(--color-accent);
+    text-decoration: none;
+}
+
+/* ========== PrimeNG Table Theme ========== */
+.p-datatable {
+    font-family: inherit;
+
+    /* ── Table header / caption area ── */
+    .p-datatable-header {
+        background: var(--color-surface);
+        border: none;
+        padding: 0.85rem 1.25rem;
+        border-bottom: none;
+    }
+
+    /* ── Table wrapper ── */
+    .p-datatable-wrapper {
+        padding: 0 1.25rem 0.85rem;
+    }
+
+    /* ── Column headers ── */
+    .p-datatable-thead>tr>th {
+        background: var(--color-surface-alt);
+        color: var(--color-text-secondary);
+        font-weight: 700;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-color: var(--color-border);
+        border-bottom-width: 2px;
+        padding: 0.85rem 1rem;
+        padding-inline-end: 2.2rem;
+        text-align: start;
+        white-space: nowrap;
+        transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+        vertical-align: middle;
+        position: relative;
+        cursor: pointer;
+
+        p-columnFilter,
+        p-columnfilter {
+            position: absolute;
+            inset-inline-end: 0.5rem;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .p-sortable-column-icon {
+            display: inline-block;
+            vertical-align: middle;
+            color: var(--color-text-muted);
+            font-size: 0.68rem;
+            margin-inline-start: 0.3rem;
+            opacity: 0.6;
+            transition: opacity 0.2s, color 0.2s;
+        }
+
+        &:hover {
+            background: var(--color-primary-wash);
+            color: var(--color-primary);
+            box-shadow: inset 0 -2px 0 var(--color-accent);
+
+            .p-sortable-column-icon {
+                opacity: 1;
+                color: var(--color-accent);
+            }
+        }
+
+        &.p-highlight {
+            background: var(--color-primary-wash);
+            color: var(--color-accent);
+
+            .p-sortable-column-icon {
+                color: var(--color-accent);
+                opacity: 1;
+            }
+        }
+    }
+
+    /* ── Table body rows ── */
+    .p-datatable-tbody>tr {
+        transition: background 0.15s ease;
+
+        >td {
+            padding: 0.7rem 1rem;
+            border-color: var(--color-border-light);
+            color: var(--color-text);
+            text-align: start;
+            vertical-align: middle;
+            font-size: 0.88rem;
+        }
+
+        &:hover {
+            background: var(--color-primary-wash) !important;
+        }
+
+        &.p-highlight {
+            background: rgba(108, 99, 255, 0.06);
+            color: var(--color-text);
+        }
+    }
+
+    .p-datatable-tbody>tr:nth-child(even) {
+        background: var(--color-surface-alt);
+    }
+
+    /* ── Empty message ── */
+    .p-datatable-emptymessage td {
+        text-align: center !important;
+        padding: 2.5rem 1rem !important;
+        color: var(--color-text-muted);
+        font-size: 0.88rem;
+        font-style: italic;
+    }
+
+    /* ── Loading overlay ── */
+    .p-datatable-loading-overlay {
+        background: rgba(255, 255, 255, 0.7);
+        backdrop-filter: blur(2px);
+    }
+
+    /* ── Paginator ── */
+    .p-paginator {
+        background: var(--color-surface);
+        border: none;
+        border-top: 1px solid var(--color-border-light);
+        padding: 0.6rem 1rem;
+        font-size: 0.82rem;
+        color: var(--color-text-muted);
+        justify-content: flex-end;
+        gap: 0.15rem;
+
+        .p-paginator-element {
+            color: var(--color-text-secondary);
+            border-radius: var(--radius-sm);
+            min-width: 2rem;
+            height: 2rem;
+            transition: all 0.15s ease;
+
+            &:hover {
+                background: var(--color-primary-wash);
+                color: var(--color-primary);
+            }
+
+            &.p-highlight {
+                background: var(--color-accent);
+                color: #fff;
+                box-shadow: 0 1px 3px rgba(108, 99, 255, 0.25);
+            }
+        }
+
+        .p-paginator-current {
+            color: var(--color-text-muted);
+            font-size: 0.8rem;
+            padding: 0 0.5rem;
+        }
+
+        .p-dropdown {
+            border-color: var(--color-border);
+            border-radius: var(--radius-sm);
+        }
+
+        .p-paginator-first,
+        .p-paginator-prev,
+        .p-paginator-next,
+        .p-paginator-last {
+
+            &:disabled,
+            &.p-disabled {
+                opacity: 0.3;
+                cursor: default;
+            }
+        }
+    }
+
+    /* ── Filter row inputs ── */
+    .p-datatable-thead>tr:last-child>th {
+        padding: 0.65rem 0.5rem;
+        background: var(--color-surface);
+        border-bottom: 2px solid var(--color-border);
+    }
+
+    .p-column-filter-element input,
+    input.filter-input {
+        width: 100%;
+        padding: 0.4rem 0.65rem;
+        border: 1.5px solid var(--color-border);
+        border-radius: var(--radius-sm);
+        font-size: 0.82rem;
+        font-family: inherit;
+        background: var(--color-surface);
+        color: var(--color-text);
+        transition: border-color 0.2s, box-shadow 0.2s;
+
+        &:focus {
+            outline: none;
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 2.5px rgba(108, 99, 255, 0.12);
+        }
+    }
+
+    /* ── Caption search input ── */
+    .p-input-icon-left {
+        position: relative !important;
+        display: inline-flex !important;
+        align-items: stretch;
+
+        >i {
+            position: absolute !important;
+            left: 0.75rem;
+            top: 0 !important;
+            bottom: 0;
+            display: flex !important;
+            align-items: center;
+            margin-top: 0 !important;
+            transform: none !important;
+            color: var(--color-text-muted);
+            font-size: 0.88rem;
+            pointer-events: none;
+            z-index: 1;
+        }
+    }
+
+    .p-datatable-header input[pInputText] {
+        padding: 0.5rem 0.85rem 0.5rem 2.25rem;
+        border: 1.5px solid var(--color-border);
+        border-radius: 8px;
+        font-size: 0.88rem;
+        font-family: inherit;
+        min-width: 280px;
+        background: var(--color-surface);
+        color: var(--color-text);
+        transition: border-color 0.2s, box-shadow 0.2s;
+
+        &::placeholder {
+            color: var(--color-text-muted);
+            opacity: 0.7;
+        }
+
+        &:focus {
+            outline: none;
+            border-color: var(--color-accent);
+            box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.12);
+        }
+    }
+}
+
+/* ── Table card — removes card padding so p-table fills the card ── */
+.table-card {
+    padding: 0 !important;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+}
+
+/* ── Shared actions cell inside tables ── */
+.actions {
+    display: flex;
+    gap: 0.3rem;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+/* ── Clickable rows ── */
+.clickable-row {
+    cursor: pointer;
+}
+
+/* ── Common table cell helpers ── */
+.name-cell {
+    font-weight: 500;
+}
+
+/* Column filter overlay menu — RTL support (renders on body, outside [dir='rtl']) */
+[dir='rtl'] .p-column-filter-overlay-menu,
+.p-column-filter-overlay-menu:lang(he),
+.p-column-filter-overlay-menu:lang(ar) {
+    direction: rtl;
+    text-align: right;
+    right: auto !important;
+    transform-origin: top left;
+
+    .p-column-filter-operator,
+    .p-column-filter-add-rule {
+        direction: rtl;
+        text-align: right;
+    }
+
+    .p-column-filter-constraint {
+        direction: rtl;
+        text-align: right;
+
+        .p-dropdown,
+        .p-inputtext {
+            text-align: right;
+        }
+    }
+
+    .p-column-filter-buttonbar {
+        flex-direction: row-reverse;
+    }
+}
+
+/* ========== RTL Support ========== */
+[dir='rtl'] {
+
+    .p-datatable .p-datatable-thead>tr>th,
+    .p-datatable .p-datatable-tbody>tr>td {
+        text-align: right;
+    }
+
+    .p-datatable .p-sortable-column-icon {
+        margin-inline-start: 0;
+        margin-inline-end: 0.3rem;
+    }
+
+    .p-paginator {
+        direction: rtl;
+        justify-content: flex-start;
+
+        .p-paginator-first,
+        .p-paginator-prev,
+        .p-paginator-next,
+        .p-paginator-last {
+            .p-icon {
+                transform: scaleX(-1);
+            }
+        }
+    }
+
+    .p-input-icon-left i {
+        left: auto;
+        right: 0.75rem;
+    }
+
+    .p-input-icon-left input {
+        padding-left: 0.85rem;
+        padding-right: 2.25rem;
+    }
+
+    .p-dialog .p-dialog-header {
+        direction: rtl;
+    }
+
+    .pi-angle-right::before {
+        content: '\e931';
+    }
+
+    .pi-angle-left::before {
+        content: '\e930';
+    }
+
+    .page-header {
+        direction: rtl;
+    }
+
+    .actions {
+        direction: rtl;
+    }
+
+    .header-actions {
+        direction: rtl;
+    }
+
+    .form-actions {
+        flex-direction: row-reverse;
+    }
+
+    .btn i {
+        order: 1;
+    }
+
+    .p-column-filter-overlay-menu,
+    .p-column-filter-overlay {
+        direction: rtl;
+        text-align: right;
+    }
+
+    .p-column-filter-overlay-menu .p-column-filter-buttonbar {
+        flex-direction: row-reverse;
+    }
+
+    .p-column-filter-overlay-menu .p-column-filter-constraint .p-column-filter-matchmode-dropdown,
+    .p-column-filter-overlay-menu .p-column-filter-constraint .p-inputtext {
+        text-align: right;
+    }
+
+    .p-column-filter-overlay-menu .p-column-filter-add-rule,
+    .p-column-filter-overlay-menu .p-column-filter-operator {
+        direction: rtl;
+        text-align: right;
+    }
+
+    /* ── PrimeNG clear-icon RTL fix ── */
+    .p-dropdown .p-dropdown-clear-icon {
+        right: auto;
+        left: 3rem;
+    }
+
+    .p-dropdown.p-dropdown-clearable .p-dropdown-label {
+        padding-right: 0.75rem;
+        padding-left: 1.75rem;
+    }
+
+    .p-dropdown .p-dropdown-trigger {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+        border-top-left-radius: 6px;
+        border-bottom-left-radius: 6px;
+    }
+
+    p-calendar.p-calendar-clearable .p-calendar-clear-icon {
+        right: auto;
+        left: 0.75rem;
+    }
+
+    p-calendar.p-calendar-clearable .p-calendar-w-btn .p-calendar-clear-icon {
+        right: auto;
+        left: 3.75rem;
+    }
+
+    .p-multiselect-clearable .p-multiselect-clear-icon {
+        right: auto;
+        left: 3rem;
+    }
+
+    p-autocomplete.p-autocomplete-clearable .p-autocomplete-clear-icon {
+        right: auto;
+        left: 0.75rem;
+    }
+
+    p-autocomplete.p-autocomplete-clearable .p-autocomplete-dd .p-autocomplete-clear-icon {
+        right: auto;
+        left: 3.75rem;
+    }
+}
+
+/* LTR explicit (default, no overrides needed) */
+[dir='ltr'] {
+
+    .p-datatable .p-datatable-thead>tr>th,
+    .p-datatable .p-datatable-tbody>tr>td {
+        text-align: left;
+    }
+}
+
+/* ========== Reusable components ========== */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.75rem;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+
+    h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--color-primary);
+        letter-spacing: -0.01em;
+    }
+}
+
+.card {
+    background: var(--color-surface);
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--color-border-light);
+}
+
+/* ========== Data table globals ========== */
+.data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.data-table th {
+    padding: 0.7rem 1rem;
+    text-align: start;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: var(--color-surface-alt);
+    border-bottom: 2px solid var(--color-border);
+}
+
+.data-table th:first-child {
+    border-radius: var(--radius-sm) 0 0 0;
+}
+
+.data-table th:last-child {
+    border-radius: 0 var(--radius-sm) 0 0;
+}
+
+.data-table td {
+    padding: 0.8rem 1rem;
+    text-align: start;
+    border-bottom: 1px solid var(--color-border-light);
+    color: var(--color-text);
+    vertical-align: middle;
+}
+
+.data-table tbody tr {
+    transition: background var(--transition-speed);
+}
+
+.data-table tbody tr:hover {
+    background: var(--color-primary-wash);
+}
+
+.data-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+/* ========== Buttons ========== */
+.btn {
+    padding: 0.5rem 1.1rem;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.875rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all var(--transition-speed);
+    font-family: inherit;
+}
+
+.btn-primary {
+    background: var(--color-accent);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(108, 99, 255, 0.25);
+}
+
+.btn-primary:hover {
+    background: var(--color-accent-hover);
+    box-shadow: 0 4px 14px rgba(108, 99, 255, 0.35);
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: var(--color-primary-wash);
+    color: var(--color-primary);
+    border: 1px solid var(--color-border);
+}
+
+.btn-secondary:hover {
+    background: var(--color-accent-subtle);
+}
+
+/* ========== Icon buttons (table actions & general) ========== */
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid transparent;
+    background: transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    font-size: 0.92rem;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+
+    i {
+        font-size: 0.88rem;
+        line-height: 1;
+    }
+}
+
+.btn-icon:hover {
+    background: var(--color-primary-wash);
+    color: var(--color-accent);
+    border-color: rgba(108, 99, 255, 0.15);
+}
+
+.btn-icon:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+}
+
+.btn-icon:active {
+    transform: scale(0.92);
+}
+
+.btn-icon.danger {
+    color: var(--color-text-muted);
+}
+
+.btn-icon.danger:hover {
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--color-danger);
+    border-color: rgba(239, 68, 68, 0.15);
+}
+
+.btn-icon:disabled,
+.btn-icon[disabled] {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+    transform: none;
+}
+
+/* ========== Form inputs ========== */
+.search-input,
+.field input,
+.field select,
+.field textarea {
+    padding: 0.55rem 0.85rem;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: border-color var(--transition-speed), box-shadow var(--transition-speed), background var(--transition-speed);
+    background: var(--color-surface);
+    color: var(--color-text);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.search-input:focus,
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.12);
+}
+
+/* ========== Required field marker ========== */
+.required {
+    color: var(--color-danger);
+    font-weight: 600;
+    margin-inline-start: 0.1rem;
+}
+
+/* ========== Form validation states ========== */
+
+/* Invalid + touched/dirty — red border */
+.field input.ng-invalid.ng-touched,
+.field select.ng-invalid.ng-touched,
+.field textarea.ng-invalid.ng-touched,
+.field input.ng-invalid.ng-dirty,
+.field select.ng-invalid.ng-dirty,
+.field textarea.ng-invalid.ng-dirty {
+    border-color: var(--color-danger);
+    background: rgba(229, 57, 53, 0.02);
+}
+
+.field input.ng-invalid.ng-touched:focus,
+.field select.ng-invalid.ng-touched:focus,
+.field textarea.ng-invalid.ng-touched:focus,
+.field input.ng-invalid.ng-dirty:focus,
+.field select.ng-invalid.ng-dirty:focus,
+.field textarea.ng-invalid.ng-dirty:focus {
+    border-color: var(--color-danger);
+    box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.10);
+}
+
+/* Valid + touched/dirty — green border */
+.field input.ng-valid.ng-touched:not([type="checkbox"]):not([type="radio"]):not(.p-inputtext),
+.field select.ng-valid.ng-touched,
+.field textarea.ng-valid.ng-touched,
+.field input.ng-valid.ng-dirty:not([type="checkbox"]):not([type="radio"]):not(.p-inputtext),
+.field select.ng-valid.ng-dirty,
+.field textarea.ng-valid.ng-dirty {
+    border-color: var(--color-success);
+}
+
+.field input.ng-valid.ng-touched:not([type="checkbox"]):not([type="radio"]):not(.p-inputtext):focus,
+.field select.ng-valid.ng-touched:focus,
+.field textarea.ng-valid.ng-touched:focus,
+.field input.ng-valid.ng-dirty:not([type="checkbox"]):not([type="radio"]):not(.p-inputtext):focus,
+.field select.ng-valid.ng-dirty:focus,
+.field textarea.ng-valid.ng-dirty:focus {
+    border-color: var(--color-success);
+    box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.10);
+}
+
+/* Field error message */
+.field-error {
+    color: var(--color-danger);
+    font-size: 0.78rem;
+    margin-top: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    animation: fieldErrorIn 0.2s ease-out;
+}
+
+@keyframes fieldErrorIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ========== Disabled buttons ========== */
+.btn:disabled,
+.btn[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    box-shadow: none;
+    transform: none;
+}
+
+.btn-primary:disabled,
+.btn-primary[disabled] {
+    background: var(--color-accent);
+    opacity: 0.45;
+}
+
+/* ========== Status badges ========== */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.28rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    transition: background 0.2s ease, border-color 0.2s ease;
+
+    &::before {
+        content: '';
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: currentColor;
+        opacity: 0.65;
+        flex-shrink: 0;
+    }
+
+    &.active,
+    &.online,
+    &.approved,
+    &.checked-in {
+        background: rgba(34, 197, 94, 0.10);
+        color: #15803d;
+        border-color: rgba(34, 197, 94, 0.18);
+    }
+
+    &.inactive,
+    &.offline,
+    &.rejected,
+    &.denied,
+    &.cancelled {
+        background: rgba(239, 68, 68, 0.10);
+        color: #b91c1c;
+        border-color: rgba(239, 68, 68, 0.18);
+    }
+
+    &.pending {
+        background: rgba(245, 158, 11, 0.10);
+        color: #b45309;
+        border-color: rgba(245, 158, 11, 0.18);
+    }
+
+    &.error {
+        background: rgba(239, 68, 68, 0.10);
+        color: #b91c1c;
+        border-color: rgba(239, 68, 68, 0.18);
+    }
+
+    &.unknown {
+        background: var(--color-primary-wash);
+        color: var(--color-text-secondary);
+        border-color: var(--color-border);
+    }
+}
+
+/* ========== Role chips ========== */
+.role-chip {
+    display: inline-block;
+    padding: 0.15rem 0.55rem;
+    background: var(--color-accent-subtle);
+    color: var(--color-primary);
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    margin: 0.1rem;
+}
+
+/* ========== Pagination ========== */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.85rem 1rem 0;
+    margin-top: 0.5rem;
+    border-top: 1px solid var(--color-border-light);
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+.pagination-btns {
+    display: flex;
+    gap: 0.25rem;
+}
+
+/* ========== Responsive table wrapper ========== */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* ========== Empty state ========== */
+.empty {
+    text-align: center;
+    color: var(--color-text-muted);
+    padding: 2.5rem 1rem !important;
+    font-size: 0.88rem;
+    font-style: italic;
+}
+
+/* ========== Form layout ========== */
+.form-card {
+    max-width: 680px;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.15rem;
+}
+
+.field {
+    margin-bottom: 0;
+}
+
+.field label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.3rem;
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+}
+
+.field.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1.75rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--color-border-light);
+}
+
+/* ========== Responsive ========== */
+@media (max-width: 767px) {
+    :root {
+        --content-padding: 1rem;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ========== Dialog polish ========== */
+.p-dialog {
+    border-radius: var(--radius-lg) !important;
+    box-shadow: 0 20px 60px rgba(2, 1, 64, 0.18), 0 4px 16px rgba(0, 0, 0, 0.06) !important;
+    border: 1px solid var(--color-border-light) !important;
+    overflow: hidden;
+
+    .p-dialog-header {
+        padding: 1.15rem 1.5rem !important;
+        background: var(--color-surface) !important;
+        border-bottom: 1px solid var(--color-border) !important;
+        color: var(--color-primary) !important;
+        font-weight: 700 !important;
+        font-size: 1.05rem !important;
+        gap: 0.75rem;
+    }
+
+    .p-dialog-content {
+        padding: 1.35rem 1.5rem !important;
+        background: var(--color-surface) !important;
+    }
+
+    .p-dialog-footer {
+        padding: 1rem 1.5rem !important;
+        background: var(--color-surface-alt) !important;
+        border-top: 1px solid var(--color-border) !important;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.65rem;
+    }
+
+    .p-dialog-header-icon {
+        color: var(--color-text-muted) !important;
+        width: 2rem !important;
+        height: 2rem !important;
+        border-radius: var(--radius-sm) !important;
+        transition: all 0.2s !important;
+
+        &:hover {
+            background: var(--color-primary-wash) !important;
+            color: var(--color-text) !important;
+        }
+    }
+}
+
+/* Dialog overlay */
+.p-dialog-mask {
+    backdrop-filter: blur(2px);
+}
+
+/* ========== Input hover states ========== */
+.field input:hover:not(:focus):not(:disabled),
+.field select:hover:not(:focus):not(:disabled),
+.field textarea:hover:not(:focus):not(:disabled) {
+    border-color: var(--color-text-muted);
+}
+
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: var(--color-surface-alt);
+}
+
+/* ========== Button loading helper ========== */
+.btn .pi-spinner {
+    font-size: 0.85rem;
+}
+
+.btn-primary .pi-spinner {
+    color: #fff;
+}
+
+/* ========== Scrollbar ========== */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-muted);
+}
+
+/* ========== PrimeNG Calendar ========== */
+
+/* Base input styling */
+.p-calendar .p-inputtext {
+    padding: 0.55rem 0.85rem;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.9rem;
+    font-family: inherit;
+    background: var(--color-surface);
+    color: var(--color-text);
+    transition: border-color var(--transition-speed), box-shadow var(--transition-speed), background var(--transition-speed);
+}
+
+/* When calendar has a trigger button, flatten the input's inline-end corners */
+.p-calendar-w-btn .p-inputtext {
+    border-start-end-radius: 0;
+    border-end-end-radius: 0;
+    border-inline-end: none;
+}
+
+.p-calendar .p-inputtext:enabled:hover {
+    border-color: var(--color-accent);
+}
+
+.p-calendar .p-inputtext:enabled:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.12);
+}
+
+.p-calendar .p-inputtext:disabled {
+    background: var(--color-surface-alt);
+    color: var(--color-text-muted);
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+/* Trigger button */
+.p-calendar .p-datepicker-trigger {
+    background: var(--color-primary-wash);
+    border: 1.5px solid var(--color-border);
+    border-inline-start: none;
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+    border-start-end-radius: var(--radius-sm);
+    border-end-end-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    transition: background var(--transition-speed), color var(--transition-speed);
+}
+
+.p-calendar .p-datepicker-trigger:enabled:hover {
+    background: var(--color-accent-subtle);
+    color: var(--color-accent);
+}
+
+/* When input is focused, match the accent border on the trigger button */
+.p-inputwrapper-focus .p-datepicker-trigger {
+    border-color: var(--color-accent) !important;
+}
+
+.p-calendar .p-datepicker-trigger:focus {
+    box-shadow: none;
+}
+
+/* Validation states — invalid */
+.field p-calendar.ng-invalid.ng-touched .p-inputtext,
+.field p-calendar.ng-invalid.ng-dirty .p-inputtext {
+    border-color: var(--color-danger) !important;
+    background: rgba(229, 57, 53, 0.02);
+}
+
+.field p-calendar.ng-invalid.ng-touched .p-inputtext:focus,
+.field p-calendar.ng-invalid.ng-dirty .p-inputtext:focus {
+    border-color: var(--color-danger) !important;
+    box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.10);
+}
+
+.field p-calendar.ng-invalid.ng-touched .p-datepicker-trigger,
+.field p-calendar.ng-invalid.ng-dirty .p-datepicker-trigger {
+    border-color: var(--color-danger) !important;
+    color: var(--color-danger);
+}
+
+/* Validation states — valid */
+.field p-calendar.ng-valid.ng-touched .p-inputtext,
+.field p-calendar.ng-valid.ng-dirty .p-inputtext {
+    border-color: var(--color-success) !important;
+}
+
+.field p-calendar.ng-valid.ng-touched .p-inputtext:focus,
+.field p-calendar.ng-valid.ng-dirty .p-inputtext:focus {
+    border-color: var(--color-success) !important;
+    box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.10);
+}
+
+.field p-calendar.ng-valid.ng-touched .p-datepicker-trigger,
+.field p-calendar.ng-valid.ng-dirty .p-datepicker-trigger {
+    border-color: var(--color-success) !important;
+}
+
+.field .p-calendar.ng-valid.ng-touched .p-datepicker-trigger,
+.field .p-calendar.ng-valid.ng-dirty .p-datepicker-trigger {
+    border-color: var(--color-success);
+}
+
+/* Datepicker panel styling */
+.p-datepicker {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    background: var(--color-surface);
+    font-family: inherit;
+}
+
+.p-datepicker .p-datepicker-header {
+    background: var(--color-surface-alt);
+    border-bottom: 1px solid var(--color-border-light);
+    padding: 0.65rem;
+}
+
+.p-datepicker .p-datepicker-header .p-datepicker-title {
+    font-weight: 600;
+    color: var(--color-primary);
+}
+
+.p-datepicker .p-datepicker-header .p-datepicker-prev,
+.p-datepicker .p-datepicker-header .p-datepicker-next {
+    color: var(--color-text-secondary);
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-speed), color var(--transition-speed);
+}
+
+.p-datepicker .p-datepicker-header .p-datepicker-prev:hover,
+.p-datepicker .p-datepicker-header .p-datepicker-next:hover {
+    background: var(--color-primary-wash);
+    color: var(--color-accent);
+}
+
+.p-datepicker table td>span {
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-speed), color var(--transition-speed);
+}
+
+.p-datepicker table td>span:hover {
+    background: var(--color-primary-wash) !important;
+    color: var(--color-primary);
+}
+
+.p-datepicker table td>span.p-highlight {
+    background: var(--color-accent);
+    color: #fff;
+}
+
+.p-datepicker table td.p-datepicker-today>span {
+    background: var(--color-accent-subtle);
+    color: var(--color-accent);
+}
+
+.p-datepicker table td.p-datepicker-today>span.p-highlight {
+    background: var(--color-accent);
+    color: #fff;
+}
+
+.p-datepicker table th {
+    color: var(--color-text-muted);
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+/* Time picker styling */
+.p-datepicker .p-timepicker {
+    border-top: 1px solid var(--color-border-light);
+    padding: 0.5rem;
+}
+
+.p-datepicker .p-timepicker button {
+    color: var(--color-text-secondary);
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-speed), color var(--transition-speed);
+}
+
+.p-datepicker .p-timepicker button:hover {
+    background: var(--color-primary-wash);
+    color: var(--color-accent);
+}
+
+.p-datepicker .p-timepicker span {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--color-text);
+}
+
+/* ========== PrimeNG Calendar RTL ========== */
+[dir='rtl'] {
+
+    /* Calendar wrapper */
+    .p-calendar {
+        direction: rtl;
+    }
+
+    /* Input text — right-aligned */
+    .p-calendar .p-inputtext {
+        text-align: right;
+        direction: rtl;
+    }
+
+    /* Trigger button — swap from right side to left side */
+    .p-calendar .p-datepicker-trigger {
+        border-inline-start: none;
+        border-inline-end: 1.5px solid var(--color-border);
+    }
+
+    /* Input border-radius — in RTL the input is on the right, trigger on the left */
+    .p-calendar.p-calendar-w-btn .p-inputtext {
+        border-start-end-radius: 0;
+        border-end-end-radius: 0;
+        border-start-start-radius: var(--radius-sm);
+        border-end-start-radius: var(--radius-sm);
+    }
+
+    .p-calendar.p-calendar-w-btn .p-datepicker-trigger {
+        border-start-start-radius: 0;
+        border-end-start-radius: 0;
+        border-start-end-radius: var(--radius-sm);
+        border-end-end-radius: var(--radius-sm);
+    }
+
+    /* Datepicker panel — full RTL direction */
+    .p-datepicker {
+        direction: rtl;
+        text-align: right;
+    }
+
+    /* Header — RTL layout for month/year title and nav arrows */
+    .p-datepicker .p-datepicker-header {
+        direction: rtl;
+    }
+
+    /* Swap prev/next arrow icons for RTL (works for both SVG component icons and pi-font icons) */
+    .p-datepicker .p-datepicker-header .p-datepicker-prev-icon,
+    .p-datepicker .p-datepicker-header .p-datepicker-next-icon {
+        transform: scaleX(-1);
+    }
+
+    /* Calendar grid — day names and cells centered */
+    .p-datepicker table {
+        direction: rtl;
+    }
+
+    .p-datepicker table th {
+        text-align: center;
+    }
+
+    .p-datepicker table td {
+        text-align: center;
+    }
+
+    .p-datepicker table td>span {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto;
+    }
+
+    /* Month/year picker panels */
+    .p-datepicker .p-monthpicker,
+    .p-datepicker .p-yearpicker {
+        direction: rtl;
+    }
+
+    .p-datepicker .p-monthpicker .p-monthpicker-month,
+    .p-datepicker .p-yearpicker .p-yearpicker-year {
+        text-align: center;
+    }
+
+    /* Time picker — fix reversed display in RTL */
+    .p-datepicker .p-timepicker {
+        direction: ltr;
+        /* keep time reading left-to-right (HH:MM) */
+    }
+
+    /* AM/PM selector in RTL */
+    .p-datepicker .p-timepicker>div {
+        direction: ltr;
+    }
+
+    /* Calendar input group within p-inputgroup */
+    .p-inputgroup .p-calendar .p-inputtext {
+        border-start-end-radius: 0;
+        border-end-end-radius: 0;
+    }
+}
+
+/* ========== PrimeNG Dropdown ========== */
+
+/* Base container */
+.p-dropdown {
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    font-family: inherit;
+    transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
+}
+
+.p-dropdown:not(.p-disabled):hover {
+    border-color: var(--color-accent);
+}
+
+.p-dropdown:not(.p-disabled).p-focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.12);
+}
+
+.p-dropdown.p-disabled {
+    background: var(--color-surface-alt);
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+/* Label / selected value */
+.p-dropdown .p-dropdown-label {
+    padding: 0.55rem 0.85rem;
+    font-size: 0.9rem;
+    color: var(--color-text);
+    font-family: inherit;
+}
+
+.p-dropdown .p-dropdown-label.p-placeholder {
+    color: var(--color-text-muted);
+}
+
+/* Trigger arrow */
+.p-dropdown .p-dropdown-trigger {
+    width: 2.5rem;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border-inline-start: 1px solid var(--color-border-light);
+    transition: color var(--transition-speed), background var(--transition-speed);
+}
+
+.p-dropdown:not(.p-disabled):hover .p-dropdown-trigger {
+    color: var(--color-accent);
+}
+
+/* Clear icon */
+.p-dropdown .p-dropdown-clear-icon {
+    color: var(--color-text-muted);
+}
+
+/* Validation states — invalid */
+.field .p-dropdown.ng-invalid.ng-touched,
+.field .p-dropdown.ng-invalid.ng-dirty {
+    border-color: var(--color-danger);
+    background: rgba(229, 57, 53, 0.02);
+}
+
+.field .p-dropdown.ng-invalid.ng-touched.p-focus,
+.field .p-dropdown.ng-invalid.ng-dirty.p-focus {
+    border-color: var(--color-danger);
+    box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.10);
+}
+
+.field .p-dropdown.ng-invalid.ng-touched .p-dropdown-trigger,
+.field .p-dropdown.ng-invalid.ng-dirty .p-dropdown-trigger {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+}
+
+/* Validation states — valid */
+.field .p-dropdown.ng-valid.ng-touched,
+.field .p-dropdown.ng-valid.ng-dirty {
+    border-color: var(--color-success);
+}
+
+.field .p-dropdown.ng-valid.ng-touched.p-focus,
+.field .p-dropdown.ng-valid.ng-dirty.p-focus {
+    border-color: var(--color-success);
+    box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.10);
+}
+
+.field .p-dropdown.ng-valid.ng-touched .p-dropdown-trigger,
+.field .p-dropdown.ng-valid.ng-dirty .p-dropdown-trigger {
+    border-color: var(--color-success);
+}
+
+/* Dropdown panel (overlay) */
+.p-dropdown-panel {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    background: var(--color-surface);
+    font-family: inherit;
+}
+
+/* Filter input inside panel */
+.p-dropdown-panel .p-dropdown-filter {
+    padding: 0.5rem 0.75rem;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-family: inherit;
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+
+.p-dropdown-panel .p-dropdown-filter:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.12);
+}
+
+/* Items wrapper */
+.p-dropdown-panel .p-dropdown-items {
+    padding: 0.25rem 0;
+}
+
+/* Individual option */
+.p-dropdown-panel .p-dropdown-item {
+    padding: 0.55rem 0.85rem;
+    font-size: 0.9rem;
+    color: var(--color-text);
+    border-radius: 0;
+    transition: background var(--transition-speed), color var(--transition-speed);
+}
+
+.p-dropdown-panel .p-dropdown-item:hover {
+    background: var(--color-primary-wash);
+    color: var(--color-primary);
+}
+
+.p-dropdown-panel .p-dropdown-item.p-highlight {
+    background: var(--color-accent);
+    color: #fff;
+}
+
+.p-dropdown-panel .p-dropdown-item.p-highlight:hover {
+    background: var(--color-accent-hover);
+    color: #fff;
+}
+
+/* Empty message */
+.p-dropdown-panel .p-dropdown-empty-message {
+    padding: 0.75rem 0.85rem;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    text-align: center;
+}
+
+/* ========== PrimeNG Dropdown RTL ========== */
+[dir='rtl'] {
+
+    .p-dropdown {
+        direction: rtl;
+    }
+
+    .p-dropdown .p-dropdown-label {
+        text-align: right;
+    }
+
+    .p-dropdown .p-dropdown-trigger {
+        border-inline-start: 1px solid var(--color-border-light);
+        border-inline-end: none;
+    }
+
+    .p-dropdown-panel {
+        direction: rtl;
+        text-align: right;
+    }
+
+    .p-dropdown-panel .p-dropdown-item {
+        text-align: right;
+    }
+}

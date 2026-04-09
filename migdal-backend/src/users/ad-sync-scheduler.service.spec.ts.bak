@@ -1,0 +1,93 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { AdSyncSchedulerService } from './ad-sync-scheduler.service';
+import { AdSyncService, AdSyncResult } from './ad-sync.service';
+
+describe('AdSyncSchedulerService', () => {
+    let scheduler: AdSyncSchedulerService;
+    let mockSyncService: Record<string, jest.Mock>;
+
+    const mockResult: AdSyncResult = {
+        configsProcessed: 1,
+        configsFailed: 0,
+        totalFetched: 5,
+        totalCreated: 2,
+        totalUpdated: 3,
+        totalDeactivated: 0,
+        totalSkipped: 0,
+        details: [],
+        durationMs: 500,
+    };
+
+    beforeEach(async () => {
+        mockSyncService = {
+            syncAll: jest.fn().mockResolvedValue(mockResult),
+        };
+
+        const module: TestingModule = await Test.createTestingModule({
+            providers: [
+                AdSyncSchedulerService,
+                { provide: AdSyncService, useValue: mockSyncService },
+            ],
+        }).compile();
+
+        scheduler = module.get<AdSyncSchedulerService>(AdSyncSchedulerService);
+    });
+
+    it('should call syncAll when handleCron is invoked', async () => {
+        await scheduler.handleCron();
+        expect(mockSyncService.syncAll).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not call syncAll without triggeredBy', async () => {
+        await scheduler.handleCron();
+        expect(mockSyncService.syncAll).toHaveBeenCalledWith();
+    });
+
+    it('should prevent overlapping runs', async () => {
+        let resolveFirst: () => void;
+        const firstCall = new Promise<AdSyncResult>((resolve) => {
+            resolveFirst = () => resolve(mockResult);
+        });
+        mockSyncService.syncAll.mockReturnValueOnce(firstCall);
+
+        // Start first run (won't complete yet)
+        const run1 = scheduler.handleCron();
+        expect(scheduler.isRunning()).toBe(true);
+
+        // Second run should be skipped
+        await scheduler.handleCron();
+        expect(mockSyncService.syncAll).toHaveBeenCalledTimes(1);
+
+        // Complete first run
+        resolveFirst!();
+        await run1;
+        expect(scheduler.isRunning()).toBe(false);
+    });
+
+    it('should reset running flag after successful completion', async () => {
+        await scheduler.handleCron();
+        expect(scheduler.isRunning()).toBe(false);
+    });
+
+    it('should reset running flag even if sync throws', async () => {
+        mockSyncService.syncAll.mockRejectedValue(new Error('catastrophic failure'));
+        await scheduler.handleCron();
+        expect(scheduler.isRunning()).toBe(false);
+    });
+
+    it('should allow subsequent runs after error', async () => {
+        mockSyncService.syncAll
+            .mockRejectedValueOnce(new Error('first fails'))
+            .mockResolvedValueOnce(mockResult);
+
+        await scheduler.handleCron();
+        expect(scheduler.isRunning()).toBe(false);
+
+        await scheduler.handleCron();
+        expect(mockSyncService.syncAll).toHaveBeenCalledTimes(2);
+    });
+
+    it('should report running status correctly', () => {
+        expect(scheduler.isRunning()).toBe(false);
+    });
+});

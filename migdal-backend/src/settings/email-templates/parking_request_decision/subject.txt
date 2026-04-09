@@ -1,0 +1,1 @@
+החלטת בקשת חנייה: {{visitor.firstName}} {{visitor.lastName}} - {{parking.status}}

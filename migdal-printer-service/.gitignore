@@ -1,0 +1,50 @@
+############################################
+# Visual Studio / Rider / VS Code
+############################################
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+############################################
+# Build outputs
+############################################
+bin/
+obj/
+artifacts/
+TestResults/
+*.pdb
+
+############################################
+# Logs
+############################################
+logs/
+*.log
+
+############################################
+# OS junk
+############################################
+.DS_Store
+Thumbs.db
+desktop.ini
+
+############################################
+# Local-only overrides (optional)
+# Keep appsettings.json in git, but allow per-dev overrides.
+############################################
+appsettings.Local.json
+appsettings.*.Local.json
+
+############################################
+# Certificates / private keys (recommended NOT to commit)
+# If your project truly requires committing these, remove these lines.
+############################################
+localhost.pfx
+localhost.cer
+*.pfx
+*.p12
+*.pem
+*.key

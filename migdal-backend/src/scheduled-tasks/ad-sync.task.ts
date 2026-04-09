@@ -1,0 +1,39 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
+import { AdSyncService } from '../users/ad-sync.service';
+
+@Injectable()
+export class AdSyncTask {
+    private readonly logger = new Logger(AdSyncTask.name);
+    private running = false;
+
+    constructor(private readonly adSyncService: AdSyncService) { }
+
+    @Cron('0 1 * * *', { name: 'ad-user-sync' })
+    async handleCron(): Promise<void> {
+        if (this.running) {
+            this.logger.warn('AD sync already in progress, skipping scheduled run');
+            return;
+        }
+
+        this.running = true;
+        this.logger.log('Scheduled AD sync job started');
+
+        try {
+            const result = await this.adSyncService.syncAll();
+            this.logger.log(
+                `Scheduled AD sync job finished in ${result.durationMs}ms — ` +
+                `created: ${result.totalCreated}, updated: ${result.totalUpdated}, ` +
+                `deactivated: ${result.totalDeactivated}, failed configs: ${result.configsFailed}`,
+            );
+        } catch (err) {
+            this.logger.error('Scheduled AD sync job failed unexpectedly', (err as Error).stack);
+        } finally {
+            this.running = false;
+        }
+    }
+
+    isRunning(): boolean {
+        return this.running;
+    }
+}

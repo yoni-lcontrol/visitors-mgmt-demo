@@ -1,0 +1,1 @@
+מבקר יצא: {{visitor.firstName}} {{visitor.lastName}} - {{visit.title}}

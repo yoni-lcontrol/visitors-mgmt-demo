@@ -766,6 +766,23 @@
         "PH_PARKING_REVIEWNOTE": "Parking review note",
         "SAVE_SUCCESS": "SMS templates saved successfully"
     },
+    "EMAIL_TEMPLATES": {
+        "TITLE": "Email Templates",
+        "DESCRIPTION": "Configure email templates per target group and event type. Use placeholders to insert dynamic information.",
+        "SUBJECT": "Subject",
+        "SUBJECT_PLACEHOLDER": "Enter email subject...",
+        "BODY": "Body (HTML)",
+        "BODY_PLACEHOLDER": "Enter email body in HTML...",
+        "PREVIEW": "Preview",
+        "PREVIEW_RESULT_SUBJECT": "Subject",
+        "PREVIEW_RESULT_BODY": "Body",
+        "TEST_EMAIL": "Test Email",
+        "SEND_TEST": "Send",
+        "TEST_EMAIL_PLACEHOLDER": "test@example.com",
+        "TEST_SUCCESS": "Test email sent successfully",
+        "PLACEHOLDERS_TITLE": "Available Placeholders",
+        "SAVE_SUCCESS": "Email templates saved successfully"
+    },
     "AD_SETTINGS": {
         "TITLE": "Active Directory Settings",
         "ADD_CONFIG": "Add Configuration",

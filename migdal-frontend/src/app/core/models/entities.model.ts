@@ -160,6 +160,15 @@ export interface SmsTemplate {
     recipients: string | null;
 }
 
+export interface EmailTemplate {
+    id: string;
+    event: string;
+    targetGroup: string;
+    subject: string;
+    bodyHtml: string;
+    recipients: string | null;
+}
+
 export interface AdConfiguration {
     id: string;
     name: string;

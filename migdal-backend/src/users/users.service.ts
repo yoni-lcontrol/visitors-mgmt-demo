@@ -229,27 +229,33 @@ export class UsersService {
             throw new NotFoundException('User not found');
         }
 
-        // Clear junction tables and nullable FKs before hard delete
-        await this.userRepo.manager.query(
-            `DELETE FROM [UserRoles] WHERE [userId] = @0`, [id],
-        );
-        await this.userRepo.manager.query(
-            `DELETE FROM [BlacklistNotifyUsers] WHERE [userId] = @0`, [id],
-        );
-        await this.userRepo.manager.query(
-            `UPDATE [Visits] SET [visitRequesterUserId] = NULL WHERE [visitRequesterUserId] = @0`, [id],
-        );
+        if (!user.isActive) {
+            throw new BadRequestException('User is already deactivated');
+        }
 
-        await this.userRepo.delete(id);
+        if (currentUserId && currentUserId === id) {
+            throw new BadRequestException('Cannot deactivate your own account');
+        }
+
+        // Soft delete: mark as inactive
+        user.isActive = false;
+        user.updatedBy = currentUserId ?? null;
+        await this.userRepo.save(user);
+
+        // Revoke all active refresh tokens so the user is logged out
+        await this.userRepo.manager.query(
+            `UPDATE [RefreshTokens] SET [isRevoked] = 1 WHERE [userId] = @0 AND [isRevoked] = 0`,
+            [id],
+        );
 
         this.wsGateway.broadcastToAll('users:user:deleted', { id });
         this.auditService.log({
             userId: currentUserId,
             module: 'users',
-            action: 'DELETE',
+            action: 'SOFT_DELETE',
             entity: 'User',
             entityId: id,
-            description: `Deleted user ${user.username}`,
+            description: `Soft-deleted user ${user.username}`,
         }).catch(() => { });
     }
 

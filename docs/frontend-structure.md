@@ -124,6 +124,26 @@ frontend/src/
             Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ services/
 ```
 
+## Notification Settings
+
+`NotificationSettingsComponent` is a standalone single-file component that manages:
+
+1. **Notification toggle matrix** — per-event × per-target-group toggles for SMS and email channels
+2. **SMS templates** — editable per event × target group, with preview and test-SMS
+3. **Email templates** — editable subject + HTML body per event × target group, with preview and test-email
+
+The screen is split into two columns: SMS templates on the left, Email templates on the right, sharing a common group-tab selector. Both template types use the same card-based layout pattern. Placeholders (e.g. `{{visit.title}}`) are shared and displayed in a collapsible reference section.
+
+**API endpoints used:**
+- `GET/PUT /settings/notifications` — toggle matrix
+- `GET/PUT /settings/sms-templates` — SMS templates CRUD
+- `POST /settings/sms-templates/preview` — preview rendered SMS
+- `POST /settings/sms-templates/test` — send test SMS
+- `GET /settings/sms-templates/placeholders` — available placeholders
+- `GET/PUT /settings/email-templates` — Email templates CRUD
+- `POST /settings/email-templates/preview` — preview rendered email (subject + body)
+- `POST /settings/email-templates/test` — send test email
+
 ## Routing Strategy
 
 ```typescript

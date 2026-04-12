@@ -136,15 +136,51 @@ describe('UsersService', () => {
     });
 
     describe('remove', () => {
-        it('should hard-delete user and broadcast', async () => {
-            const user = { id: '1', username: 'alice', isActive: true, roles: [{ name: 'Admin', permissions: [] }], passwordHash: 'h' };
+        it('should soft-delete user by setting isActive to false', async () => {
+            const user = { id: '1', username: 'alice', isActive: true, roles: [], passwordHash: 'h' };
             mockRepo.findOne.mockResolvedValue(user);
+            mockRepo.save.mockResolvedValue({ ...user, isActive: false });
             (mockRepo as any).manager = { query: jest.fn().mockResolvedValue(undefined) };
 
             await service.remove('1', 'admin-id');
 
-            expect(mockRepo.delete).toHaveBeenCalledWith('1');
+            expect(mockRepo.save).toHaveBeenCalledWith(expect.objectContaining({ isActive: false }));
+            expect(mockRepo.delete).not.toHaveBeenCalled();
             expect(mockWsGateway.broadcastToAll).toHaveBeenCalledWith('users:user:deleted', { id: '1' });
+        });
+
+        it('should revoke refresh tokens on soft-delete', async () => {
+            const user = { id: '1', username: 'alice', isActive: true, roles: [], passwordHash: 'h' };
+            mockRepo.findOne.mockResolvedValue(user);
+            mockRepo.save.mockResolvedValue({ ...user, isActive: false });
+            const mockQuery = jest.fn().mockResolvedValue(undefined);
+            (mockRepo as any).manager = { query: mockQuery };
+
+            await service.remove('1', 'admin-id');
+
+            expect(mockQuery).toHaveBeenCalledWith(
+                expect.stringContaining('RefreshTokens'),
+                ['1'],
+            );
+        });
+
+        it('should throw BadRequestException when user is already deactivated', async () => {
+            const user = { id: '1', username: 'alice', isActive: false, roles: [], passwordHash: 'h' };
+            mockRepo.findOne.mockResolvedValue(user);
+
+            await expect(service.remove('1', 'admin-id')).rejects.toThrow(BadRequestException);
+        });
+
+        it('should throw BadRequestException when deleting own account', async () => {
+            const user = { id: 'admin-id', username: 'admin', isActive: true, roles: [], passwordHash: 'h' };
+            mockRepo.findOne.mockResolvedValue(user);
+
+            await expect(service.remove('admin-id', 'admin-id')).rejects.toThrow(BadRequestException);
+        });
+
+        it('should throw NotFoundException for missing user', async () => {
+            mockRepo.findOne.mockResolvedValue(null);
+            await expect(service.remove('nonexistent', 'admin-id')).rejects.toThrow(NotFoundException);
         });
     });
 

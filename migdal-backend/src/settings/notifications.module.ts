@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SmsTemplate } from './entities/sms-template.entity';
+import { EmailTemplate } from './entities/email-template.entity';
 import { NotificationSetting } from './entities/notification-setting.entity';
 import { SmsTemplateController } from './sms-template.controller';
 import { SmsTemplateService } from './sms-template.service';
@@ -17,7 +18,7 @@ import { NotificationSettingsService } from './notification-settings.service';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([SmsTemplate, NotificationSetting]),
+        TypeOrmModule.forFeature([SmsTemplate, EmailTemplate, NotificationSetting]),
     ],
     controllers: [],
     providers: [

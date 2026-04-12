@@ -20,6 +20,7 @@ export class EmailNotificationService {
 
     /**
      * Trigger email for a notification event.
+     * Sends per target group using group-specific templates.
      * Never throws — failures are logged and audited.
      */
     async triggerEmail(event: NotificationEvent, data: EmailTemplateData): Promise<void> {
@@ -30,38 +31,40 @@ export class EmailNotificationService {
                 return;
             }
 
-            // 2. Check notification settings — email must be enabled for at least one target group
-            const emailEnabled = await this.isEmailEnabledForEvent(event);
-            if (!emailEnabled) {
-                this.logger.debug(`Email disabled for event ${event}`);
-                return;
+            const targetGroups = ['system_users', 'visitors', 'escorts', 'visit_requester'];
+            const allResults: EmailSendResult[] = [];
+
+            for (const group of targetGroups) {
+                // 2. Check if email is enabled for this target group
+                const enabled = await this.notificationSettings.isEnabled(group, event, 'email');
+                if (!enabled) continue;
+
+                // 3. Load the template for this event + target group
+                const emailTemplate = await this.templateService.loadTemplate(event, group);
+                if (!emailTemplate) {
+                    this.logger.debug(`No email template found for event ${event}, group ${group}`);
+                    continue;
+                }
+
+                // 4. Resolve recipients
+                const recipients = this.parseRecipients(emailTemplate.recipients);
+                if (recipients.length === 0) continue;
+
+                // 5. Render subject and body
+                const subject = this.renderer.render(emailTemplate.subject, data);
+                const html = this.renderer.render(emailTemplate.bodyHtml, data);
+
+                // 6. Send to all recipients
+                const results = await this.provider.sendBulk(
+                    recipients.map((to) => ({ to, subject, html })),
+                );
+                allResults.push(...results);
             }
-
-            // 3. Load the template for this event
-            const emailTemplate = this.templateService.loadTemplate(event);
-            if (!emailTemplate) {
-                this.logger.debug(`No email template found for event ${event}`);
-                return;
-            }
-
-            // 4. Resolve recipients
-            const recipients = this.templateService.getRecipients();
-            if (recipients.length === 0) {
-                this.logger.debug(`No email recipients configured for event ${event}`);
-                return;
-            }
-
-            // 5. Render subject and body
-            const subject = this.renderer.render(emailTemplate.subject, data);
-            const html = this.renderer.render(emailTemplate.bodyHtml, data);
-
-            // 6. Send to all recipients
-            const results = await this.provider.sendBulk(
-                recipients.map((to) => ({ to, subject, html })),
-            );
 
             // 7. Log results
-            await this.logResults(event, results);
+            if (allResults.length > 0) {
+                await this.logResults(event, allResults);
+            }
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Unknown error';
             this.logger.error(`Email notification failed for event ${event}: ${message}`);
@@ -75,14 +78,15 @@ export class EmailNotificationService {
         }
     }
 
-    private async isEmailEnabledForEvent(event: string): Promise<boolean> {
-        // Check if email is enabled for any target group for this event
-        const targetGroups = ['system_users', 'visitors', 'escorts', 'visit_requester'];
-        for (const group of targetGroups) {
-            const enabled = await this.notificationSettings.isEnabled(group, event, 'email');
-            if (enabled) return true;
+    private parseRecipients(recipientsJson: string | null): string[] {
+        if (!recipientsJson) return [];
+        try {
+            const parsed = JSON.parse(recipientsJson);
+            if (Array.isArray(parsed)) return parsed.filter((r) => typeof r === 'string' && r.trim());
+            return [];
+        } catch {
+            return [];
         }
-        return false;
     }
 
     private async logResults(event: string, results: EmailSendResult[]): Promise<void> {

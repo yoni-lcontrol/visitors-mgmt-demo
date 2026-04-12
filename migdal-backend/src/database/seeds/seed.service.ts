@@ -7,9 +7,11 @@ import { permissionsSeed } from './data/permissions.seed';
 import { rolesSeed } from './data/roles.seed';
 import { adminUserSeed } from './data/admin-user.seed';
 import { smsTemplatesSeed } from './data/sms-templates.seed';
+import { emailTemplatesSeed } from './data/email-templates.seed';
 import { settingsSeed } from './data/settings.seed';
 import { hashPassword } from '../../common/utils/hash.util';
 import { SmsTemplate } from '../../settings/entities/sms-template.entity';
+import { EmailTemplate } from '../../settings/entities/email-template.entity';
 import { Setting } from '../../settings/entities/setting.entity';
 
 @Injectable()
@@ -130,7 +132,27 @@ export class SeedService implements OnModuleInit {
                 this.logger.log(`Seeded ${newTemplates.length} SMS template(s)`);
             }
 
-            // 5. Seed default settings (upsert — add missing keys)
+            // 5. Seed email templates (upsert — add missing event+targetGroup templates)
+            const emailRepo = queryRunner.manager.getRepository(EmailTemplate);
+            const existingEmailTemplates = await emailRepo.find();
+            const existingEmailKeys = new Set(existingEmailTemplates.map((t) => `${t.event}::${t.targetGroup}`));
+
+            const newEmailTemplates = emailTemplatesSeed.filter((t) => !existingEmailKeys.has(`${t.event}::${t.targetGroup}`));
+            if (newEmailTemplates.length > 0) {
+                this.logger.log(`Seeding ${newEmailTemplates.length} email template(s)...`);
+                for (const t of newEmailTemplates) {
+                    const tpl = emailRepo.create({
+                        event: t.event,
+                        targetGroup: t.targetGroup,
+                        subject: t.subject,
+                        bodyHtml: t.bodyHtml,
+                    });
+                    await emailRepo.save(tpl);
+                }
+                this.logger.log(`Seeded ${newEmailTemplates.length} email template(s)`);
+            }
+
+            // 6. Seed default settings (upsert — add missing keys)
             const settingRepo = queryRunner.manager.getRepository(Setting);
             const existingSettings = await settingRepo.find();
             const existingSettingKeys = new Set(existingSettings.map((s) => s.key));

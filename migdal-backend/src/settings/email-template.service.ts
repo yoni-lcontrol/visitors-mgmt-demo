@@ -1,80 +1,99 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as fs from 'fs';
-import * as path from 'path';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { EmailTemplate } from './entities/email-template.entity';
+import { UpsertEmailTemplateDto } from './dto/upsert-email-template.dto';
 import { EmailTemplateRendererService } from './email-template-renderer.service';
 import { EmailProviderService } from './email-provider.service';
-
-export interface EmailTemplateFile {
-    event: string;
-    subject: string;
-    bodyHtml: string;
-}
-
-const EVENT_BADGES: Record<string, { text: string; bg: string; color: string }> = {
-    visit_created: { text: 'ביקור חדש', bg: '#e8f5e9', color: '#2e7d32' },
-    visit_updated: { text: 'ביקור עודכן', bg: '#fff3e0', color: '#e65100' },
-    visit_deleted: { text: 'ביקור בוטל', bg: '#fce4ec', color: '#c62828' },
-    visitor_arrived: { text: 'מבקר הגיע', bg: '#e3f2fd', color: '#1565c0' },
-    visitor_blacklisted: { text: 'אזהרת אבטחה', bg: '#fce4ec', color: '#c62828' },
-    parking_request_decision: { text: 'החלטת חנייה', bg: '#ede7f6', color: '#4527a0' },
-    visitor_checked_out: { text: 'מבקר יצא', bg: '#e8f5e9', color: '#2e7d32' },
-    visitor_overstay: { text: 'מבקר לא יצא', bg: '#fff3e0', color: '#e65100' },
-};
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class EmailTemplateService {
     private readonly logger = new Logger(EmailTemplateService.name);
-    private readonly templatesDir: string;
-    private readonly recipients: string[];
-    private readonly layout: string | null;
 
     constructor(
+        @InjectRepository(EmailTemplate)
+        private readonly repo: Repository<EmailTemplate>,
         private readonly renderer: EmailTemplateRendererService,
         private readonly provider: EmailProviderService,
-        private readonly config: ConfigService,
-    ) {
-        this.templatesDir = path.join(__dirname, 'email-templates');
-        const raw = this.config.get<string>('EMAIL_RECIPIENTS', '');
-        this.recipients = raw
-            .split(',')
-            .map((r) => r.trim())
-            .filter(Boolean);
-        this.layout = this.loadLayout();
+        private readonly auditService: AuditService,
+    ) { }
+
+    async findAll(): Promise<EmailTemplate[]> {
+        return this.repo.find({
+            where: { isActive: true },
+            order: { targetGroup: 'ASC', event: 'ASC' },
+        });
     }
 
-    getRecipients(): string[] {
-        return [...this.recipients];
+    async loadTemplate(event: string, targetGroup: string): Promise<EmailTemplate | null> {
+        return this.repo.findOne({
+            where: { event, targetGroup, isActive: true },
+        });
     }
 
-    findAll(): EmailTemplateFile[] {
-        const events = this.listEvents();
-        return events.map((event) => this.loadTemplate(event)).filter(Boolean) as EmailTemplateFile[];
-    }
+    async bulkUpsert(
+        items: UpsertEmailTemplateDto[],
+        currentUserId?: string,
+    ): Promise<EmailTemplate[]> {
+        const changes: { event: string; targetGroup: string; action: string }[] = [];
 
-    loadTemplate(event: string): EmailTemplateFile | null {
-        const dir = path.join(this.templatesDir, event);
-        const subjectPath = path.join(dir, 'subject.txt');
-        const bodyPath = path.join(dir, 'body.html');
+        for (const item of items) {
+            this.renderer.validateTemplate(item.subject);
+            this.renderer.validateTemplate(item.bodyHtml);
 
-        if (!fs.existsSync(subjectPath) || !fs.existsSync(bodyPath)) {
-            this.logger.debug(`Template files missing for event ${event}`);
-            return null;
+            const existing = await this.repo.findOne({
+                where: { event: item.event, targetGroup: item.targetGroup },
+            });
+
+            if (existing) {
+                existing.subject = item.subject;
+                existing.bodyHtml = item.bodyHtml;
+                existing.recipients = item.recipients ? JSON.stringify(item.recipients) : null;
+                existing.isActive = true;
+                existing.updatedBy = currentUserId ?? null;
+                await this.repo.save(existing);
+                changes.push({ event: item.event, targetGroup: item.targetGroup, action: 'updated' });
+            } else {
+                const entity = this.repo.create({
+                    event: item.event,
+                    targetGroup: item.targetGroup,
+                    subject: item.subject,
+                    bodyHtml: item.bodyHtml,
+                    recipients: item.recipients ? JSON.stringify(item.recipients) : null,
+                    createdBy: currentUserId ?? null,
+                    updatedBy: currentUserId ?? null,
+                });
+                await this.repo.save(entity);
+                changes.push({ event: item.event, targetGroup: item.targetGroup, action: 'created' });
+            }
         }
 
-        const subject = fs.readFileSync(subjectPath, 'utf-8').trim();
-        const bodyContent = fs.readFileSync(bodyPath, 'utf-8');
-        const bodyHtml = this.wrapInLayout(bodyContent, subject, event);
+        this.auditService.log({
+            userId: currentUserId,
+            module: 'settings',
+            action: 'BULK_UPSERT',
+            entity: 'EmailTemplate',
+            description: `Bulk upserted ${items.length} email templates`,
+            newValue: changes,
+        }).catch(() => { });
 
-        return { event, subject, bodyHtml };
+        return this.findAll();
     }
 
-    preview(event: string, customSubject?: string, customBodyHtml?: string): { renderedSubject: string; renderedBody: string; placeholders: string[] } {
+    async preview(
+        event: string,
+        customSubject?: string,
+        customBodyHtml?: string,
+        targetGroup?: string,
+    ): Promise<{ renderedSubject: string; renderedBody: string; placeholders: string[] }> {
         let subject = customSubject;
         let bodyHtml = customBodyHtml;
 
         if (!subject || !bodyHtml) {
-            const template = this.loadTemplate(event);
+            const where: Record<string, unknown> = { event, isActive: true };
+            if (targetGroup) where['targetGroup'] = targetGroup;
+            const template = await this.repo.findOne({ where });
             subject = subject ?? template?.subject ?? '';
             bodyHtml = bodyHtml ?? template?.bodyHtml ?? '';
         }
@@ -90,34 +109,11 @@ export class EmailTemplateService {
         };
     }
 
-    private wrapInLayout(content: string, subject: string, event: string): string {
-        if (!this.layout) return content;
-
-        const badge = EVENT_BADGES[event] ?? { text: event, bg: '#e0e0e0', color: '#333' };
-
-        return this.layout
-            .replace('{{CONTENT}}', content)
-            .replace('{{SUBJECT}}', subject)
-            .replace('{{BADGE_TEXT}}', badge.text)
-            .replace('{{BADGE_BG}}', badge.bg)
-            .replace('{{BADGE_COLOR}}', badge.color);
-    }
-
-    private loadLayout(): string | null {
-        const layoutPath = path.join(this.templatesDir, 'layout.html');
-        if (!fs.existsSync(layoutPath)) return null;
-        return fs.readFileSync(layoutPath, 'utf-8');
-    }
-
-    private listEvents(): string[] {
-        if (!fs.existsSync(this.templatesDir)) return [];
-        return fs
-            .readdirSync(this.templatesDir, { withFileTypes: true })
-            .filter((d) => d.isDirectory())
-            .map((d) => d.name);
-    }
-
-    async testEmail(email: string, subject: string, bodyHtml: string): Promise<{ success: boolean; subject: string; html: string }> {
+    async testEmail(
+        email: string,
+        subject: string,
+        bodyHtml: string,
+    ): Promise<{ success: boolean; subject: string; html: string }> {
         if (!this.provider.isConfigured()) {
             throw new BadRequestException('Email provider is not configured');
         }

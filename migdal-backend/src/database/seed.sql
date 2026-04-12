@@ -12,7 +12,6 @@ VALUES
   (NEWID(), 'users.create',  'Create Users',  'users', 'create', 'Create new user accounts',   GETUTCDATE(), GETUTCDATE()),
   (NEWID(), 'users.read',    'Read Users',    'users', 'read',   'View user details',          GETUTCDATE(), GETUTCDATE()),
   (NEWID(), 'users.update',  'Update Users',  'users', 'update', 'Edit user information',      GETUTCDATE(), GETUTCDATE()),
-  (NEWID(), 'users.delete',  'Delete Users',  'users', 'delete', 'Deactivate user accounts',   GETUTCDATE(), GETUTCDATE()),
   (NEWID(), 'users.sync',    'Sync Users',    'users', 'sync',   'Synchronise users from AD',  GETUTCDATE(), GETUTCDATE()),
 
   -- Roles

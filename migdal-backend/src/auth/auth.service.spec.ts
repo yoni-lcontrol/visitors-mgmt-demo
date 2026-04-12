@@ -305,7 +305,7 @@ describe('AuthService', () => {
             const future = new Date();
             future.setDate(future.getDate() + 1);
 
-            // --- Step 1: User logs in with Admin role that has users.read, users.create, users.delete ---
+            // --- Step 1: User logs in with Admin role that has users.read, users.create, users.update ---
             mockUsersService.findByUsername.mockResolvedValue({
                 id: 'user-1',
                 username: 'testuser',
@@ -313,16 +313,16 @@ describe('AuthService', () => {
                 lastName: 'User',
                 passwordHash: 'hashed',
                 isActive: true,
-                roles: [{ id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }, { key: 'users.delete' }] }],
+                roles: [{ id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }, { key: 'users.update' }] }],
             });
             jest.spyOn(hashUtil, 'comparePassword').mockResolvedValue(true);
 
             const loginResult = await service.login({ username: 'testuser', password: 'correct' });
             expect(loginResult.user.permissions).toContain('users.read');
             expect(loginResult.user.permissions).toContain('users.create');
-            expect(loginResult.user.permissions).toContain('users.delete');
+            expect(loginResult.user.permissions).toContain('users.update');
 
-            // --- Step 2: Admin removes users.delete from the Admin role and adds visits.read ---
+            // --- Step 2: Admin removes users.update from the Admin role and adds visits.read ---
             // Same role name, same role id — just different permissions
             mockRefreshTokenRepo.findOne.mockResolvedValue({
                 id: 'rt-1',
@@ -350,7 +350,7 @@ describe('AuthService', () => {
             // Newly added permission is present
             expect(refreshResult.user.permissions).toContain('visits.read');
             // Removed permission is gone
-            expect(refreshResult.user.permissions).not.toContain('users.delete');
+            expect(refreshResult.user.permissions).not.toContain('users.update');
         });
     });
 

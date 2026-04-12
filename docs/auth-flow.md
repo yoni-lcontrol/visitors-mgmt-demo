@@ -128,7 +128,6 @@ On page reload, the frontend calls `GET /api/workstations/session/current` to re
     "users.create",
     "users.read",
     "users.update",
-    "users.delete",
     "roles.read"
   ],
   "iat": 1711411200,

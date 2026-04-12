@@ -223,42 +223,6 @@ export class UsersService {
         return result;
     }
 
-    async remove(id: string, currentUserId?: string): Promise<void> {
-        const user = await this.userRepo.findOne({ where: { id } });
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
-
-        if (!user.isActive) {
-            throw new BadRequestException('User is already deactivated');
-        }
-
-        if (currentUserId && currentUserId === id) {
-            throw new BadRequestException('Cannot deactivate your own account');
-        }
-
-        // Soft delete: mark as inactive
-        user.isActive = false;
-        user.updatedBy = currentUserId ?? null;
-        await this.userRepo.save(user);
-
-        // Revoke all active refresh tokens so the user is logged out
-        await this.userRepo.manager.query(
-            `UPDATE [RefreshTokens] SET [isRevoked] = 1 WHERE [userId] = @0 AND [isRevoked] = 0`,
-            [id],
-        );
-
-        this.wsGateway.broadcastToAll('users:user:deleted', { id });
-        this.auditService.log({
-            userId: currentUserId,
-            module: 'users',
-            action: 'SOFT_DELETE',
-            entity: 'User',
-            entityId: id,
-            description: `Soft-deleted user ${user.username}`,
-        }).catch(() => { });
-    }
-
     async assignRoles(
         id: string,
         roleIds: string[],

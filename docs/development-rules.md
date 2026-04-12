@@ -305,7 +305,6 @@ When checking or looking up multiple records, use batch methods to avoid N+1 que
    - `users.view`
    - `users.create`
    - `users.edit`
-   - `users.delete`
    - `visitors.invite`
    - `accessControl.import`
    - `settings.manage`

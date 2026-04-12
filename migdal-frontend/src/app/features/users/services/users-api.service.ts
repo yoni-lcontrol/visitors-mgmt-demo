@@ -24,10 +24,6 @@ export class UsersApiService {
         return this.api.patch<User>(`${this.basePath}/${id}`, payload);
     }
 
-    delete(id: string): Observable<void> {
-        return this.api.delete<void>(`${this.basePath}/${id}`);
-    }
-
     export(params: Record<string, string | number>): Observable<Blob> {
         return this.api.download(`${this.basePath}/export`, params);
     }

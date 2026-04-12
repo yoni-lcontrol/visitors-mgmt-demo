@@ -38,14 +38,14 @@ describe('PermissionsGuard', () => {
     it('should allow when user has all required permissions', () => {
         const ctx = createContext(
             ['users.read', 'users.create'],
-            { permissions: ['users.read', 'users.create', 'users.delete'] },
+            { permissions: ['users.read', 'users.create', 'users.update'] },
         );
         expect(guard.canActivate(ctx)).toBe(true);
     });
 
     it('should throw ForbiddenException when permission is missing', () => {
         const ctx = createContext(
-            ['users.delete'],
+            ['users.update'],
             { permissions: ['users.read'] },
         );
         expect(() => guard.canActivate(ctx)).toThrow(ForbiddenException);
@@ -53,7 +53,7 @@ describe('PermissionsGuard', () => {
 
     it('should throw ForbiddenException (not UnauthorizedException) for missing permissions', () => {
         const ctx = createContext(
-            ['users.delete'],
+            ['users.update'],
             { permissions: ['users.read'] },
         );
         try {

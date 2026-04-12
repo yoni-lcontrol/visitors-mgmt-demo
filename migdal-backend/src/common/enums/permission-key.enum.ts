@@ -7,7 +7,6 @@ export enum PermissionKey {
     UsersCreate = 'users.create',
     UsersRead = 'users.read',
     UsersUpdate = 'users.update',
-    UsersDelete = 'users.delete',
     UsersSync = 'users.sync',
 
     // Roles

@@ -3,12 +3,9 @@ import {
     Get,
     Post,
     Patch,
-    Delete,
     Body,
     Param,
     Query,
-    HttpCode,
-    HttpStatus,
     Res,
 } from '@nestjs/common';
 import { Response } from 'express';
@@ -84,17 +81,6 @@ export class UsersController {
         @CurrentUser('sub') currentUserId: string,
     ) {
         return this.usersService.update(id, dto, currentUserId);
-    }
-
-    @Delete(':id')
-    @RequirePermissions(PermissionKey.UsersDelete)
-    @HttpCode(HttpStatus.NO_CONTENT)
-    @ApiOperation({ summary: 'Soft-delete user' })
-    remove(
-        @Param('id', ParseUUIDPipe) id: string,
-        @CurrentUser('sub') currentUserId: string,
-    ) {
-        return this.usersService.remove(id, currentUserId);
     }
 
     @Post(':id/roles')

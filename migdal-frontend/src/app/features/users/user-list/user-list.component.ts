@@ -327,18 +327,6 @@ export class UserListComponent implements OnInit {
     });
   }
 
-  async onDelete(user: User): Promise<void> {
-    if (await this.confirmService.confirm('USERS.DELETE_CONFIRM')) {
-      this.usersApi.delete(user.id).subscribe({
-        next: () => {
-          this.notify.success('COMMON.SUCCESS');
-          this.loadUsers();
-        },
-        error: (err) => this.notify.error(err),
-      });
-    }
-  }
-
   onToggleActive(user: User): void {
     this.usersApi.update(user.id, { isActive: user.isActive }).subscribe({
       next: () => this.notify.success('COMMON.SUCCESS'),

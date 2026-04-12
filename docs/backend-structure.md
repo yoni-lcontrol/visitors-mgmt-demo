@@ -305,7 +305,7 @@ backend/src/settings/
 
 #### Notification Events
 
-Each event supports per-target-group SMS templates. The `SmsTemplate` entity uses a composite unique constraint on `(event, targetGroup)`, allowing separate template text and recipients per group.
+Each event supports per-target-group SMS and email templates. Both `SmsTemplate` and `EmailTemplate` entities use a composite unique constraint on `(event, targetGroup)`, allowing separate template text and recipients per group.
 
 Target groups: `system_users`, `visitors`, `escorts`, `visit_requester`.
 

@@ -1,8 +1,10 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Put, Post, Body } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { EmailTemplateService } from './email-template.service';
+import { BulkUpsertEmailTemplatesDto } from './dto/bulk-upsert-email-templates.dto';
 import { PreviewEmailTemplateDto } from './dto/preview-email-template.dto';
 import { TestEmailDto } from './dto/test-email.dto';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { PermissionKey } from '../common/enums/permission-key.enum';
 import { EmailTemplateRendererService } from './email-template-renderer.service';
@@ -23,11 +25,21 @@ export class EmailTemplateController {
         return this.service.findAll();
     }
 
+    @Put()
+    @RequirePermissions(PermissionKey.SettingsUpdate)
+    @ApiOperation({ summary: 'Bulk upsert email templates' })
+    bulkUpsert(
+        @Body() dto: BulkUpsertEmailTemplatesDto,
+        @CurrentUser('sub') currentUserId: string,
+    ) {
+        return this.service.bulkUpsert(dto.templates, currentUserId);
+    }
+
     @Post('preview')
     @RequirePermissions(PermissionKey.SettingsRead)
     @ApiOperation({ summary: 'Preview an email template with sample data' })
     preview(@Body() dto: PreviewEmailTemplateDto) {
-        return this.service.preview(dto.event, dto.subject, dto.bodyHtml);
+        return this.service.preview(dto.event, dto.subject, dto.bodyHtml, dto.targetGroup);
     }
 
     @Get('placeholders')

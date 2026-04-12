@@ -77,6 +77,10 @@ export class EmailTemplateRendererService {
                 carNumber: '12-345-67',
                 checkInCode: '123456',
             },
+            parking: {
+                status: 'אושר',
+                reviewNote: 'הערה לדוגמה',
+            },
         };
     }
 

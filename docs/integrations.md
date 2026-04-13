@@ -11,7 +11,7 @@ integrations/
 │   │   └── external-event-log.entity.ts   # ExternalEventLogs table
 │   ├── enums/
 │   │   ├── inbound-event-status.enum.ts   # Received → Processed/Duplicate/Failed/Ignored
-│   │   └── integration-provider.enum.ts   # AccessControl | Scanner | Printer
+│   │   └── integration-provider.enum.ts   # AccessControl | Scanner | Printer | Amadeus
 │   ├── guards/
 │   │   └── integration-hmac.guard.ts      # HMAC-SHA256 authentication
 │   ├── interfaces/
@@ -29,6 +29,14 @@ integrations/
 │   └── access-control-integration.module.ts
 ├── scanner/                         # Scanner provider (same structure)
 ├── printer/                         # Printer provider (same structure)
+├── amadeus/                         # Amadeus access-control bridge
+│   ├── dto/
+│   │   └── create-amadeus-event.dto.ts    # Validated DTO matching BackendAmadeusEventDto
+│   ├── adapters/
+│   │   └── amadeus-event.adapter.ts       # Maps DTO → InboundEvent
+│   ├── amadeus-events.controller.ts       # POST batch + single endpoints
+│   ├── amadeus-events.service.ts          # Event processing + WS broadcast
+│   └── amadeus-integration.module.ts
 └── integrations.module.ts           # Root module
 ```
 
@@ -75,6 +83,8 @@ Optional: `INTEGRATIONS_HMAC_MAX_SKEW_MS` (default: 300000 = 5 minutes)
 | POST | `/api/integrations/access-control/events` | Access Control |
 | POST | `/api/integrations/scanner/events` | Scanner |
 | POST | `/api/integrations/printer/events` | Printer |
+| POST | `/api/integrations/amadeus/events` | Amadeus (batch) |
+| POST | `/api/integrations/amadeus/events/single` | Amadeus (single) |
 
 ### Request Shape (example: access-control)
 

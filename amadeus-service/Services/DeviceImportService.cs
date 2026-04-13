@@ -1,0 +1,1138 @@
+using Amadeus8.Data;
+using Amadeus8.DTOs;
+using Amadeus8.Entities;
+using Amadeus8.Models;
+using Amadeus8.Configurations;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+
+namespace Amadeus8.Services;
+
+public class DeviceImportService : IDeviceImportService
+{
+    private readonly IAmadeusApiClient _apiClient;
+    private readonly IBackendEquipmentSnapshotProvider _backendSnapshotProvider;
+    private readonly AmadeusDbContext _dbContext;
+    private readonly ILogger<DeviceImportService> _logger;
+    private readonly int _batchSize;
+    private bool _startupSnapshotMissingLogged;
+
+    public DeviceImportService(
+        IAmadeusApiClient apiClient,
+        IBackendEquipmentSnapshotProvider backendSnapshotProvider,
+        AmadeusDbContext dbContext,
+        IOptions<AmadeusOptions> options,
+        ILogger<DeviceImportService> logger)
+    {
+        _apiClient = apiClient;
+        _backendSnapshotProvider = backendSnapshotProvider;
+        _dbContext = dbContext;
+        _batchSize = options.Value.InfrastructureImportBatchSize;
+        _logger = logger;
+    }
+
+    public async Task<SyncResultDto> ImportAllAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Starting full device import");
+        var startedUtc = DateTime.UtcNow;
+        var totalResult = new SyncResultDto { Operation = "FullSync", StartedUtc = startedUtc, Success = true };
+
+        if (!EnsureBackendAvailable(totalResult))
+        {
+            return totalResult;
+        }
+
+        try
+        {
+            // Per docs/sync-strategy.md: recommended order — controllers, extensions, readers/doors, IOs
+            var controllersResult = await ImportControllersAsync(cancellationToken);
+            Accumulate(totalResult, controllersResult);
+
+            var extensionsResult = await ImportExtensionsAsync(cancellationToken);
+            Accumulate(totalResult, extensionsResult);
+
+            var doorsResult = await ImportDoorsAsync(cancellationToken);
+            Accumulate(totalResult, doorsResult);
+
+            totalResult.CompletedUtc = DateTime.UtcNow;
+            totalResult.Success = totalResult.Failed == 0;
+
+            _logger.LogInformation(
+                "Full import completed. Created: {Created}, Updated: {Updated}, Unchanged: {Unchanged}, Failed: {Failed}",
+                totalResult.Created, totalResult.Updated, totalResult.Unchanged, totalResult.Failed);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            totalResult.Success = false;
+            totalResult.CompletedUtc = DateTime.UtcNow;
+            totalResult.ErrorMessage = ex.Message;
+            _logger.LogError(ex, "Full import failed");
+        }
+
+        return totalResult;
+    }
+
+    public async Task<SyncResultDto> ImportControllersAsync(CancellationToken cancellationToken)
+    {
+        var result = new SyncResultDto { Operation = "ImportControllers", StartedUtc = DateTime.UtcNow };
+
+        if (!EnsureBackendAvailable(result))
+        {
+            return result;
+        }
+
+        try
+        {
+            _logger.LogInformation("Importing controllers from Amadeus");
+            var skip = 0;
+            var batchIndex = 0;
+            var processed = 0;
+            int? totalCount = null;
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                batchIndex++;
+                _logger.LogInformation(
+                    "Controller batch {Batch} started. Skip={Skip}, Top={Top}",
+                    batchIndex,
+                    skip,
+                    _batchSize);
+
+                var (externalControllers, count) = await _apiClient.GetControllersPagedAsync(skip, _batchSize, cancellationToken);
+                totalCount ??= count;
+
+                if (externalControllers.Count == 0)
+                {
+                    _logger.LogInformation("Controller batch {Batch} returned no records; stopping paging loop", batchIndex);
+                    break;
+                }
+
+                foreach (var ext in externalControllers)
+                {
+                    try
+                    {
+                        await UpsertControllerAsync(ext, cancellationToken, result);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Failed++;
+                        _logger.LogError(ex, "Failed to upsert controller with external ID {ExternalId}", ext.Id);
+                    }
+                }
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                _dbContext.ChangeTracker.Clear();
+
+                processed += externalControllers.Count;
+                skip += externalControllers.Count;
+
+                _logger.LogInformation(
+                    "Controller batch {Batch} completed. BatchProcessed={BatchProcessed}, CumulativeProcessed={CumulativeProcessed}, Total={Total}",
+                    batchIndex,
+                    externalControllers.Count,
+                    processed,
+                    totalCount);
+
+                if (externalControllers.Count < _batchSize)
+                {
+                    break;
+                }
+            }
+
+            result.Success = result.Failed == 0;
+            result.CompletedUtc = DateTime.UtcNow;
+
+            _logger.LogInformation(
+                "Controller import completed. Created: {Created}, Updated: {Updated}, Unchanged: {Unchanged}, Failed: {Failed}",
+                result.Created, result.Updated, result.Unchanged, result.Failed);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.CompletedUtc = DateTime.UtcNow;
+            result.ErrorMessage = ex.Message;
+            _logger.LogError(ex, "Controller import failed");
+        }
+
+        return result;
+    }
+
+    public async Task<SyncResultDto> ImportDoorsAsync(CancellationToken cancellationToken)
+    {
+        var result = new SyncResultDto { Operation = "ImportDoors", StartedUtc = DateTime.UtcNow };
+
+        if (!EnsureBackendAvailable(result))
+        {
+            return result;
+        }
+
+        try
+        {
+            _logger.LogInformation("Importing readers (doors) from Amadeus");
+            var skip = 0;
+            var batchIndex = 0;
+            var processed = 0;
+            int? totalCount = null;
+
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                batchIndex++;
+                _logger.LogInformation(
+                    "Door batch {Batch} started. Skip={Skip}, Top={Top}",
+                    batchIndex,
+                    skip,
+                    _batchSize);
+
+                var (externalReaders, count) = await _apiClient.GetReadersPagedAsync(skip, _batchSize, cancellationToken);
+                totalCount ??= count;
+
+                if (externalReaders.Count == 0)
+                {
+                    _logger.LogInformation("Door batch {Batch} returned no records; stopping paging loop", batchIndex);
+                    break;
+                }
+
+                foreach (var reader in externalReaders)
+                {
+                    try
+                    {
+                        await UpsertDoorFromReaderAsync(reader, cancellationToken, result);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Failed++;
+                        _logger.LogError(ex, "Failed to upsert door from reader with external ID {ExternalId}", reader.Id);
+                    }
+                }
+
+                await _dbContext.SaveChangesAsync(cancellationToken);
+                _dbContext.ChangeTracker.Clear();
+
+                processed += externalReaders.Count;
+                skip += externalReaders.Count;
+
+                _logger.LogInformation(
+                    "Door batch {Batch} completed. BatchProcessed={BatchProcessed}, CumulativeProcessed={CumulativeProcessed}, Total={Total}",
+                    batchIndex,
+                    externalReaders.Count,
+                    processed,
+                    totalCount);
+
+                if (externalReaders.Count < _batchSize)
+                {
+                    break;
+                }
+            }
+
+            // Also import inputs and outputs as door IOs
+            await ImportDoorIosAsync(cancellationToken, result);
+
+            result.Success = result.Failed == 0;
+            result.CompletedUtc = DateTime.UtcNow;
+
+            _logger.LogInformation(
+                "Door import completed. Created: {Created}, Updated: {Updated}, Unchanged: {Unchanged}, Failed: {Failed}",
+                result.Created, result.Updated, result.Unchanged, result.Failed);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.CompletedUtc = DateTime.UtcNow;
+            result.ErrorMessage = ex.Message;
+            _logger.LogError(ex, "Door import failed");
+        }
+
+        return result;
+    }
+
+    public async Task<SyncResultDto> ImportExtensionsAsync(CancellationToken cancellationToken)
+    {
+        var result = new SyncResultDto { Operation = "ImportExtensions", StartedUtc = DateTime.UtcNow };
+
+        if (!EnsureBackendAvailable(result))
+        {
+            return result;
+        }
+
+        try
+        {
+            // TODO: Confirm whether extensions are explicit Amadeus OData entities or
+            // implied by controller/module relationships. Currently using inputs with ModuleId
+            // as the extension mapping source. Adjust once verified against real $metadata.
+
+            _logger.LogInformation("Importing extensions from Amadeus (derived from inputs with ModuleId)");
+            var seenModules = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            await ProcessExtensionSourceInputsAsync(cancellationToken, result, seenModules);
+            await ProcessExtensionSourceOutputsAsync(cancellationToken, result, seenModules);
+
+            result.Success = result.Failed == 0;
+            result.CompletedUtc = DateTime.UtcNow;
+
+            _logger.LogInformation(
+                "Extension import completed. Created: {Created}, Updated: {Updated}, Unchanged: {Unchanged}, Failed: {Failed}",
+                result.Created, result.Updated, result.Unchanged, result.Failed);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            result.Success = false;
+            result.CompletedUtc = DateTime.UtcNow;
+            result.ErrorMessage = ex.Message;
+            _logger.LogError(ex, "Extension import failed");
+        }
+
+        return result;
+    }
+
+    private async Task UpsertControllerAsync(AmadeusController ext, CancellationToken cancellationToken, SyncResultDto result)
+    {
+        CompareControllerAgainstBackend(ext.Id, ext.Name, ext.IsActive);
+
+        var existing = await _dbContext.Controllers
+            .FirstOrDefaultAsync(c => c.ExternalId == ext.Id, cancellationToken);
+
+        if (existing is null)
+        {
+            var entity = new ControllerEntity
+            {
+                ExternalId = ext.Id,
+                ExternalApiKey = ext.ApiKey,
+                Name = ext.Name ?? ext.Id,
+                SiteExternalId = ext.SiteId,
+                IsActive = ext.IsActive ?? true,
+                LastCommunicationStatus = ext.CommStatus,
+                CreatedUtc = DateTime.UtcNow,
+                UpdatedUtc = DateTime.UtcNow
+            };
+            _dbContext.Controllers.Add(entity);
+            result.Created++;
+        }
+        else
+        {
+            var changed = false;
+
+            if (existing.Name != (ext.Name ?? ext.Id)) { existing.Name = ext.Name ?? ext.Id; changed = true; }
+            if (existing.ExternalApiKey != ext.ApiKey) { existing.ExternalApiKey = ext.ApiKey; changed = true; }
+            if (existing.SiteExternalId != ext.SiteId) { existing.SiteExternalId = ext.SiteId; changed = true; }
+            if (existing.IsActive != (ext.IsActive ?? true)) { existing.IsActive = ext.IsActive ?? true; changed = true; }
+            if (existing.LastCommunicationStatus != ext.CommStatus) { existing.LastCommunicationStatus = ext.CommStatus; changed = true; }
+
+            if (changed)
+            {
+                existing.UpdatedUtc = DateTime.UtcNow;
+                result.Updated++;
+            }
+            else
+            {
+                result.Unchanged++;
+            }
+        }
+    }
+
+    private async Task UpsertDoorFromReaderAsync(AmadeusReader reader, CancellationToken cancellationToken, SyncResultDto result)
+    {
+        CompareDoorAgainstBackend(reader.Id, reader.Name, reader.ControllerId);
+
+        if (string.IsNullOrEmpty(reader.ControllerId))
+        {
+            _logger.LogWarning("Reader {ReaderId} has no ControllerId, skipping", reader.Id);
+            result.Failed++;
+            return;
+        }
+
+        var controller = await _dbContext.Controllers
+            .FirstOrDefaultAsync(c => c.ExternalId == reader.ControllerId, cancellationToken);
+
+        if (controller is null)
+        {
+            _logger.LogWarning("Controller {ControllerId} not found for reader {ReaderId}, skipping", reader.ControllerId, reader.Id);
+            result.Failed++;
+            return;
+        }
+
+        var existing = await _dbContext.Doors
+            .FirstOrDefaultAsync(d => d.ExternalId == reader.Id, cancellationToken);
+
+        if (existing is null)
+        {
+            var entity = new DoorEntity
+            {
+                ExternalId = reader.Id,
+                Name = reader.Name ?? reader.Id,
+                ControllerId = controller.Id,
+                ReaderExternalId = reader.Id,
+                PrimaryOutputExternalId = reader.OutputId,
+                DoorContactInputExternalId = reader.DoorContactInputId,
+                IsActive = true,
+                CreatedUtc = DateTime.UtcNow,
+                UpdatedUtc = DateTime.UtcNow
+            };
+            _dbContext.Doors.Add(entity);
+            result.Created++;
+        }
+        else
+        {
+            var changed = false;
+
+            if (existing.Name != (reader.Name ?? reader.Id)) { existing.Name = reader.Name ?? reader.Id; changed = true; }
+            if (existing.ControllerId != controller.Id) { existing.ControllerId = controller.Id; changed = true; }
+            if (existing.PrimaryOutputExternalId != reader.OutputId) { existing.PrimaryOutputExternalId = reader.OutputId; changed = true; }
+            if (existing.DoorContactInputExternalId != reader.DoorContactInputId) { existing.DoorContactInputExternalId = reader.DoorContactInputId; changed = true; }
+
+            if (changed)
+            {
+                existing.UpdatedUtc = DateTime.UtcNow;
+                result.Updated++;
+            }
+            else
+            {
+                result.Unchanged++;
+            }
+        }
+    }
+
+    private async Task ImportDoorIosAsync(CancellationToken cancellationToken, SyncResultDto result)
+    {
+        _logger.LogInformation("Importing door IOs from inputs/outputs");
+
+        await ImportDoorInputsPagedAsync(cancellationToken, result);
+        await ImportDoorOutputsPagedAsync(cancellationToken, result);
+    }
+
+    private async Task UpsertDoorIoAsync(string externalId, string? controllerExternalId, string? name, string ioType, string direction, CancellationToken cancellationToken, SyncResultDto result)
+    {
+        CompareDoorIoAgainstBackend(externalId, name, ioType, direction, controllerExternalId);
+
+        if (string.IsNullOrEmpty(controllerExternalId))
+        {
+            result.Failed++;
+            return;
+        }
+
+        var controller = await _dbContext.Controllers
+            .FirstOrDefaultAsync(c => c.ExternalId == controllerExternalId, cancellationToken);
+        if (controller is null) { result.Failed++; return; }
+
+        // Find the first door for this controller to associate the IO with
+        var door = await _dbContext.Doors
+            .FirstOrDefaultAsync(d => d.ControllerId == controller.Id, cancellationToken);
+        if (door is null) { result.Failed++; return; }
+
+        var existing = await _dbContext.DoorIos
+            .FirstOrDefaultAsync(io => io.ExternalId == externalId, cancellationToken);
+
+        if (existing is null)
+        {
+            var entity = new DoorIoEntity
+            {
+                ExternalId = externalId,
+                DoorId = door.Id,
+                ControllerId = controller.Id,
+                IoType = ioType,
+                Direction = direction,
+                Name = name ?? externalId,
+                IsActive = true,
+                CreatedUtc = DateTime.UtcNow,
+                UpdatedUtc = DateTime.UtcNow
+            };
+            _dbContext.DoorIos.Add(entity);
+            result.Created++;
+        }
+        else
+        {
+            var changed = false;
+            if (existing.Name != (name ?? externalId)) { existing.Name = name ?? externalId; changed = true; }
+            if (existing.IoType != ioType) { existing.IoType = ioType; changed = true; }
+            if (existing.Direction != direction) { existing.Direction = direction; changed = true; }
+
+            if (changed)
+            {
+                existing.UpdatedUtc = DateTime.UtcNow;
+                result.Updated++;
+            }
+            else
+            {
+                result.Unchanged++;
+            }
+        }
+    }
+
+    private async Task UpsertExtensionAsync(string moduleId, string? controllerExternalId, CancellationToken cancellationToken, SyncResultDto result)
+    {
+        CompareExtensionAgainstBackend(moduleId, moduleId, controllerExternalId);
+
+        if (string.IsNullOrEmpty(controllerExternalId))
+        {
+            result.Failed++;
+            return;
+        }
+
+        var controller = await _dbContext.Controllers
+            .FirstOrDefaultAsync(c => c.ExternalId == controllerExternalId, cancellationToken);
+        if (controller is null) { result.Failed++; return; }
+
+        var existing = await _dbContext.Extensions
+            .FirstOrDefaultAsync(e => e.ExternalId == moduleId, cancellationToken);
+
+        if (existing is null)
+        {
+            var entity = new ExtensionEntity
+            {
+                ExternalId = moduleId,
+                ControllerId = controller.Id,
+                Name = moduleId,
+                IsActive = true,
+                CreatedUtc = DateTime.UtcNow,
+                UpdatedUtc = DateTime.UtcNow
+            };
+            _dbContext.Extensions.Add(entity);
+            result.Created++;
+        }
+        else
+        {
+            result.Unchanged++;
+        }
+    }
+
+    private async Task ImportDoorInputsPagedAsync(CancellationToken cancellationToken, SyncResultDto result)
+    {
+        var skip = 0;
+        var batchIndex = 0;
+        var processed = 0;
+        int? totalCount = null;
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            batchIndex++;
+            _logger.LogInformation("Door IO (input) batch {Batch} started. Skip={Skip}, Top={Top}", batchIndex, skip, _batchSize);
+
+            var (inputsPage, count) = await _apiClient.GetInputsPagedAsync(skip, _batchSize, cancellationToken);
+            totalCount ??= count;
+
+            if (inputsPage.Count == 0)
+            {
+                _logger.LogInformation("Door IO (input) batch {Batch} returned no records; stopping paging loop", batchIndex);
+                break;
+            }
+
+            foreach (var input in inputsPage)
+            {
+                if (!string.IsNullOrEmpty(input.ModuleId))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await UpsertDoorIoAsync(input.Id, input.ControllerId, input.Name, input.InputType ?? "Input", "Input", cancellationToken, result);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    result.Failed++;
+                    _logger.LogError(ex, "Failed to upsert door IO for input {InputId}", input.Id);
+                }
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _dbContext.ChangeTracker.Clear();
+
+            processed += inputsPage.Count;
+            skip += inputsPage.Count;
+
+            _logger.LogInformation(
+                "Door IO (input) batch {Batch} completed. BatchProcessed={BatchProcessed}, CumulativeProcessed={CumulativeProcessed}, Total={Total}",
+                batchIndex,
+                inputsPage.Count,
+                processed,
+                totalCount);
+
+            if (inputsPage.Count < _batchSize)
+            {
+                break;
+            }
+        }
+    }
+
+    private async Task ImportDoorOutputsPagedAsync(CancellationToken cancellationToken, SyncResultDto result)
+    {
+        var skip = 0;
+        var batchIndex = 0;
+        var processed = 0;
+        int? totalCount = null;
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            batchIndex++;
+            _logger.LogInformation("Door IO (output) batch {Batch} started. Skip={Skip}, Top={Top}", batchIndex, skip, _batchSize);
+
+            var (outputsPage, count) = await _apiClient.GetOutputsPagedAsync(skip, _batchSize, cancellationToken);
+            totalCount ??= count;
+
+            if (outputsPage.Count == 0)
+            {
+                _logger.LogInformation("Door IO (output) batch {Batch} returned no records; stopping paging loop", batchIndex);
+                break;
+            }
+
+            foreach (var output in outputsPage)
+            {
+                if (!string.IsNullOrEmpty(output.ModuleId))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await UpsertDoorIoAsync(output.Id, output.ControllerId, output.Name, output.OutputType ?? "Output", "Output", cancellationToken, result);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    result.Failed++;
+                    _logger.LogError(ex, "Failed to upsert door IO for output {OutputId}", output.Id);
+                }
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _dbContext.ChangeTracker.Clear();
+
+            processed += outputsPage.Count;
+            skip += outputsPage.Count;
+
+            _logger.LogInformation(
+                "Door IO (output) batch {Batch} completed. BatchProcessed={BatchProcessed}, CumulativeProcessed={CumulativeProcessed}, Total={Total}",
+                batchIndex,
+                outputsPage.Count,
+                processed,
+                totalCount);
+
+            if (outputsPage.Count < _batchSize)
+            {
+                break;
+            }
+        }
+    }
+
+    private async Task ProcessExtensionSourceInputsAsync(
+        CancellationToken cancellationToken,
+        SyncResultDto result,
+        HashSet<string> seenModules)
+    {
+        var skip = 0;
+        var batchIndex = 0;
+        var processed = 0;
+        int? totalCount = null;
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            batchIndex++;
+            _logger.LogInformation("Extension/input batch {Batch} started. Skip={Skip}, Top={Top}", batchIndex, skip, _batchSize);
+
+            var (inputsPage, count) = await _apiClient.GetInputsPagedAsync(skip, _batchSize, cancellationToken);
+            totalCount ??= count;
+
+            if (inputsPage.Count == 0)
+            {
+                _logger.LogInformation("Extension/input batch {Batch} returned no records; stopping paging loop", batchIndex);
+                break;
+            }
+
+            foreach (var input in inputsPage)
+            {
+                if (string.IsNullOrEmpty(input.ModuleId))
+                {
+                    continue;
+                }
+
+                var moduleKey = BuildModuleKey(input.ModuleId, input.ControllerId);
+                if (!seenModules.Add(moduleKey))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await UpsertExtensionAsync(input.ModuleId, input.ControllerId, cancellationToken, result);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    result.Failed++;
+                    _logger.LogError(ex, "Failed to upsert extension {ModuleId}", input.ModuleId);
+                }
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            foreach (var input in inputsPage)
+            {
+                if (string.IsNullOrEmpty(input.ModuleId))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await UpsertExtensionIoAsync(input.Id, input.ModuleId, input.ControllerId, input.Name, input.InputType ?? "Input", "Input", cancellationToken, result);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    result.Failed++;
+                    _logger.LogError(ex, "Failed to upsert extension IO for input {InputId}", input.Id);
+                }
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _dbContext.ChangeTracker.Clear();
+
+            processed += inputsPage.Count;
+            skip += inputsPage.Count;
+
+            _logger.LogInformation(
+                "Extension/input batch {Batch} completed. BatchProcessed={BatchProcessed}, CumulativeProcessed={CumulativeProcessed}, Total={Total}",
+                batchIndex,
+                inputsPage.Count,
+                processed,
+                totalCount);
+
+            if (inputsPage.Count < _batchSize)
+            {
+                break;
+            }
+        }
+    }
+
+    private async Task ProcessExtensionSourceOutputsAsync(
+        CancellationToken cancellationToken,
+        SyncResultDto result,
+        HashSet<string> seenModules)
+    {
+        var skip = 0;
+        var batchIndex = 0;
+        var processed = 0;
+        int? totalCount = null;
+
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            batchIndex++;
+            _logger.LogInformation("Extension/output batch {Batch} started. Skip={Skip}, Top={Top}", batchIndex, skip, _batchSize);
+
+            var (outputsPage, count) = await _apiClient.GetOutputsPagedAsync(skip, _batchSize, cancellationToken);
+            totalCount ??= count;
+
+            if (outputsPage.Count == 0)
+            {
+                _logger.LogInformation("Extension/output batch {Batch} returned no records; stopping paging loop", batchIndex);
+                break;
+            }
+
+            foreach (var output in outputsPage)
+            {
+                if (string.IsNullOrEmpty(output.ModuleId))
+                {
+                    continue;
+                }
+
+                var moduleKey = BuildModuleKey(output.ModuleId, output.ControllerId);
+                if (!seenModules.Add(moduleKey))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await UpsertExtensionAsync(output.ModuleId, output.ControllerId, cancellationToken, result);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    result.Failed++;
+                    _logger.LogError(ex, "Failed to upsert extension {ModuleId}", output.ModuleId);
+                }
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            foreach (var output in outputsPage)
+            {
+                if (string.IsNullOrEmpty(output.ModuleId))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    await UpsertExtensionIoAsync(output.Id, output.ModuleId, output.ControllerId, output.Name, output.OutputType ?? "Output", "Output", cancellationToken, result);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    result.Failed++;
+                    _logger.LogError(ex, "Failed to upsert extension IO for output {OutputId}", output.Id);
+                }
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            _dbContext.ChangeTracker.Clear();
+
+            processed += outputsPage.Count;
+            skip += outputsPage.Count;
+
+            _logger.LogInformation(
+                "Extension/output batch {Batch} completed. BatchProcessed={BatchProcessed}, CumulativeProcessed={CumulativeProcessed}, Total={Total}",
+                batchIndex,
+                outputsPage.Count,
+                processed,
+                totalCount);
+
+            if (outputsPage.Count < _batchSize)
+            {
+                break;
+            }
+        }
+    }
+
+    private async Task UpsertExtensionIoAsync(string externalId, string extensionExternalId, string? controllerExternalId, string? name, string ioType, string direction, CancellationToken cancellationToken, SyncResultDto result)
+    {
+        CompareExtensionIoAgainstBackend(externalId, name, ioType, direction, extensionExternalId, controllerExternalId);
+
+        if (string.IsNullOrEmpty(controllerExternalId))
+        {
+            result.Failed++;
+            return;
+        }
+
+        var controller = await _dbContext.Controllers
+            .FirstOrDefaultAsync(c => c.ExternalId == controllerExternalId, cancellationToken);
+        if (controller is null) { result.Failed++; return; }
+
+        var extension = await _dbContext.Extensions
+            .FirstOrDefaultAsync(e => e.ExternalId == extensionExternalId, cancellationToken);
+        if (extension is null) { result.Failed++; return; }
+
+        var existing = await _dbContext.ExtensionIos
+            .FirstOrDefaultAsync(io => io.ExternalId == externalId, cancellationToken);
+
+        if (existing is null)
+        {
+            var entity = new ExtensionIoEntity
+            {
+                ExternalId = externalId,
+                ExtensionId = extension.Id,
+                ControllerId = controller.Id,
+                IoType = ioType,
+                Direction = direction,
+                Name = name ?? externalId,
+                IsActive = true,
+                CreatedUtc = DateTime.UtcNow,
+                UpdatedUtc = DateTime.UtcNow
+            };
+            _dbContext.ExtensionIos.Add(entity);
+            result.Created++;
+        }
+        else
+        {
+            var changed = false;
+            if (existing.Name != (name ?? externalId)) { existing.Name = name ?? externalId; changed = true; }
+            if (existing.IoType != ioType) { existing.IoType = ioType; changed = true; }
+            if (existing.Direction != direction) { existing.Direction = direction; changed = true; }
+
+            if (changed)
+            {
+                existing.UpdatedUtc = DateTime.UtcNow;
+                result.Updated++;
+            }
+            else
+            {
+                result.Unchanged++;
+            }
+        }
+    }
+
+    private static string BuildModuleKey(string moduleId, string? controllerExternalId)
+    {
+        return $"{moduleId}|{controllerExternalId ?? string.Empty}";
+    }
+
+    private static void Accumulate(SyncResultDto total, SyncResultDto partial)
+    {
+        total.Created += partial.Created;
+        total.Updated += partial.Updated;
+        total.Unchanged += partial.Unchanged;
+        total.Failed += partial.Failed;
+        if (!partial.Success && partial.ErrorMessage is not null)
+        {
+            total.ErrorMessage = total.ErrorMessage is null
+                ? partial.ErrorMessage
+                : $"{total.ErrorMessage}; {partial.ErrorMessage}";
+        }
+    }
+
+    private void CompareControllerAgainstBackend(string externalId, string? name, bool? isActive)
+    {
+        if (!TryGetStartupSnapshot(out var snapshot))
+        {
+            return;
+        }
+
+        if (!snapshot.ControllersByExternalId.TryGetValue(externalId, out var central))
+        {
+            _logger.LogWarning("Backend comparison: controller {ExternalId} missing in central data", externalId);
+            return;
+        }
+
+        var nameMatches = string.Equals(central.Name ?? externalId, name ?? externalId, StringComparison.Ordinal);
+        var activeMatches = !isActive.HasValue || !central.IsActive.HasValue || central.IsActive.Value == isActive.Value;
+
+        if (!nameMatches || !activeMatches)
+        {
+            _logger.LogInformation(
+                "Backend comparison mismatch for controller {ExternalId}. BackendName: {BackendName}, AmadeusName: {AmadeusName}, BackendIsActive: {BackendIsActive}, AmadeusIsActive: {AmadeusIsActive}",
+                externalId,
+                central.Name,
+                name,
+                central.IsActive,
+                isActive);
+            return;
+        }
+
+        _logger.LogDebug("Backend comparison matched for controller {ExternalId}", externalId);
+    }
+
+    private void CompareDoorAgainstBackend(string externalId, string? name, string? controllerExternalId)
+    {
+        if (!TryGetStartupSnapshot(out var snapshot))
+        {
+            return;
+        }
+
+        if (!snapshot.DoorsByExternalId.TryGetValue(externalId, out var central))
+        {
+            _logger.LogWarning("Backend comparison: door {ExternalId} missing in central data", externalId);
+            return;
+        }
+
+        var nameMatches = string.Equals(central.Name ?? externalId, name ?? externalId, StringComparison.Ordinal);
+        var controllerMatches = string.IsNullOrWhiteSpace(controllerExternalId)
+            || string.IsNullOrWhiteSpace(central.ControllerExternalId)
+            || string.Equals(central.ControllerExternalId, controllerExternalId, StringComparison.OrdinalIgnoreCase);
+
+        if (!nameMatches || !controllerMatches)
+        {
+            _logger.LogInformation(
+                "Backend comparison mismatch for door {ExternalId}. BackendName: {BackendName}, AmadeusName: {AmadeusName}, BackendController: {BackendController}, AmadeusController: {AmadeusController}",
+                externalId,
+                central.Name,
+                name,
+                central.ControllerExternalId,
+                controllerExternalId);
+            return;
+        }
+
+        _logger.LogDebug("Backend comparison matched for door {ExternalId}", externalId);
+    }
+
+    private void CompareDoorIoAgainstBackend(string externalId, string? name, string? ioType, string? direction, string? controllerExternalId)
+    {
+        if (!TryGetStartupSnapshot(out var snapshot))
+        {
+            return;
+        }
+
+        if (!snapshot.DoorIosByExternalId.TryGetValue(externalId, out var central))
+        {
+            _logger.LogWarning("Backend comparison: door IO {ExternalId} missing in central data", externalId);
+            return;
+        }
+
+        var nameMatches = string.Equals(central.Name ?? externalId, name ?? externalId, StringComparison.Ordinal);
+        var typeMatches = string.IsNullOrWhiteSpace(ioType)
+            || string.IsNullOrWhiteSpace(central.IoType)
+            || string.Equals(central.IoType, ioType, StringComparison.OrdinalIgnoreCase);
+        var directionMatches = string.IsNullOrWhiteSpace(direction)
+            || string.IsNullOrWhiteSpace(central.Direction)
+            || string.Equals(central.Direction, direction, StringComparison.OrdinalIgnoreCase);
+        var controllerMatches = string.IsNullOrWhiteSpace(controllerExternalId)
+            || string.IsNullOrWhiteSpace(central.ControllerExternalId)
+            || string.Equals(central.ControllerExternalId, controllerExternalId, StringComparison.OrdinalIgnoreCase);
+
+        if (!nameMatches || !typeMatches || !directionMatches || !controllerMatches)
+        {
+            _logger.LogInformation(
+                "Backend comparison mismatch for door IO {ExternalId}. Backend(Name/Type/Direction/Controller)=({BackendName}/{BackendType}/{BackendDirection}/{BackendController}) Amadeus=({AmadeusName}/{AmadeusType}/{AmadeusDirection}/{AmadeusController})",
+                externalId,
+                central.Name,
+                central.IoType,
+                central.Direction,
+                central.ControllerExternalId,
+                name,
+                ioType,
+                direction,
+                controllerExternalId);
+            return;
+        }
+
+        _logger.LogDebug("Backend comparison matched for door IO {ExternalId}", externalId);
+    }
+
+    private void CompareExtensionAgainstBackend(string externalId, string? name, string? controllerExternalId)
+    {
+        if (!TryGetStartupSnapshot(out var snapshot))
+        {
+            return;
+        }
+
+        if (!snapshot.ExtensionsByExternalId.TryGetValue(externalId, out var central))
+        {
+            _logger.LogWarning("Backend comparison: extension {ExternalId} missing in central data", externalId);
+            return;
+        }
+
+        var nameMatches = string.Equals(central.Name ?? externalId, name ?? externalId, StringComparison.Ordinal);
+        var controllerMatches = string.IsNullOrWhiteSpace(controllerExternalId)
+            || string.IsNullOrWhiteSpace(central.ControllerExternalId)
+            || string.Equals(central.ControllerExternalId, controllerExternalId, StringComparison.OrdinalIgnoreCase);
+
+        if (!nameMatches || !controllerMatches)
+        {
+            _logger.LogInformation(
+                "Backend comparison mismatch for extension {ExternalId}. BackendName: {BackendName}, AmadeusName: {AmadeusName}, BackendController: {BackendController}, AmadeusController: {AmadeusController}",
+                externalId,
+                central.Name,
+                name,
+                central.ControllerExternalId,
+                controllerExternalId);
+            return;
+        }
+
+        _logger.LogDebug("Backend comparison matched for extension {ExternalId}", externalId);
+    }
+
+    private void CompareExtensionIoAgainstBackend(string externalId, string? name, string? ioType, string? direction, string? extensionExternalId, string? controllerExternalId)
+    {
+        if (!TryGetStartupSnapshot(out var snapshot))
+        {
+            return;
+        }
+
+        if (!snapshot.ExtensionIosByExternalId.TryGetValue(externalId, out var central))
+        {
+            _logger.LogWarning("Backend comparison: extension IO {ExternalId} missing in central data", externalId);
+            return;
+        }
+
+        var nameMatches = string.Equals(central.Name ?? externalId, name ?? externalId, StringComparison.Ordinal);
+        var typeMatches = string.IsNullOrWhiteSpace(ioType)
+            || string.IsNullOrWhiteSpace(central.IoType)
+            || string.Equals(central.IoType, ioType, StringComparison.OrdinalIgnoreCase);
+        var directionMatches = string.IsNullOrWhiteSpace(direction)
+            || string.IsNullOrWhiteSpace(central.Direction)
+            || string.Equals(central.Direction, direction, StringComparison.OrdinalIgnoreCase);
+        var extensionMatches = string.IsNullOrWhiteSpace(extensionExternalId)
+            || string.IsNullOrWhiteSpace(central.ExtensionExternalId)
+            || string.Equals(central.ExtensionExternalId, extensionExternalId, StringComparison.OrdinalIgnoreCase);
+        var controllerMatches = string.IsNullOrWhiteSpace(controllerExternalId)
+            || string.IsNullOrWhiteSpace(central.ControllerExternalId)
+            || string.Equals(central.ControllerExternalId, controllerExternalId, StringComparison.OrdinalIgnoreCase);
+
+        if (!nameMatches || !typeMatches || !directionMatches || !extensionMatches || !controllerMatches)
+        {
+            _logger.LogInformation(
+                "Backend comparison mismatch for extension IO {ExternalId}. Backend(Name/Type/Direction/Extension/Controller)=({BackendName}/{BackendType}/{BackendDirection}/{BackendExtension}/{BackendController}) Amadeus=({AmadeusName}/{AmadeusType}/{AmadeusDirection}/{AmadeusExtension}/{AmadeusController})",
+                externalId,
+                central.Name,
+                central.IoType,
+                central.Direction,
+                central.ExtensionExternalId,
+                central.ControllerExternalId,
+                name,
+                ioType,
+                direction,
+                extensionExternalId,
+                controllerExternalId);
+            return;
+        }
+
+        _logger.LogDebug("Backend comparison matched for extension IO {ExternalId}", externalId);
+    }
+
+    private bool TryGetStartupSnapshot(out BackendEquipmentSnapshot snapshot)
+    {
+        snapshot = _backendSnapshotProvider.GetCurrent();
+
+        if (snapshot.LoadedUtc != DateTime.MinValue)
+        {
+            return true;
+        }
+
+        if (!_startupSnapshotMissingLogged)
+        {
+            _logger.LogWarning(
+                "Central backend equipment snapshot was not loaded at startup. Import will continue with local persistence, and backend comparison is skipped.");
+            _startupSnapshotMissingLogged = true;
+        }
+
+        return false;
+    }
+
+    private bool EnsureBackendAvailable(SyncResultDto result)
+    {
+        if (TryGetStartupSnapshot(out _))
+        {
+            return true;
+        }
+
+        result.Success = false;
+        result.CompletedUtc = DateTime.UtcNow;
+        result.ErrorMessage = "Backend connection is unavailable. Import was stopped.";
+
+        _logger.LogError(
+            "{Operation} was stopped because backend connection is unavailable and startup snapshot was not loaded.",
+            result.Operation);
+
+        return false;
+    }
+}

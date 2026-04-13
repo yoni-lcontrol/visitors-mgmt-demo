@@ -142,6 +142,44 @@ All major list endpoints accept an optional `siteId` query parameter to filter r
 | POST | `/sites/assign-users/:userId` | `sites.assign-users` | Assign user to sites |
 | GET | `/sites/users/:userId/sites` | `sites.read` | Get sites assigned to a user |
 
+## Amadeus Module (M2M API)
+
+The Amadeus module provides dedicated M2M endpoints for the Amadeus access-control bridge service:
+
+```text
+backend/src/amadeus/
+├── amadeus.module.ts                          # Module definition
+├── amadeus.controller.ts                      # Equipment + sync controllers
+├── amadeus.service.ts                         # Equipment queries + sync logic
+├── amadeus.controller.spec.ts                 # Controller tests
+├── amadeus.service.spec.ts                    # Service tests
+└── dto/
+    ├── amadeus-equipment-response.dto.ts      # Response DTOs for equipment
+    └── sync-result-response.dto.ts            # Sync result response
+```
+
+### Amadeus Equipment Endpoints
+
+All endpoints use HMAC authentication (`@Public()` + `IntegrationHmacGuard`).
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/controllers` | List all controllers (flat) |
+| GET | `/doors` | List all doors (flat) |
+| GET | `/door-ios` | List all door IOs (flat) |
+| GET | `/extensions` | List all extensions (flat) |
+| GET | `/extension-ios` | List all extension IOs (flat) |
+| POST | `/sync/full` | Trigger full sync acknowledgement |
+
+### Amadeus Integration Events
+
+Event ingestion follows the integrations platform pattern:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/integrations/amadeus/events` | Receive batch of Amadeus events |
+| POST | `/integrations/amadeus/events/single` | Receive single Amadeus event |
+
 ## Testing Structure
 
 Backend tests follow three layers:

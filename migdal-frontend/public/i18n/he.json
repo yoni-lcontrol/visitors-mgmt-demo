@@ -252,7 +252,6 @@
         "ROLES": "תפקידים",
         "LAST_LOGIN": "התחברות אחרונה",
         "NEVER": "מעולם לא",
-        "DELETE_CONFIRM": "האם אתה בטוח שברצונך למחוק משתמש זה?",
         "EMAIL": "דוא\"ל",
         "PHONE": "טלפון",
         "ID_NUMBER": "תעודת זהות",
@@ -546,7 +545,6 @@
                 "create": "יצירת משתמשים",
                 "read": "צפייה במשתמשים",
                 "update": "עדכון משתמשים",
-                "delete": "מחיקת משתמשים",
                 "sync": "סנכרון משתמשים"
             },
             "roles": {
@@ -630,7 +628,6 @@
                 "create": "יצירת משתמשי מערכת חדשים",
                 "read": "צפייה ברשימת משתמשים ופרטיהם",
                 "update": "עדכון פרטי משתמשי מערכת",
-                "delete": "מחיקת משתמשי מערכת",
                 "sync": "סנכרון משתמשים מ-Active Directory"
             },
             "roles": {
@@ -765,6 +762,23 @@
         "PH_PARKING_STATUS": "סטטוס בקשת חנייה (אושר/נדחה)",
         "PH_PARKING_REVIEWNOTE": "הערת בדיקת חנייה",
         "SAVE_SUCCESS": "תבניות ה-SMS נשמרו בהצלחה"
+    },
+    "EMAIL_TEMPLATES": {
+        "TITLE": "תבניות דואל",
+        "DESCRIPTION": "הגדר תבניות דואל לכל קבוצת יעד וסוג אירוע. השתמש ב-placeholders כדי להכניס מידע דינמי.",
+        "SUBJECT": "נושא",
+        "SUBJECT_PLACEHOLDER": "הזן אח נושא ההודעה...",
+        "BODY": "תוכן (HTML)",
+        "BODY_PLACEHOLDER": "הזן את תוכן ההודעה ב-HTML...",
+        "PREVIEW": "תצוגה מקדימה",
+        "PREVIEW_RESULT_SUBJECT": "נושא",
+        "PREVIEW_RESULT_BODY": "תוכן",
+        "TEST_EMAIL": "שלח דואל לבדיקה",
+        "SEND_TEST": "שלח",
+        "TEST_EMAIL_PLACEHOLDER": "test@example.com",
+        "TEST_SUCCESS": "דואל נשלח בהצלחה",
+        "PLACEHOLDERS_TITLE": "Placeholders זמינים",
+        "SAVE_SUCCESS": "תבניות הדואל נשמרו בהצלחה"
     },
     "AD_SETTINGS": {
         "TITLE": "הגדרות Active Directory",

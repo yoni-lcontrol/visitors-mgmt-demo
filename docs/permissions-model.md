@@ -22,7 +22,7 @@ User
 
 | Module | Actions | Permission Keys |
 |--------|---------|-----------------|
-| `users` | create, read, update, delete, sync | `users.create`, `users.read`, `users.update`, `users.delete`, `users.sync` |
+| `users` | create, read, update, sync | `users.create`, `users.read`, `users.update`, `users.sync` |
 | `roles` | create, read, update, delete | `roles.create`, `roles.read`, `roles.update`, `roles.delete` |
 | `permissions` | read | `permissions.read` |
 | `access-control` | create, read, update, delete, import, sync | `access-control.create`, `access-control.read`, `access-control.update`, `access-control.delete`, `access-control.import`, `access-control.sync` |
@@ -155,8 +155,8 @@ For OR logic, create separate endpoints or use a custom `@RequireAnyPermission` 
 ### Programmatic Check
 
 ```typescript
-if (this.permissionService.hasPermission('users.delete')) {
-  // show delete button
+if (this.permissionService.hasPermission('users.update')) {
+  // show edit button
 }
 ```
 

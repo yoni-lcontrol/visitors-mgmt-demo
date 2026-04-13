@@ -204,7 +204,7 @@ The following data is seeded on first deployment:
 ### Permissions (26 total, by module)
 
 ```
-users.create, users.read, users.update, users.delete
+users.create, users.read, users.update
 roles.create, roles.read, roles.update, roles.delete
 access-control.create, access-control.read, access-control.update, access-control.delete, access-control.import, access-control.sync
 visits.create, visits.read, visits.update, visits.delete, visits.print-card

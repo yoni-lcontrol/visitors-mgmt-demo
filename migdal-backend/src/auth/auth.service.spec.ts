@@ -248,6 +248,110 @@ describe('AuthService', () => {
             // Deduplicated
             expect(result.user.permissions.filter((p: string) => p === 'users.read').length).toBe(1);
         });
+
+        it('should reflect updated permissions after admin changes role between login and refresh', async () => {
+            const future = new Date();
+            future.setDate(future.getDate() + 1);
+
+            // --- Step 1: User logs in with Admin role (has users.read, users.create) ---
+            mockUsersService.findByUsername.mockResolvedValue({
+                id: 'user-1',
+                username: 'testuser',
+                firstName: 'Test',
+                lastName: 'User',
+                passwordHash: 'hashed',
+                isActive: true,
+                roles: [{ id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }] }],
+            });
+            jest.spyOn(hashUtil, 'comparePassword').mockResolvedValue(true);
+
+            const loginResult = await service.login({ username: 'testuser', password: 'correct' });
+            expect(loginResult.user.permissions).toContain('users.read');
+            expect(loginResult.user.permissions).toContain('users.create');
+            expect(loginResult.user.roles).toContain('Admin');
+
+            // --- Step 2: Admin changes the user's role to Operator (visits.read, visits.create only) ---
+            // On next refresh, findById returns the updated user with new role/permissions
+            mockRefreshTokenRepo.findOne.mockResolvedValue({
+                id: 'rt-1',
+                userId: 'user-1',
+                expiresAt: future,
+                isRevoked: false,
+            });
+            mockUsersService.findById.mockResolvedValue({
+                id: 'user-1',
+                username: 'testuser',
+                firstName: 'Test',
+                lastName: 'User',
+                isActive: true,
+                roles: [{ id: 'role-operator', name: 'Operator', permissions: [{ key: 'visits.read' }, { key: 'visits.create' }] }],
+            });
+
+            // --- Step 3: User's token refresh picks up the new permissions ---
+            const refreshResult = await service.refreshTokens('valid-token');
+
+            // New permissions are present
+            expect(refreshResult.user.permissions).toContain('visits.read');
+            expect(refreshResult.user.permissions).toContain('visits.create');
+            // Old permissions are gone
+            expect(refreshResult.user.permissions).not.toContain('users.read');
+            expect(refreshResult.user.permissions).not.toContain('users.create');
+            // Role changed
+            expect(refreshResult.user.roles).toContain('Operator');
+            expect(refreshResult.user.roles).not.toContain('Admin');
+        });
+
+        it('should reflect updated permissions after admin modifies permissions within the same role', async () => {
+            const future = new Date();
+            future.setDate(future.getDate() + 1);
+
+            // --- Step 1: User logs in with Admin role that has users.read, users.create, users.update ---
+            mockUsersService.findByUsername.mockResolvedValue({
+                id: 'user-1',
+                username: 'testuser',
+                firstName: 'Test',
+                lastName: 'User',
+                passwordHash: 'hashed',
+                isActive: true,
+                roles: [{ id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }, { key: 'users.update' }] }],
+            });
+            jest.spyOn(hashUtil, 'comparePassword').mockResolvedValue(true);
+
+            const loginResult = await service.login({ username: 'testuser', password: 'correct' });
+            expect(loginResult.user.permissions).toContain('users.read');
+            expect(loginResult.user.permissions).toContain('users.create');
+            expect(loginResult.user.permissions).toContain('users.update');
+
+            // --- Step 2: Admin removes users.update from the Admin role and adds visits.read ---
+            // Same role name, same role id — just different permissions
+            mockRefreshTokenRepo.findOne.mockResolvedValue({
+                id: 'rt-1',
+                userId: 'user-1',
+                expiresAt: future,
+                isRevoked: false,
+            });
+            mockUsersService.findById.mockResolvedValue({
+                id: 'user-1',
+                username: 'testuser',
+                firstName: 'Test',
+                lastName: 'User',
+                isActive: true,
+                roles: [{ id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }, { key: 'visits.read' }] }],
+            });
+
+            // --- Step 3: User's token refresh picks up the modified role permissions ---
+            const refreshResult = await service.refreshTokens('valid-token');
+
+            // Role is the same
+            expect(refreshResult.user.roles).toContain('Admin');
+            // Kept permissions still present
+            expect(refreshResult.user.permissions).toContain('users.read');
+            expect(refreshResult.user.permissions).toContain('users.create');
+            // Newly added permission is present
+            expect(refreshResult.user.permissions).toContain('visits.read');
+            // Removed permission is gone
+            expect(refreshResult.user.permissions).not.toContain('users.update');
+        });
     });
 
     describe('getCurrentUser', () => {

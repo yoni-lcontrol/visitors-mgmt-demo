@@ -1,9 +1,10 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FormsModule } from '@angular/forms';
+import { QuillEditorComponent } from 'ngx-quill';
 import { ApiService } from '@core/api/api.service';
 import { NotificationService } from '@core/notifications/notification.service';
-import { NotificationSetting, SmsTemplate } from '@core/models/entities.model';
+import { NotificationSetting, SmsTemplate, EmailTemplate } from '@core/models/entities.model';
 import { HasUnsavedChanges } from '@core/guards/unsaved-changes.guard';
 
 interface MatrixCell {
@@ -17,7 +18,7 @@ const EVENTS = ['visitor_arrived', 'visit_created', 'visit_updated', 'visit_dele
 @Component({
   selector: 'app-notification-settings',
   standalone: true,
-  imports: [TranslateModule, FormsModule],
+  imports: [TranslateModule, FormsModule, QuillEditorComponent],
   template: `
     <div class="page-header">
       <div>
@@ -87,101 +88,26 @@ const EVENTS = ['visitor_arrived', 'visit_created', 'visit_updated', 'visit_dele
         }
       </div>
 
-      <!-- SMS Templates Section -->
+      <!-- Templates Section: SMS + Email side by side -->
       <div class="section-divider-lg">
-        <div class="section-header-row">
-          <div class="section-icon-wrap">
-            <i class="pi pi-mobile"></i>
-          </div>
-          <div>
-            <h2 class="section-title">{{ 'SMS_TEMPLATES.TITLE' | translate }}</h2>
-            <p class="section-desc">{{ 'SMS_TEMPLATES.DESCRIPTION' | translate }}</p>
-          </div>
-        </div>
-      </div>
-
-      @if (smsLoading) {
-        <div class="loading-state">
-          <i class="pi pi-spin pi-spinner"></i>
-          <span>{{ 'COMMON.LOADING' | translate }}</span>
-        </div>
-      } @else {
-        <div class="sms-group-tabs">
+        <div class="templates-group-tabs">
           @for (group of targetGroups; track group) {
-            <button class="sms-group-tab" [class.active]="selectedSmsGroup === group"
-              (click)="selectSmsGroup(group)">
+            <button class="templates-group-tab" [class.active]="selectedGroup === group"
+              (click)="selectGroup(group)">
               <i class="pi" [class]="getGroupIcon(group)"></i>
               <span>{{ 'NOTIFICATION_SETTINGS.GROUP_' + group.toUpperCase() | translate }}</span>
             </button>
           }
         </div>
+      </div>
 
-        <div class="sms-templates-grid" [class.sms-grid-entering]="smsGridAnimating">
-          @for (tpl of getSmsTemplatesForGroup(selectedSmsGroup); track tpl.event) {
-            <div class="card sms-template-card">
-              <div class="sms-template-header">
-                <div class="sms-template-info">
-                  <i class="pi event-icon" [class]="getEventIcon(tpl.event)"></i>
-                  <span class="sms-template-event">{{ 'NOTIFICATION_SETTINGS.EVENT_' + tpl.event.toUpperCase() | translate }}</span>
-                </div>
-              </div>
-              <div class="sms-template-body">
-                <div class="field">
-                  <label>{{ 'SMS_TEMPLATES.TEMPLATE' | translate }}</label>
-                  <textarea [(ngModel)]="tpl.template" rows="3" (input)="smsDirty = true"
-                    [placeholder]="'SMS_TEMPLATES.TEMPLATE_PLACEHOLDER' | translate"
-                    [disabled]="smsSaving"></textarea>
-                </div>
-              </div>
-              <div class="sms-template-footer">
-                <div class="footer-actions">
-                  <button class="action-btn action-btn--preview" (click)="previewTemplate(tpl)" [disabled]="smsSaving">
-                    <i class="pi pi-eye"></i>
-                    <span>{{ 'SMS_TEMPLATES.PREVIEW' | translate }}</span>
-                  </button>
-                  <button class="action-btn action-btn--test" (click)="tpl._showTestInput = !tpl._showTestInput" [disabled]="smsSaving"
-                    [class.active]="tpl._showTestInput">
-                    <i class="pi pi-send"></i>
-                    <span>{{ 'SMS_TEMPLATES.TEST_SMS' | translate }}</span>
-                  </button>
-                </div>
-                @if (tpl._preview) {
-                  <div class="preview-result">
-                    <div class="preview-result__header">
-                      <i class="pi pi-eye"></i>
-                      <span>{{ 'SMS_TEMPLATES.PREVIEW_RESULT' | translate }}</span>
-                    </div>
-                    <div class="preview-result__body">{{ tpl._preview }}</div>
-                  </div>
-                }
-                @if (tpl._showTestInput) {
-                  <div class="test-sms-panel">
-                    <div class="test-sms-panel__header">
-                      <i class="pi pi-send"></i>
-                      <span>{{ 'SMS_TEMPLATES.TEST_SMS' | translate }}</span>
-                    </div>
-                    <div class="test-sms-panel__body">
-                      <input type="text" [(ngModel)]="tpl._testPhone"
-                        [placeholder]="'SMS_TEMPLATES.TEST_PHONE_PLACEHOLDER' | translate"
-                        [disabled]="tpl._testSending" class="test-phone-input" />
-                      <button class="action-btn action-btn--send" (click)="sendTestSms(tpl)"
-                        [disabled]="tpl._testSending || !tpl._testPhone.trim()">
-                        @if (tpl._testSending) {
-                          <i class="pi pi-spin pi-spinner"></i>
-                        } @else {
-                          <i class="pi pi-send"></i>
-                        }
-                        <span>{{ 'SMS_TEMPLATES.SEND_TEST' | translate }}</span>
-                      </button>
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
-          }
+      @if (smsLoading || emailLoading) {
+        <div class="loading-state">
+          <i class="pi pi-spin pi-spinner"></i>
+          <span>{{ 'COMMON.LOADING' | translate }}</span>
         </div>
-
-        <!-- Placeholders Reference -->
+      } @else {
+        <!-- Shared Placeholders Reference -->
         @if (smsPlaceholders.length) {
           <div class="card placeholders-card">
             <button class="placeholders-toggle" (click)="placeholdersExpanded = !placeholdersExpanded">
@@ -204,17 +130,191 @@ const EVENTS = ['visitor_arrived', 'visit_created', 'visit_updated', 'visit_dele
             }
           </div>
         }
+
+        <div class="templates-split" [class.templates-entering]="templatesAnimating">
+          <!-- SMS Column -->
+          <div class="template-column">
+            <div class="column-header">
+              <div class="column-header-icon sms-icon">
+                <i class="pi pi-mobile"></i>
+              </div>
+              <div>
+                <h3 class="column-title">{{ 'SMS_TEMPLATES.TITLE' | translate }}</h3>
+                <p class="column-desc">{{ 'SMS_TEMPLATES.DESCRIPTION' | translate }}</p>
+              </div>
+            </div>
+
+            <div class="template-cards-list">
+              @for (tpl of getSmsTemplatesForGroup(selectedGroup); track tpl.event) {
+                <div class="card template-card">
+                  <div class="template-card-header">
+                    <i class="pi event-icon" [class]="getEventIcon(tpl.event)"></i>
+                    <span class="template-event-name">{{ 'NOTIFICATION_SETTINGS.EVENT_' + tpl.event.toUpperCase() | translate }}</span>
+                  </div>
+                  <div class="template-card-body">
+                    <div class="field">
+                      <label>{{ 'SMS_TEMPLATES.TEMPLATE' | translate }}</label>
+                      <textarea [(ngModel)]="tpl.template" rows="3" (input)="smsDirty = true"
+                        [placeholder]="'SMS_TEMPLATES.TEMPLATE_PLACEHOLDER' | translate"
+                        [disabled]="smsSaving"></textarea>
+                    </div>
+                  </div>
+                  <div class="template-card-footer">
+                    <div class="footer-actions">
+                      <button class="action-btn action-btn--preview" (click)="toggleSmsPreview(tpl)" [disabled]="smsSaving"
+                        [class.active]="tpl._showPreview">
+                        <i class="pi pi-eye"></i>
+                        <span>{{ 'SMS_TEMPLATES.PREVIEW' | translate }}</span>
+                      </button>
+                      <button class="action-btn action-btn--test" (click)="tpl._showTestInput = !tpl._showTestInput" [disabled]="smsSaving"
+                        [class.active]="tpl._showTestInput">
+                        <i class="pi pi-send"></i>
+                        <span>{{ 'SMS_TEMPLATES.TEST_SMS' | translate }}</span>
+                      </button>
+                    </div>
+                    @if (tpl._showPreview && tpl._preview) {
+                      <div class="preview-result">
+                        <div class="preview-result__header">
+                          <i class="pi pi-eye"></i>
+                          <span>{{ 'SMS_TEMPLATES.PREVIEW_RESULT' | translate }}</span>
+                        </div>
+                        <div class="preview-result__body">{{ tpl._preview }}</div>
+                      </div>
+                    }
+                    @if (tpl._showTestInput) {
+                      <div class="test-panel test-panel--sms">
+                        <div class="test-panel__header">
+                          <i class="pi pi-send"></i>
+                          <span>{{ 'SMS_TEMPLATES.TEST_SMS' | translate }}</span>
+                        </div>
+                        <div class="test-panel__body">
+                          <input type="text" [(ngModel)]="tpl._testPhone"
+                            [placeholder]="'SMS_TEMPLATES.TEST_PHONE_PLACEHOLDER' | translate"
+                            [disabled]="tpl._testSending" class="test-input" />
+                          <button class="action-btn action-btn--send" (click)="sendTestSms(tpl)"
+                            [disabled]="tpl._testSending || !tpl._testPhone.trim()">
+                            @if (tpl._testSending) {
+                              <i class="pi pi-spin pi-spinner"></i>
+                            } @else {
+                              <i class="pi pi-send"></i>
+                            }
+                            <span>{{ 'SMS_TEMPLATES.SEND_TEST' | translate }}</span>
+                          </button>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Email Column -->
+          <div class="template-column">
+            <div class="column-header">
+              <div class="column-header-icon email-icon">
+                <i class="pi pi-envelope"></i>
+              </div>
+              <div>
+                <h3 class="column-title">{{ 'EMAIL_TEMPLATES.TITLE' | translate }}</h3>
+                <p class="column-desc">{{ 'EMAIL_TEMPLATES.DESCRIPTION' | translate }}</p>
+              </div>
+            </div>
+
+            <div class="template-cards-list">
+              @for (etpl of getEmailTemplatesForGroup(selectedGroup); track etpl.event) {
+                <div class="card template-card">
+                  <div class="template-card-header">
+                    <i class="pi event-icon" [class]="getEventIcon(etpl.event)"></i>
+                    <span class="template-event-name">{{ 'NOTIFICATION_SETTINGS.EVENT_' + etpl.event.toUpperCase() | translate }}</span>
+                  </div>
+                  <div class="template-card-body">
+                    <div class="field">
+                      <label>{{ 'EMAIL_TEMPLATES.SUBJECT' | translate }}</label>
+                      <input type="text" [(ngModel)]="etpl.subject" (input)="emailDirty = true"
+                        [placeholder]="'EMAIL_TEMPLATES.SUBJECT_PLACEHOLDER' | translate"
+                        [disabled]="emailSaving" />
+                    </div>
+                    <div class="field">
+                      <label>{{ 'EMAIL_TEMPLATES.BODY' | translate }}</label>
+                      <quill-editor
+                        [(ngModel)]="etpl.bodyHtml"
+                        (onContentChanged)="emailDirty = true"
+                        [readOnly]="emailSaving"
+                        format="html"
+                        [placeholder]="'EMAIL_TEMPLATES.BODY_PLACEHOLDER' | translate"
+                        [modules]="quillModules"
+                        [styles]="{ direction: 'rtl', 'text-align': 'right', 'min-height': '120px' }"
+                        theme="snow"
+                      ></quill-editor>
+                    </div>
+                  </div>
+                  <div class="template-card-footer">
+                    <div class="footer-actions">
+                      <button class="action-btn action-btn--preview" (click)="toggleEmailPreview(etpl)" [disabled]="emailSaving"
+                        [class.active]="etpl._showPreview">
+                        <i class="pi pi-eye"></i>
+                        <span>{{ 'EMAIL_TEMPLATES.PREVIEW' | translate }}</span>
+                      </button>
+                      <button class="action-btn action-btn--test" (click)="etpl._showTestInput = !etpl._showTestInput" [disabled]="emailSaving"
+                        [class.active]="etpl._showTestInput">
+                        <i class="pi pi-envelope"></i>
+                        <span>{{ 'EMAIL_TEMPLATES.TEST_EMAIL' | translate }}</span>
+                      </button>
+                    </div>
+                    @if (etpl._showPreview && (etpl._previewSubject || etpl._previewBody)) {
+                      <div class="preview-result">
+                        <div class="preview-result__header">
+                          <i class="pi pi-eye"></i>
+                          <span>{{ 'EMAIL_TEMPLATES.PREVIEW_RESULT_SUBJECT' | translate }}</span>
+                        </div>
+                        <div class="preview-result__body">{{ etpl._previewSubject }}</div>
+                        <div class="preview-result__header" style="border-top: 1px solid var(--color-border-light, #f0eff5);">
+                          <i class="pi pi-eye"></i>
+                          <span>{{ 'EMAIL_TEMPLATES.PREVIEW_RESULT_BODY' | translate }}</span>
+                        </div>
+                        <div class="preview-result__body preview-html" [innerHTML]="etpl._previewBody"></div>
+                      </div>
+                    }
+                    @if (etpl._showTestInput) {
+                      <div class="test-panel test-panel--email">
+                        <div class="test-panel__header test-panel__header--email">
+                          <i class="pi pi-envelope"></i>
+                          <span>{{ 'EMAIL_TEMPLATES.TEST_EMAIL' | translate }}</span>
+                        </div>
+                        <div class="test-panel__body">
+                          <input type="email" [(ngModel)]="etpl._testEmail"
+                            [placeholder]="'EMAIL_TEMPLATES.TEST_EMAIL_PLACEHOLDER' | translate"
+                            [disabled]="etpl._testSending" class="test-input" />
+                          <button class="action-btn action-btn--send" (click)="sendTestEmail(etpl)"
+                            [disabled]="etpl._testSending || !etpl._testEmail.trim()">
+                            @if (etpl._testSending) {
+                              <i class="pi pi-spin pi-spinner"></i>
+                            } @else {
+                              <i class="pi pi-send"></i>
+                            }
+                            <span>{{ 'EMAIL_TEMPLATES.SEND_TEST' | translate }}</span>
+                          </button>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
       }
 
-      <div class="save-bar" [class.has-changes]="dirty || smsDirty">
-        @if (dirty || smsDirty) {
+      <div class="save-bar" [class.has-changes]="dirty || smsDirty || emailDirty">
+        @if (dirty || smsDirty || emailDirty) {
           <span class="unsaved-hint">
             <i class="pi pi-exclamation-circle"></i>
             {{ 'NOTIFICATION_SETTINGS.UNSAVED_CHANGES' | translate }}
           </span>
         }
-        <button class="btn btn-primary save-btn" (click)="saveAll()" [disabled]="(saving || smsSaving) || (!dirty && !smsDirty)">
-          @if (saving || smsSaving) {
+        <button class="btn btn-primary save-btn" (click)="saveAll()" [disabled]="(saving || smsSaving || emailSaving) || (!dirty && !smsDirty && !emailDirty)">
+          @if (saving || smsSaving || emailSaving) {
             <i class="pi pi-spin pi-spinner"></i>
             {{ 'NOTIFICATION_SETTINGS.SAVING' | translate }}
           } @else {
@@ -529,38 +629,14 @@ const EVENTS = ['visitor_arrived', 'visit_created', 'visit_updated', 'visit_dele
       padding-top: 1.5rem;
       border-top: 2px solid var(--color-border, #e4e2f0);
     }
-    .section-header-row {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.85rem;
-    }
-    .section-icon-wrap {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
-      background: var(--color-accent, #6c63ff);
-      color: #fff;
-      flex-shrink: 0;
-    }
-    .section-icon-wrap i { font-size: 1.05rem; }
-    .section-title {
-      font-size: 1.05rem; font-weight: 600; color: var(--color-primary, #020140); margin: 0;
-    }
-    .section-desc {
-      color: var(--color-text-secondary, #5c5a78); font-size: 0.84rem; margin: 0.2rem 0 0;
-    }
 
-    /* ── SMS Group Tabs ── */
-    .sms-group-tabs {
+    /* ── Shared Group Tabs ── */
+    .templates-group-tabs {
       display: flex;
       gap: 0.5rem;
-      margin-top: 1.15rem;
       flex-wrap: wrap;
     }
-    .sms-group-tab {
+    .templates-group-tab {
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
@@ -575,56 +651,121 @@ const EVENTS = ['visitor_arrived', 'visit_created', 'visit_updated', 'visit_dele
       transition: all 0.15s ease;
       font-family: inherit;
     }
-    .sms-group-tab:hover {
+    .templates-group-tab:hover {
       background: var(--color-primary-wash, #eeedf8);
       border-color: var(--color-accent-subtle, #ddd9ff);
     }
-    .sms-group-tab.active {
+    .templates-group-tab.active {
       background: var(--color-accent, #6c63ff);
       color: #fff;
       border-color: var(--color-accent, #6c63ff);
     }
-    .sms-group-tab i {
-      font-size: 0.85rem;
-    }
+    .templates-group-tab i { font-size: 0.85rem; }
 
-    .sms-templates-grid {
-      display: grid; grid-template-columns: 1fr; gap: 1rem; margin-top: 1.15rem;
+    /* ── Split Layout ── */
+    .templates-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-top: 1.25rem;
       opacity: 1;
       transform: translateY(0);
       transition: opacity 0.18s ease, transform 0.18s ease;
     }
-    .sms-templates-grid.sms-grid-entering {
+    .templates-split.templates-entering {
       opacity: 0;
       transform: translateY(6px);
     }
-    .sms-template-card { padding: 0 !important; overflow: hidden; }
-    .sms-template-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0.85rem 1.15rem;
+
+    .template-column {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      min-width: 0;
+    }
+
+    .column-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+    }
+    .column-header-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      color: #fff;
+      flex-shrink: 0;
+    }
+    .column-header-icon i { font-size: 1rem; }
+    .column-header-icon.sms-icon { background: var(--color-accent, #6c63ff); }
+    .column-header-icon.email-icon { background: #e65100; }
+    .column-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--color-primary, #020140);
+      margin: 0;
+    }
+    .column-desc {
+      color: var(--color-text-secondary, #5c5a78);
+      font-size: 0.78rem;
+      margin: 0.15rem 0 0;
+    }
+
+    .template-cards-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    /* ── Template Card ── */
+    .template-card { padding: 0 !important; overflow: hidden; }
+    .template-card-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.7rem 1rem;
       background: var(--color-surface-alt, #f8f7fc);
       border-bottom: 1px solid var(--color-border-light, #f0eff5);
     }
-    .sms-template-info { display: flex; align-items: center; gap: 0.5rem; }
-    .sms-template-event { font-weight: 600; font-size: 0.88rem; color: var(--color-primary, #020140); }
-    .sms-template-body { padding: 1rem 1.15rem; display: flex; flex-direction: column; gap: 0.75rem; }
-    .sms-template-body .field { display: flex; flex-direction: column; gap: 0.25rem; }
-    .sms-template-body .field label { font-weight: 500; font-size: 0.82rem; color: var(--color-text-secondary); }
-    .sms-template-body textarea {
-      width: 100%; font-family: inherit; font-size: 0.85rem; padding: 0.5rem 0.65rem;
-      border: 1.5px solid var(--color-border, #e4e2f0); border-radius: var(--radius-sm, 6px);
-      resize: vertical; min-height: 60px; transition: border-color 0.2s;
+    .template-event-name {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--color-primary, #020140);
     }
-    .sms-template-body textarea:focus { border-color: var(--color-accent, #6c63ff); outline: none; }
-    .sms-template-body input {
-      width: 100%; font-family: inherit; font-size: 0.85rem; padding: 0.4rem 0.65rem;
+    .template-card-body {
+      padding: 0.85rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+    .template-card-body .field { display: flex; flex-direction: column; gap: 0.2rem; }
+    .template-card-body .field label { font-weight: 500; font-size: 0.8rem; color: var(--color-text-secondary); }
+    .template-card-body textarea {
+      width: 100%; font-family: inherit; font-size: 0.83rem; padding: 0.45rem 0.6rem;
+      border: 1.5px solid var(--color-border, #e4e2f0); border-radius: var(--radius-sm, 6px);
+      resize: vertical; min-height: 55px; transition: border-color 0.2s;
+    }
+    .template-card-body textarea:focus { border-color: var(--color-accent, #6c63ff); outline: none; }
+    .template-card-body input {
+      width: 100%; font-family: inherit; font-size: 0.83rem; padding: 0.4rem 0.6rem;
       border: 1.5px solid var(--color-border, #e4e2f0); border-radius: var(--radius-sm, 6px);
     }
-    .sms-template-body input:focus { border-color: var(--color-accent, #6c63ff); outline: none; }
-    .field-hint { font-size: 0.75rem; color: var(--color-text-muted, #9896ad); }
-    .sms-template-footer {
-      padding: 0.75rem 1.15rem; border-top: 1px solid var(--color-border-light, #f0eff5);
-      display: flex; flex-direction: column; gap: 0.65rem;
+    .template-card-body input:focus { border-color: var(--color-accent, #6c63ff); outline: none; }
+    /* ── Quill editor overrides ── */
+    :host ::ng-deep .ql-container { font-family: inherit; font-size: 0.85rem; }
+    :host ::ng-deep .ql-editor { min-height: 120px; direction: rtl; text-align: right; }
+    :host ::ng-deep .ql-toolbar { direction: ltr; border-color: var(--color-border, #e4e2f0); border-radius: var(--radius-sm, 6px) var(--radius-sm, 6px) 0 0; }
+    :host ::ng-deep .ql-container { border-color: var(--color-border, #e4e2f0); border-radius: 0 0 var(--radius-sm, 6px) var(--radius-sm, 6px); }
+    :host ::ng-deep .ql-editor.ql-blank::before { direction: rtl; text-align: right; font-style: normal; color: var(--color-text-muted, #9896ad); }
+    .template-card-footer {
+      padding: 0.65rem 1rem;
+      border-top: 1px solid var(--color-border-light, #f0eff5);
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
     }
     .footer-actions {
       display: flex; gap: 0.5rem; flex-wrap: wrap;
@@ -671,25 +812,34 @@ const EVENTS = ['visitor_arrived', 'visit_created', 'visit_updated', 'visit_dele
       padding: 0.55rem 0.75rem; font-size: 0.84rem; line-height: 1.5;
       color: var(--color-text, #1a1a2e); direction: rtl;
     }
-    .test-sms-panel {
+    /* ── Test Panel (shared for SMS & Email) ── */
+    .test-panel {
       background: var(--color-surface-alt, #f7f6fc); border: 1.5px solid var(--color-accent, #6c63ff);
       border-radius: var(--radius-sm, 6px); overflow: hidden;
     }
-    .test-sms-panel__header {
+    .test-panel__header {
       display: flex; align-items: center; gap: 0.35rem;
       padding: 0.45rem 0.75rem; font-size: 0.78rem; font-weight: 600;
       color: #fff; background: var(--color-accent, #6c63ff);
     }
-    .test-sms-panel__header i { font-size: 0.8rem; }
-    .test-sms-panel__body {
+    .test-panel__header--email { background: #e65100; }
+    .test-panel__header i { font-size: 0.8rem; }
+    .test-panel__body {
       display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 0.75rem;
     }
-    .test-phone-input {
+    .test-input {
       flex: 1; padding: 0.45rem 0.65rem; font-size: 0.84rem; border-radius: var(--radius-sm, 6px);
       border: 1.5px solid var(--color-border, #e4e2f0); direction: ltr; text-align: left;
       transition: border-color 0.15s ease;
     }
-    .test-phone-input:focus { border-color: var(--color-accent, #6c63ff); outline: none; box-shadow: 0 0 0 2px rgba(108,99,255,0.12); }
+    .test-input:focus { border-color: var(--color-accent, #6c63ff); outline: none; box-shadow: 0 0 0 2px rgba(108,99,255,0.12); }
+
+    /* ── Preview HTML (for email) ── */
+    .preview-html {
+      padding: 0.55rem 0.75rem; font-size: 0.84rem; line-height: 1.5;
+      color: var(--color-text, #1a1a2e); direction: rtl;
+      max-height: 200px; overflow-y: auto;
+    }
     .btn-sm { font-size: 0.8rem; padding: 0.3rem 0.7rem; }
 
     /* ── Placeholders (collapsible) ── */
@@ -744,6 +894,20 @@ export class NotificationSettingsComponent implements OnInit, HasUnsavedChanges 
   targetGroups = [...TARGET_GROUPS];
   events = [...EVENTS];
 
+  // Quill editor toolbar config
+  quillModules = {
+    toolbar: [
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ header: [1, 2, 3, false] }],
+      [{ color: [] }, { background: [] }],
+      [{ align: [] }],
+      [{ direction: 'rtl' }],
+      [{ list: 'ordered' }, { list: 'bullet' }],
+      ['link'],
+      ['clean'],
+    ],
+  };
+
   matrix: Record<string, Record<string, MatrixCell>> = {};
   saving = false;
   loading = true;
@@ -756,26 +920,35 @@ export class NotificationSettingsComponent implements OnInit, HasUnsavedChanges 
   smsSaving = false;
   smsDirty = false;
   placeholdersExpanded = false;
-  selectedSmsGroup: string = TARGET_GROUPS[0];
-  smsGridAnimating = false;
 
-  selectSmsGroup(group: string): void {
-    if (group === this.selectedSmsGroup) return;
-    this.smsGridAnimating = true;
+  // Email Templates
+  emailTemplates: EmailTemplateRow[] = [];
+  emailLoading = true;
+  emailSaving = false;
+  emailDirty = false;
+
+  // Shared template tab state
+  selectedGroup: string = TARGET_GROUPS[0];
+  templatesAnimating = false;
+
+  selectGroup(group: string): void {
+    if (group === this.selectedGroup) return;
+    this.templatesAnimating = true;
     setTimeout(() => {
-      this.selectedSmsGroup = group;
-      this.smsGridAnimating = false;
+      this.selectedGroup = group;
+      this.templatesAnimating = false;
     }, 180);
   }
 
   hasUnsavedChanges(): boolean {
-    return this.dirty || this.smsDirty;
+    return this.dirty || this.smsDirty || this.emailDirty;
   }
 
   ngOnInit(): void {
     this.initMatrix();
     this.loadSettings();
     this.loadSmsTemplates();
+    this.loadEmailTemplates();
     this.loadPlaceholders();
   }
 
@@ -823,6 +996,7 @@ export class NotificationSettingsComponent implements OnInit, HasUnsavedChanges 
               template: existing?.template ?? '',
               recipients: existing?.recipients ?? null,
               _preview: '',
+              _showPreview: false,
               _testPhone: '',
               _testSending: false,
               _showTestInput: false,
@@ -834,6 +1008,40 @@ export class NotificationSettingsComponent implements OnInit, HasUnsavedChanges 
       },
       error: () => {
         this.smsLoading = false;
+      },
+    });
+  }
+
+  private loadEmailTemplates(): void {
+    this.emailLoading = true;
+    this.api.get<EmailTemplate[]>('/settings/email-templates').subscribe({
+      next: (templates) => {
+        const byKey = new Map(templates.map((t) => [`${t.event}::${t.targetGroup}`, t]));
+        this.emailTemplates = [];
+        for (const group of this.targetGroups) {
+          for (const event of this.events) {
+            const existing = byKey.get(`${event}::${group}`);
+            this.emailTemplates.push({
+              id: existing?.id ?? '',
+              event,
+              targetGroup: group,
+              subject: existing?.subject ?? '',
+              bodyHtml: existing?.bodyHtml ?? '',
+              recipients: existing?.recipients ?? null,
+              _previewSubject: '',
+              _previewBody: '',
+              _showPreview: false,
+              _testEmail: '',
+              _testSending: false,
+              _showTestInput: false,
+            });
+          }
+        }
+        this.emailDirty = false;
+        this.emailLoading = false;
+      },
+      error: () => {
+        this.emailLoading = false;
       },
     });
   }
@@ -904,7 +1112,16 @@ export class NotificationSettingsComponent implements OnInit, HasUnsavedChanges 
     return this.smsTemplates.filter((t) => t.targetGroup === group);
   }
 
-  previewTemplate(tpl: SmsTemplateRow): void {
+  getEmailTemplatesForGroup(group: string): EmailTemplateRow[] {
+    return this.emailTemplates.filter((t) => t.targetGroup === group);
+  }
+
+  toggleSmsPreview(tpl: SmsTemplateRow): void {
+    if (tpl._showPreview) {
+      tpl._showPreview = false;
+      return;
+    }
+    tpl._showPreview = true;
     this.api.post<{ rendered: string }>('/settings/sms-templates/preview', {
       event: tpl.event,
       targetGroup: tpl.targetGroup,
@@ -934,9 +1151,50 @@ export class NotificationSettingsComponent implements OnInit, HasUnsavedChanges 
     });
   }
 
+  toggleEmailPreview(etpl: EmailTemplateRow): void {
+    if (etpl._showPreview) {
+      etpl._showPreview = false;
+      return;
+    }
+    etpl._showPreview = true;
+    this.api.post<{ renderedSubject: string; renderedBody: string }>('/settings/email-templates/preview', {
+      event: etpl.event,
+      targetGroup: etpl.targetGroup,
+      subject: etpl.subject,
+      bodyHtml: etpl.bodyHtml,
+    }).subscribe({
+      next: (res) => {
+        etpl._previewSubject = res.renderedSubject;
+        etpl._previewBody = res.renderedBody;
+      },
+      error: (err) => { this.notify.error(err); },
+    });
+  }
+
+  sendTestEmail(etpl: EmailTemplateRow): void {
+    if (etpl._testSending || !etpl._testEmail?.trim()) return;
+    etpl._testSending = true;
+    this.api.post<{ success: boolean }>('/settings/email-templates/test', {
+      event: etpl.event,
+      subject: etpl.subject,
+      bodyHtml: etpl.bodyHtml,
+      email: etpl._testEmail.trim(),
+    }).subscribe({
+      next: () => {
+        etpl._testSending = false;
+        this.notify.success('EMAIL_TEMPLATES.TEST_SUCCESS');
+      },
+      error: (err) => {
+        etpl._testSending = false;
+        this.notify.error(err);
+      },
+    });
+  }
+
   saveAll(): void {
     if (this.dirty) this.saveNotifications();
     if (this.smsDirty) this.saveSmsTemplates();
+    if (this.emailDirty) this.saveEmailTemplates();
   }
 
   private saveNotifications(): void {
@@ -988,6 +1246,30 @@ export class NotificationSettingsComponent implements OnInit, HasUnsavedChanges 
     });
   }
 
+  private saveEmailTemplates(): void {
+    if (this.emailSaving) return;
+    this.emailSaving = true;
+
+    const templates = this.emailTemplates.map((etpl) => ({
+      event: etpl.event,
+      targetGroup: etpl.targetGroup,
+      subject: etpl.subject,
+      bodyHtml: etpl.bodyHtml,
+    }));
+
+    this.api.put('/settings/email-templates', { templates }).subscribe({
+      next: () => {
+        this.emailSaving = false;
+        this.emailDirty = false;
+        this.notify.success('EMAIL_TEMPLATES.SAVE_SUCCESS');
+      },
+      error: (err) => {
+        this.emailSaving = false;
+        this.notify.error(err);
+      },
+    });
+  }
+
   // Keep old save() for backward compat
   save(): void {
     this.saveAll();
@@ -996,7 +1278,17 @@ export class NotificationSettingsComponent implements OnInit, HasUnsavedChanges 
 
 interface SmsTemplateRow extends SmsTemplate {
   _preview: string;
+  _showPreview: boolean;
   _testPhone: string;
+  _testSending: boolean;
+  _showTestInput: boolean;
+}
+
+interface EmailTemplateRow extends EmailTemplate {
+  _previewSubject: string;
+  _previewBody: string;
+  _showPreview: boolean;
+  _testEmail: string;
   _testSending: boolean;
   _showTestInput: boolean;
 }

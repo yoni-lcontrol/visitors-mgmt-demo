@@ -252,7 +252,6 @@
         "ROLES": "Roles",
         "LAST_LOGIN": "Last Login",
         "NEVER": "Never",
-        "DELETE_CONFIRM": "Are you sure you want to delete this user?",
         "EMAIL": "Email",
         "PHONE": "Phone",
         "ID_NUMBER": "ID Number",
@@ -546,7 +545,6 @@
                 "create": "Create Users",
                 "read": "View Users",
                 "update": "Update Users",
-                "delete": "Delete Users",
                 "sync": "Sync Users"
             },
             "roles": {
@@ -630,7 +628,6 @@
                 "create": "Create new system users",
                 "read": "View system user list and details",
                 "update": "Update system user details",
-                "delete": "Delete system users",
                 "sync": "Sync users from Active Directory"
             },
             "roles": {
@@ -765,6 +762,23 @@
         "PH_PARKING_STATUS": "Parking request status (approved/denied)",
         "PH_PARKING_REVIEWNOTE": "Parking review note",
         "SAVE_SUCCESS": "SMS templates saved successfully"
+    },
+    "EMAIL_TEMPLATES": {
+        "TITLE": "Email Templates",
+        "DESCRIPTION": "Configure email templates per target group and event type. Use placeholders to insert dynamic information.",
+        "SUBJECT": "Subject",
+        "SUBJECT_PLACEHOLDER": "Enter email subject...",
+        "BODY": "Body (HTML)",
+        "BODY_PLACEHOLDER": "Enter email body in HTML...",
+        "PREVIEW": "Preview",
+        "PREVIEW_RESULT_SUBJECT": "Subject",
+        "PREVIEW_RESULT_BODY": "Body",
+        "TEST_EMAIL": "Test Email",
+        "SEND_TEST": "Send",
+        "TEST_EMAIL_PLACEHOLDER": "test@example.com",
+        "TEST_SUCCESS": "Test email sent successfully",
+        "PLACEHOLDERS_TITLE": "Available Placeholders",
+        "SAVE_SUCCESS": "Email templates saved successfully"
     },
     "AD_SETTINGS": {
         "TITLE": "Active Directory Settings",

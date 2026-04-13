@@ -91,9 +91,6 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
               <button class="btn-icon" *hasPermission="'users.update'" (click)="openDialog(user)" [title]="'COMMON.EDIT' | translate">
                 <i class="pi pi-pencil"></i>
               </button>
-              <button class="btn-icon danger" *hasPermission="'users.delete'" (click)="onDelete(user)" [title]="'COMMON.DELETE' | translate">
-                <i class="pi pi-trash"></i>
-              </button>
             </td>
           </tr>
         </ng-template>
@@ -328,18 +325,6 @@ export class UserListComponent implements OnInit {
         this.notify.warn(this.translate.instant('USERS.SYNC_FAILED'));
       },
     });
-  }
-
-  async onDelete(user: User): Promise<void> {
-    if (await this.confirmService.confirm('USERS.DELETE_CONFIRM')) {
-      this.usersApi.delete(user.id).subscribe({
-        next: () => {
-          this.notify.success('COMMON.SUCCESS');
-          this.loadUsers();
-        },
-        error: (err) => this.notify.error(err),
-      });
-    }
   }
 
   onToggleActive(user: User): void {

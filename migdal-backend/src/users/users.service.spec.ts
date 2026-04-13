@@ -135,19 +135,6 @@ describe('UsersService', () => {
         });
     });
 
-    describe('remove', () => {
-        it('should hard-delete user and broadcast', async () => {
-            const user = { id: '1', username: 'alice', isActive: true, roles: [{ name: 'Admin', permissions: [] }], passwordHash: 'h' };
-            mockRepo.findOne.mockResolvedValue(user);
-            (mockRepo as any).manager = { query: jest.fn().mockResolvedValue(undefined) };
-
-            await service.remove('1', 'admin-id');
-
-            expect(mockRepo.delete).toHaveBeenCalledWith('1');
-            expect(mockWsGateway.broadcastToAll).toHaveBeenCalledWith('users:user:deleted', { id: '1' });
-        });
-    });
-
     describe('assignRoles', () => {
         it('should assign roles to user', async () => {
             const user = { id: '1', username: 'alice', isActive: true, roles: [], passwordHash: 'h' };

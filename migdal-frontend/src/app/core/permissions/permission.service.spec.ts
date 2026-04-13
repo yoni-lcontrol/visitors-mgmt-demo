@@ -51,7 +51,7 @@ describe('PermissionService', () => {
                 permissions: ['users.read'],
             });
 
-        expect(service.hasPermission('users.delete')).toBeFalse();
+        expect(service.hasPermission('users.update')).toBeFalse();
     });
 
     it('should refresh permission state when user changes', () => {
@@ -89,8 +89,8 @@ describe('PermissionService', () => {
                 permissions: ['users.read'],
             });
 
-        expect(service.hasAnyPermission(['users.read', 'users.delete'])).toBeTrue();
-        expect(service.hasAnyPermission(['users.delete', 'roles.delete'])).toBeFalse();
+        expect(service.hasAnyPermission(['users.read', 'users.update'])).toBeTrue();
+        expect(service.hasAnyPermission(['users.update', 'roles.delete'])).toBeFalse();
     });
 
     it('hasAllPermissions should return true only if all match', () => {
@@ -105,6 +105,6 @@ describe('PermissionService', () => {
             });
 
         expect(service.hasAllPermissions(['users.read', 'users.create'])).toBeTrue();
-        expect(service.hasAllPermissions(['users.read', 'users.delete'])).toBeFalse();
+        expect(service.hasAllPermissions(['users.read', 'users.update'])).toBeFalse();
     });
 });

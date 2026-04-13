@@ -223,36 +223,6 @@ export class UsersService {
         return result;
     }
 
-    async remove(id: string, currentUserId?: string): Promise<void> {
-        const user = await this.userRepo.findOne({ where: { id } });
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
-
-        // Clear junction tables and nullable FKs before hard delete
-        await this.userRepo.manager.query(
-            `DELETE FROM [UserRoles] WHERE [userId] = @0`, [id],
-        );
-        await this.userRepo.manager.query(
-            `DELETE FROM [BlacklistNotifyUsers] WHERE [userId] = @0`, [id],
-        );
-        await this.userRepo.manager.query(
-            `UPDATE [Visits] SET [visitRequesterUserId] = NULL WHERE [visitRequesterUserId] = @0`, [id],
-        );
-
-        await this.userRepo.delete(id);
-
-        this.wsGateway.broadcastToAll('users:user:deleted', { id });
-        this.auditService.log({
-            userId: currentUserId,
-            module: 'users',
-            action: 'DELETE',
-            entity: 'User',
-            entityId: id,
-            description: `Deleted user ${user.username}`,
-        }).catch(() => { });
-    }
-
     async assignRoles(
         id: string,
         roleIds: string[],

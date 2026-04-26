@@ -1,10 +1,12 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, IsNull } from 'typeorm';
 import { Permission } from '../../permissions/entities/permission.entity';
 import { Role } from '../../roles/entities/role.entity';
 import { User } from '../../users/entities/user.entity';
+import { AdGroupRoleMapping } from '../../ad-group-role-mappings/entities/ad-group-role-mapping.entity';
 import { permissionsSeed } from './data/permissions.seed';
 import { rolesSeed } from './data/roles.seed';
+import { adGroupRoleMappingsSeed } from './data/ad-group-role-mappings.seed';
 import { adminUserSeed } from './data/admin-user.seed';
 import { smsTemplatesSeed } from './data/sms-templates.seed';
 import { emailTemplatesSeed } from './data/email-templates.seed';
@@ -53,13 +55,15 @@ export class SeedService implements OnModuleInit {
 
             // 2. Seed roles
             const roleRepo = queryRunner.manager.getRepository(Role);
-            const existingRoleCount = await roleRepo.count();
+            const existingRoles = await roleRepo.find();
+            const existingRoleNames = new Set(existingRoles.map((role) => role.name));
+            const missingRoles = rolesSeed.filter((role) => !existingRoleNames.has(role.name));
+            const allPerms = await permRepo.find();
 
-            if (existingRoleCount === 0) {
-                this.logger.log('Seeding roles...');
-                const allPerms = await permRepo.find();
+            if (missingRoles.length > 0) {
+                this.logger.log(`Seeding ${missingRoles.length} missing role(s)...`);
 
-                for (const r of rolesSeed) {
+                for (const r of missingRoles) {
                     const role = roleRepo.create({
                         name: r.name,
                         description: r.description,
@@ -70,24 +74,113 @@ export class SeedService implements OnModuleInit {
                     );
                     await roleRepo.save(role);
                 }
-                this.logger.log(`Seeded ${rolesSeed.length} roles`);
-            } else {
-                // Always ensure the Admin role has ALL permissions
-                const adminRole = await roleRepo.findOne({
-                    where: { name: 'Admin' },
+                this.logger.log(`Seeded ${missingRoles.length} role(s)`);
+            }
+
+            // Ensure existing seeded roles include required default permissions (additive only)
+            for (const seededRole of rolesSeed) {
+                if (!existingRoleNames.has(seededRole.name)) {
+                    continue;
+                }
+
+                const role = await roleRepo.findOne({
+                    where: { name: seededRole.name },
                     relations: ['permissions'],
                 });
-                if (adminRole) {
-                    const allPerms = await permRepo.find();
-                    if (adminRole.permissions.length !== allPerms.length) {
-                        adminRole.permissions = allPerms;
-                        await roleRepo.save(adminRole);
-                        this.logger.log(`Updated Admin role: ${adminRole.permissions.length} → ${allPerms.length} permissions`);
-                    }
+
+                if (!role) {
+                    continue;
+                }
+
+                const existingKeys = new Set((role.permissions ?? []).map((permission) => permission.key));
+                const missingKeys = seededRole.permissions.filter((permissionKey) => !existingKeys.has(permissionKey));
+
+                if (missingKeys.length === 0) {
+                    continue;
+                }
+
+                const missingPermissions = allPerms.filter((permission) => missingKeys.includes(permission.key as any));
+                if (missingPermissions.length === 0) {
+                    continue;
+                }
+
+                role.permissions = [...(role.permissions ?? []), ...missingPermissions];
+                await roleRepo.save(role);
+                this.logger.log(`Updated role ${role.name}: added ${missingPermissions.length} permission(s)`);
+            }
+
+            // Always ensure the Admin role has ALL permissions
+            const adminRole = await roleRepo.findOne({
+                where: { name: 'Admin' },
+                relations: ['permissions'],
+            });
+            if (adminRole) {
+                const allPerms = await permRepo.find();
+                if (adminRole.permissions.length !== allPerms.length) {
+                    adminRole.permissions = allPerms;
+                    await roleRepo.save(adminRole);
+                    this.logger.log(`Updated Admin role: ${adminRole.permissions.length} → ${allPerms.length} permissions`);
                 }
             }
 
-            // 3. Seed admin user
+            // 3. Seed AD group-role mappings (upsert by groupName in global scope)
+            const adGroupRoleMappingRepo = queryRunner.manager.getRepository(AdGroupRoleMapping);
+            const mappingTargetRoleNames = Array.from(
+                new Set(adGroupRoleMappingsSeed.map((mapping) => mapping.roleName)),
+            );
+            const mappingTargetRoles = await roleRepo.find({
+                where: mappingTargetRoleNames.map((name) => ({ name, isActive: true })),
+            });
+            const roleByName = new Map(mappingTargetRoles.map((role) => [role.name, role]));
+
+            let mappingsCreated = 0;
+            let mappingsUpdated = 0;
+            let mappingsSkippedMissingRole = 0;
+
+            for (const mappingSeed of adGroupRoleMappingsSeed) {
+                const role = roleByName.get(mappingSeed.roleName);
+                if (!role) {
+                    mappingsSkippedMissingRole += 1;
+                    this.logger.warn(
+                        `Skipping AD group mapping for ${mappingSeed.groupName}: role \"${mappingSeed.roleName}\" was not found or inactive`,
+                    );
+                    continue;
+                }
+
+                const existingMapping = await adGroupRoleMappingRepo.findOne({
+                    where: {
+                        adSourceId: IsNull(),
+                        groupName: mappingSeed.groupName,
+                    },
+                });
+
+                if (!existingMapping) {
+                    const createdMapping = adGroupRoleMappingRepo.create({
+                        groupName: mappingSeed.groupName,
+                        adSourceId: null,
+                        roleId: role.id,
+                        groupExternalId: null,
+                        createdBy: null,
+                        updatedBy: null,
+                    });
+                    await adGroupRoleMappingRepo.save(createdMapping);
+                    mappingsCreated += 1;
+                    continue;
+                }
+
+                if (existingMapping.roleId !== role.id) {
+                    existingMapping.roleId = role.id;
+                    existingMapping.updatedBy = null;
+                    await adGroupRoleMappingRepo.save(existingMapping);
+                    mappingsUpdated += 1;
+                }
+            }
+
+            this.logger.log(
+                `AD group-role mapping seed complete: created=${mappingsCreated}, updated=${mappingsUpdated}, skippedMissingRole=${mappingsSkippedMissingRole}`,
+            );
+
+            // 4. Seed admin user
             const userRepo = queryRunner.manager.getRepository(User);
             const adminExists = await userRepo.findOne({
                 where: { username: adminUserSeed.username },
@@ -106,14 +199,14 @@ export class SeedService implements OnModuleInit {
                     firstName: adminUserSeed.firstName,
                     lastName: adminUserSeed.lastName,
                 });
-                admin.roles = adminRole ? [adminRole] : [];
+                admin.roleId = adminRole?.id ?? null;
                 await userRepo.save(admin);
                 this.logger.log(
                     `Admin user created: ${adminUserSeed.username} / ${adminUserSeed.password}`,
                 );
             }
 
-            // 4. Seed SMS templates (upsert — add missing event+targetGroup templates)
+            // 5. Seed SMS templates (upsert — add missing event+targetGroup templates)
             const smsRepo = queryRunner.manager.getRepository(SmsTemplate);
             const existingSmsTemplates = await smsRepo.find();
             const existingSmsKeys = new Set(existingSmsTemplates.map((t) => `${t.event}::${t.targetGroup}`));
@@ -132,7 +225,7 @@ export class SeedService implements OnModuleInit {
                 this.logger.log(`Seeded ${newTemplates.length} SMS template(s)`);
             }
 
-            // 5. Seed email templates (upsert — add missing event+targetGroup templates)
+            // 6. Seed email templates (upsert — add missing event+targetGroup templates)
             const emailRepo = queryRunner.manager.getRepository(EmailTemplate);
             const existingEmailTemplates = await emailRepo.find();
             const existingEmailKeys = new Set(existingEmailTemplates.map((t) => `${t.event}::${t.targetGroup}`));
@@ -152,7 +245,7 @@ export class SeedService implements OnModuleInit {
                 this.logger.log(`Seeded ${newEmailTemplates.length} email template(s)`);
             }
 
-            // 6. Seed default settings (upsert — add missing keys)
+            // 7. Seed default settings (upsert — add missing keys)
             const settingRepo = queryRunner.manager.getRepository(Setting);
             const existingSettings = await settingRepo.find();
             const existingSettingKeys = new Set(existingSettings.map((s) => s.key));

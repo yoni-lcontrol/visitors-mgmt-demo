@@ -1,5 +1,6 @@
-import { IsNotEmpty, IsString, IsOptional, IsBoolean } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsBoolean, IsArray, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { GUID_REGEX } from '../../common/constants/regex.constants';
 
 export class CreateBuildingDto {
     @ApiProperty({ example: 'Building A' })
@@ -16,4 +17,10 @@ export class CreateBuildingDto {
     @IsOptional()
     @IsBoolean()
     active?: boolean;
+
+    @ApiPropertyOptional({ description: 'Array of access level IDs to assign to the building', type: [String] })
+    @IsOptional()
+    @IsArray()
+    @Matches(GUID_REGEX, { each: true, message: 'each value in accessLevelIds must be a GUID' })
+    accessLevelIds?: string[];
 }

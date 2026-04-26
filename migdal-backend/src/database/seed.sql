@@ -122,10 +122,9 @@ VALUES (
 );
 
 -- Assign Admin role to default admin user
-INSERT INTO [UserRoles] ([userId], [roleId])
-SELECT @AdminUserId, [id]
-FROM [Roles]
-WHERE [name] = 'Admin';
+UPDATE [Users]
+SET [roleId] = (SELECT [id] FROM [Roles] WHERE [name] = 'Admin')
+WHERE [id] = @AdminUserId;
 
 GO
 

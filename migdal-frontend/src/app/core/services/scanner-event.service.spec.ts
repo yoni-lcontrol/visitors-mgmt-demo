@@ -25,7 +25,7 @@ describe('ScannerEventService', () => {
         workstationId: 'ws-1',
         code: 'WS-001',
         displayName: 'WS 01',
-        devices: [{ providerType: 'scanner', isConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null }],
+        devices: [{ providerType: 'scanner', isConnected: true, deviceConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null }],
         error: null,
     };
 

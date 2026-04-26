@@ -2,6 +2,7 @@ import {
     Injectable,
     NotFoundException,
     BadRequestException,
+    ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -20,8 +21,8 @@ import { ParkingRequest } from './entities/parking-request.entity';
 import { PermissionKey } from '../common/enums/permission-key.enum';
 import { BlacklistService } from './blacklist.service';
 import { VisitCheckInCodeService } from './visit-check-in-code.service';
-import { AccessLevel } from '../access-control/entities/access-level.entity';
 import { AuditService } from '../audit/audit.service';
+import { VisitorPersistenceService } from './visitor-persistence.service';
 
 @Injectable()
 export class VisitParticipantService {
@@ -39,11 +40,10 @@ export class VisitParticipantService {
         private readonly dataSource: DataSource,
         private readonly blacklistService: BlacklistService,
         private readonly checkInCodeService: VisitCheckInCodeService,
-        @InjectRepository(AccessLevel)
-        private readonly accessLevelRepo: Repository<AccessLevel>,
         @InjectRepository(ParkingRequest)
         private readonly parkingRequestRepo: Repository<ParkingRequest>,
         private readonly auditService: AuditService,
+        private readonly visitorPersistence: VisitorPersistenceService,
     ) { }
 
     // ── Validation helpers (public for use by VisitsService.createVisit) ──
@@ -73,23 +73,6 @@ export class VisitParticipantService {
         }
     }
 
-    async validateAccessLevelIds(accessLevelIds: string[]): Promise<void> {
-        const unique = [...new Set(accessLevelIds.filter(Boolean))];
-        if (!unique.length) return;
-        const validLevels = await this.accessLevelRepo
-            .createQueryBuilder('al')
-            .where('al.id IN (:...ids)', { ids: unique })
-            .andWhere('al.active = :active', { active: true })
-            .andWhere('al.visitorAccess = :va', { va: true })
-            .getMany();
-        const validIds = new Set(validLevels.map(al => al.id));
-        for (const id of unique) {
-            if (!validIds.has(id)) {
-                throw new BadRequestException(`Access level ${id} does not exist or is no longer available`);
-            }
-        }
-    }
-
     // ── Visit Visitors ──
 
     async getVisitVisitors(visitId: string): Promise<any[]> {
@@ -98,7 +81,7 @@ export class VisitParticipantService {
 
         const visitors = await this.visitVisitorRepo.find({
             where: { visitId, isActive: true },
-            relations: ['visitor', 'status', 'accessLevel'],
+            relations: ['visitor', 'status'],
         });
 
         const vvIds = visitors.map((vv) => vv.id);
@@ -113,8 +96,6 @@ export class VisitParticipantService {
                 id: vv.id,
                 visitId: vv.visitId,
                 visitorId: vv.visitorId,
-                accessLevelId: vv.accessLevelId,
-                accessLevel: vv.accessLevel ? { id: vv.accessLevel.id, name: vv.accessLevel.name } : null,
                 notes: vv.notes,
                 visitor: vv.visitor ? {
                     id: vv.visitor.id,
@@ -145,14 +126,13 @@ export class VisitParticipantService {
         if (!visit) throw new NotFoundException('Visit not found');
 
         await this.validateVisitorsNotBlacklisted(dto.visitors);
-        await this.validateAccessLevelIds(dto.visitors.map(v => v.accessLevelId));
 
         const qr = this.dataSource.createQueryRunner();
         await qr.connect();
         await qr.startTransaction();
         try {
             for (const v of dto.visitors) {
-                const visitor = qr.manager.create(Visitor, {
+                const { visitor: savedVisitor } = await this.visitorPersistence.upsertByPersonId({
                     firstName: v.firstName,
                     lastName: v.lastName,
                     email: v.email ?? null,
@@ -160,15 +140,11 @@ export class VisitParticipantService {
                     personId: v.personId,
                     carNumber: v.hasVehicle ? (v.carNumber ?? null) : null,
                     vehicleType: v.hasVehicle ? (v.vehicleType ?? null) : null,
-                    createdBy: currentUserId ?? null,
-                    updatedBy: currentUserId ?? null,
-                });
-                const savedVisitor = await qr.manager.save(visitor);
+                }, currentUserId, qr.manager);
 
                 const vv = qr.manager.create(VisitVisitor, {
                     visitId,
                     visitorId: savedVisitor.id,
-                    accessLevelId: v.accessLevelId,
                     notes: v.notes ?? null,
                     createdBy: currentUserId ?? null,
                     updatedBy: currentUserId ?? null,
@@ -233,23 +209,27 @@ export class VisitParticipantService {
         const oldVisitorValue = { firstName: visitor.firstName, lastName: visitor.lastName, personId: visitor.personId, email: visitor.email, phone: visitor.phone };
 
         if (dto.personId !== undefined) {
-            const blacklistResult = await this.blacklistService.checkBlacklistStatus(dto.personId);
+            const normalizedPersonId = this.visitorPersistence.normalizePersonId(dto.personId);
+            const blacklistResult = await this.blacklistService.checkBlacklistStatus(normalizedPersonId);
             if (blacklistResult.isBlacklisted) {
-                throw new BadRequestException(`Visitor with ID ${dto.personId} is currently blacklisted: ${blacklistResult.reason}`);
+                throw new BadRequestException(`Visitor with ID ${normalizedPersonId} is currently blacklisted: ${blacklistResult.reason}`);
+            }
+
+            if (normalizedPersonId !== visitor.personId) {
+                const existingVisitor = await this.visitorPersistence.findByPersonId(normalizedPersonId);
+                if (existingVisitor && existingVisitor.id !== visitor.id) {
+                    throw new ConflictException('Visitor personId already exists');
+                }
             }
         }
 
-        if (dto.accessLevelId !== undefined) {
-            await this.validateAccessLevelIds([dto.accessLevelId]);
-        }
-
-        if (dto.firstName !== undefined) visitor.firstName = dto.firstName;
-        if (dto.lastName !== undefined) visitor.lastName = dto.lastName;
-        if (dto.email !== undefined) visitor.email = dto.email ?? null;
-        if (dto.phone !== undefined) visitor.phone = dto.phone ?? null;
-        if (dto.personId !== undefined) visitor.personId = dto.personId;
-        if (dto.carNumber !== undefined) visitor.carNumber = dto.carNumber ?? null;
-        if (dto.vehicleType !== undefined) visitor.vehicleType = dto.vehicleType ?? null;
+        if (dto.firstName !== undefined) visitor.firstName = dto.firstName.trim();
+        if (dto.lastName !== undefined) visitor.lastName = dto.lastName.trim();
+        if (dto.email !== undefined) visitor.email = dto.email?.trim() ? dto.email.trim() : null;
+        if (dto.phone !== undefined) visitor.phone = dto.phone.trim();
+        if (dto.personId !== undefined) visitor.personId = this.visitorPersistence.normalizePersonId(dto.personId);
+        if (dto.carNumber !== undefined) visitor.carNumber = dto.carNumber?.trim() ? dto.carNumber.trim() : null;
+        if (dto.vehicleType !== undefined) visitor.vehicleType = dto.vehicleType?.trim() ? dto.vehicleType.trim() : null;
         if (dto.hasVehicle === false) {
             visitor.carNumber = null;
             visitor.vehicleType = null;
@@ -257,7 +237,6 @@ export class VisitParticipantService {
         visitor.updatedBy = currentUserId ?? null;
         await this.visitorRepo.save(visitor);
 
-        if (dto.accessLevelId !== undefined) vv.accessLevelId = dto.accessLevelId;
         if (dto.notes !== undefined) vv.notes = dto.notes ?? null;
         vv.updatedBy = currentUserId ?? null;
         await this.visitVisitorRepo.save(vv);
@@ -346,6 +325,7 @@ export class VisitParticipantService {
                 lastName: e.lastName,
                 phone: e.phone,
                 email: e.email,
+                sector: e.sector?.trim() ? e.sector.trim() : null,
                 createdBy: currentUserId ?? null,
                 updatedBy: currentUserId ?? null,
             });
@@ -369,12 +349,19 @@ export class VisitParticipantService {
         const escort = await this.visitEscortRepo.findOne({ where: { id: visitEscortId, visitId, isActive: true } });
         if (!escort) throw new NotFoundException('Visit escort not found');
 
-        const oldEscortValue = { firstName: escort.firstName, lastName: escort.lastName, phone: escort.phone, email: escort.email };
+        const oldEscortValue = {
+            firstName: escort.firstName,
+            lastName: escort.lastName,
+            phone: escort.phone,
+            email: escort.email,
+            sector: escort.sector,
+        };
 
         if (dto.firstName !== undefined) escort.firstName = dto.firstName;
         if (dto.lastName !== undefined) escort.lastName = dto.lastName;
         if (dto.phone !== undefined) escort.phone = dto.phone;
         if (dto.email !== undefined) escort.email = dto.email;
+        if (dto.sector !== undefined) escort.sector = dto.sector?.trim() ? dto.sector.trim() : null;
         escort.updatedBy = currentUserId ?? null;
         await this.visitEscortRepo.save(escort);
 

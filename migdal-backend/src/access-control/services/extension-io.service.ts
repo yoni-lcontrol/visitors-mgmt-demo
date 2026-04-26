@@ -74,4 +74,20 @@ export class ExtensionIoService {
             description: `Deleted extension IO "${io.name}"`,
         }).catch(() => { });
     }
+
+    async upsertByExternalId(data: Partial<ExtensionIo>): Promise<{ entity: ExtensionIo; action: 'created' | 'updated' }> {
+        const { id: _id, ...safeData } = data;
+        if (!safeData.externalId) {
+            const created = await this.extensionIoRepo.save(this.extensionIoRepo.create(safeData));
+            return { entity: created, action: 'created' };
+        }
+        const existing = await this.extensionIoRepo.findOne({ where: { externalId: safeData.externalId } });
+        if (existing) {
+            Object.assign(existing, safeData);
+            const saved = await this.extensionIoRepo.save(existing);
+            return { entity: saved, action: 'updated' };
+        }
+        const created = await this.extensionIoRepo.save(this.extensionIoRepo.create(safeData));
+        return { entity: created, action: 'created' };
+    }
 }

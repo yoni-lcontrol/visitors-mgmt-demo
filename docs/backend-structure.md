@@ -65,15 +65,15 @@ backend/src/
 │   ├── websocket.gateway.ts                   # Legacy gateway (delegates to UsersGateway)
 │   └── websocket.module.ts
 │
-├── buildings/                       # Building management CRUD
+├── buildings/                       # Building management CRUD + access-level assignment
 │   ├── entities/
-│   │   └── building.entity.ts                 # Buildings table (name, address, active)
+│   │   └── building.entity.ts                 # Buildings table (name, address, active) + M:N to AccessLevels
 │   ├── dto/
 │   │   ├── create-building.dto.ts
 │   │   ├── update-building.dto.ts
 │   │   └── building-query.dto.ts
 │   ├── buildings.service.ts                   # Full CRUD with soft-delete, FK nullification on Visits
-│   ├── buildings.controller.ts                # CRUD endpoints with permission guards
+│   ├── buildings.controller.ts                # CRUD endpoints + access-level list endpoint with permission guards
 │   └── buildings.module.ts
 │
 ├── scheduled-tasks/                 # Centralized cron jobs
@@ -149,18 +149,26 @@ The Amadeus module provides dedicated M2M endpoints for the Amadeus access-contr
 ```text
 backend/src/amadeus/
 ├── amadeus.module.ts                          # Module definition
-├── amadeus.controller.ts                      # Equipment + sync controllers
+├── amadeus.controller.ts                      # Equipment + sync endpoints (M2M)
+├── amadeus-events.controller.ts               # Event ingestion endpoint (batch) + recent events query
 ├── amadeus.service.ts                         # Equipment queries + sync logic
+├── amadeus-events.service.ts                  # Event processing + WS broadcast + history mapping from event logs
 ├── amadeus.controller.spec.ts                 # Controller tests
 ├── amadeus.service.spec.ts                    # Service tests
+├── amadeus-events.controller.spec.ts          # Events controller tests
+├── amadeus-events.service.spec.ts             # Events service tests
+├── adapters/
+│   ├── amadeus-event.adapter.ts               # Maps DTO → InboundEvent
+│   └── amadeus-event.adapter.spec.ts          # Adapter tests
 └── dto/
+    ├── create-amadeus-event.dto.ts            # Validated request DTO (matches Amadeus BackendAmadeusEventDto)
     ├── amadeus-equipment-response.dto.ts      # Response DTOs for equipment
     └── sync-result-response.dto.ts            # Sync result response
 ```
 
 ### Amadeus Equipment Endpoints
 
-All endpoints use HMAC authentication (`@Public()` + `IntegrationHmacGuard`).
+All endpoints are `@Public()` (no JWT). The Amadeus service currently does not send HMAC headers; HMAC authentication should be added once the Amadeus service implements HMAC signing.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -173,12 +181,83 @@ All endpoints use HMAC authentication (`@Public()` + `IntegrationHmacGuard`).
 
 ### Amadeus Integration Events
 
-Event ingestion follows the integrations platform pattern:
+Event ingestion uses the integrations common infrastructure (`InboundEventLogService` for idempotency + logging, `IntegrationProvider.Amadeus`).
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/integrations/amadeus/events` | Receive batch of Amadeus events |
-| POST | `/integrations/amadeus/events/single` | Receive single Amadeus event |
+| POST | `/events/amadeus` | Receive batch of Amadeus events |
+| GET | `/events/amadeus` | List recent Amadeus events for realtime events screen |
+
+## AD Group Role Mappings Module
+
+This module stores an explicit mapping between Active Directory groups and local system roles.
+Mappings support AD source scoping (`adSourceId`) and optional stable external group identifiers (`groupExternalId`) in addition to group names.
+
+```text
+backend/src/ad-group-role-mappings/
+├── entities/
+│   └── ad-group-role-mapping.entity.ts              # AdGroupRoleMappings table
+├── dto/
+│   ├── create-ad-group-role-mapping.dto.ts
+│   └── update-ad-group-role-mapping.dto.ts
+├── ad-group-role-mappings.service.ts                # CRUD + validation (source-aware uniqueness, role/source existence)
+├── ad-group-role-mappings.controller.ts             # REST endpoints with settings permissions
+├── ad-group-role-mappings.service.spec.ts           # Unit tests for service behavior
+└── ad-group-role-mappings.module.ts
+```
+
+### AD Group Role Mappings Endpoints
+
+| Method | Path | Permission | Description |
+|--------|------|-----------|-------------|
+| GET | `/ad-group-role-mappings` | `settings.read` | List all AD group-to-role mappings |
+| POST | `/ad-group-role-mappings` | `settings.update` | Create mapping |
+| PATCH | `/ad-group-role-mappings/:id` | `settings.update` | Update mapping |
+| DELETE | `/ad-group-role-mappings/:id` | `settings.update` | Delete mapping |
+
+This mapping table is intentionally independent from the user table so AD import can scale to multiple group memberships per user and evolve with extra mapping metadata in the future.
+
+Default global mappings seeded by `SeedService`:
+
+| AD Group | Role Name |
+|----------|-----------|
+| `Sniper_useres` | `עובד מגדל` |
+| `Sniper_Mangers` | `מנהלים בכירים ומזכירות` |
+| `Sniper_merkaz_Hadrachot` | `מרכז הדרכות` |
+| `Sniper_Moked_bitachon` | `מוקד ביטחון` |
+| `Sniper_Dalpak_Bitachon` | `דלפקים` |
+| `Sniper_Kabat` | `קב"ט` |
+
+Seed behavior for these mappings:
+
+1. Resolves target roles by stable role name (never by hardcoded IDs).
+2. Upserts global mappings by (`adSourceId = null`, `groupName`).
+3. Updates an existing mapping when `roleId` is different.
+4. Logs a warning and skips mapping when the target role is missing or inactive.
+5. Avoids duplicates via the existing unique key on (`adSourceId`, `groupName`).
+
+Uniqueness behavior:
+
+1. `groupName` is unique per source context (`adSourceId`, `groupName`).
+2. `groupExternalId` is unique per source when provided (`adSourceId`, `groupExternalId`).
+3. Global mappings (`adSourceId = null`) can be used as fallback for any AD source.
+
+### AD Sync Group Scoping
+
+AD user sync can be scoped to specific AD groups. Group sources are resolved in this order:
+
+1. `AdConfigurations.targetGroupsJson`
+2. `AD_SYNC_TARGET_GROUPS` environment variable (JSON array or CSV)
+3. `AdGroupRoleMappings.groupName`
+
+When groups are resolved, LDAP fetch runs in group-scoped mode (`memberOf` filter) and deduplicates users across groups by external ID. If no groups are resolved, sync falls back to legacy all-users mode for backward compatibility.
+
+To apply/update all seeds (including AD group-role mappings), run:
+
+```bash
+cd migdal-backend
+npm run seed
+```
 
 ## Testing Structure
 
@@ -216,6 +295,13 @@ backend/
 │   │   └── token-cleanup.task.spec.ts
 │   ├── buildings/
 │   │   └── buildings.service.spec.ts
+│   ├── amadeus/
+│   │   ├── amadeus.controller.spec.ts
+│   │   ├── amadeus.service.spec.ts
+│   │   ├── amadeus-events.controller.spec.ts
+│   │   ├── amadeus-events.service.spec.ts
+│   │   └── adapters/
+│   │       └── amadeus-event.adapter.spec.ts
 │   ├── sites/
 │   │   ├── sites.service.spec.ts
 │   │   └── sites.controller.spec.ts
@@ -283,7 +369,7 @@ backend/src/visitors/
 
 | Service | Responsibility |
 |---------|---------------|
-| `VisitsService` | Visit lifecycle CRUD (create, update, cancel), paginated queries, Excel export, check-in code generation |
+| `VisitsService` | Visit lifecycle CRUD (create, update, cancel), stamps the visit sector from the authenticated user, auto-assigns a default escort when none is provided (current user for self-request, requester for on-behalf), paginated queries, Excel export, check-in code generation |
 | `VisitParticipantService` | Visitor/escort add, update, remove (prevents removing last visitor); batch blacklist validation; access-level validation; check-in code generation; parking request data in visitor response |
 | `VisitStatusService` | Access events (arrived, check-in, check-out), on-site queries (batch blacklist), visitor history, auto-checkout |
 | `BlacklistService` | Blacklist CRUD, batch lookups, notifications |
@@ -329,6 +415,8 @@ backend/src/settings/
 ├── email-template.service.ts       # Email template CRUD
 ├── email-template-renderer.service.ts # Email template rendering
 ├── email-provider.service.ts       # Email provider integration
+├── permanent-escorts.service.ts    # Permanent escort mapping CRUD + domain-filtered user lookup
+├── permanent-escorts.controller.ts # /settings/permanent-escorts endpoints
 └── notification-settings.service.ts # Per-event notification configuration
 ```
 

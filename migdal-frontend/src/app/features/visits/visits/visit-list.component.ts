@@ -5,14 +5,14 @@ import { TranslateModule } from '@ngx-translate/core';
 import { TableModule } from 'primeng/table';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
-import { ApiService } from '@core/api/api.service';
 import { VisitsApiService } from '../services/visits-api.service';
 import { HasPermissionDirective } from '@core/permissions/has-permission.directive';
 import { NotificationService } from '@core/notifications/notification.service';
 import { ConfirmService } from '@core/services/confirm.service';
 import { downloadBlob } from '@core/utils/download.util';
 import { BuildingsApiService, Building as BuildingItem } from '../../settings/services/buildings-api.service';
-import { Visit, AccessLevel, PaginatedResult } from '@core/models/entities.model';
+import { Visit } from '@core/models/entities.model';
+import { PermissionService } from '@core/permissions/permission.service';
 import { TodaySummaryComponent } from './today-summary.component';
 import { VisitDialogComponent } from './visit-dialog.component';
 
@@ -139,9 +139,11 @@ import { VisitDialogComponent } from './visit-dialog.component';
               <button class="btn-icon" (click)="goToDetail(visit.id)" [title]="'VISITS.VIEW_DETAIL' | translate">
                 <i class="pi pi-eye"></i>
               </button>
-              <button class="btn-icon danger" *hasPermission="'visits.delete'" (click)="onDelete(visit)" [title]="'COMMON.DELETE' | translate">
-                <i class="pi pi-trash"></i>
-              </button>
+              @if (canDeleteVisit(visit)) {
+                <button class="btn-icon danger" (click)="onDelete(visit)" [title]="'COMMON.DELETE' | translate">
+                  <i class="pi pi-trash"></i>
+                </button>
+              }
             </td>
           </tr>
         </ng-template>
@@ -152,7 +154,6 @@ import { VisitDialogComponent } from './visit-dialog.component';
     </div>
 
     <app-visit-dialog #visitDialog
-      [accessLevels]="accessLevels"
       [buildings]="buildings"
       (saved)="loadData()">
     </app-visit-dialog>
@@ -291,12 +292,12 @@ import { VisitDialogComponent } from './visit-dialog.component';
 export class VisitListComponent implements OnInit {
   @ViewChild('visitDialog') visitDialog!: VisitDialogComponent;
 
-  private api = inject(ApiService);
   private visitsApi = inject(VisitsApiService);
   private notify = inject(NotificationService);
   private router = inject(Router);
   private buildingsApi = inject(BuildingsApiService);
   private confirmService = inject(ConfirmService);
+  private permissionService = inject(PermissionService);
 
   items: Visit[] = [];
   totalRecords = 0;
@@ -308,22 +309,13 @@ export class VisitListComponent implements OnInit {
   activeTimeFilter: 'today' | 'future' | 'history' | null = 'today';
   private lastLazyEvent: any = { first: 0, rows: 20, sortField: 'plannedStartTimeUtc', sortOrder: -1, filters: {} };
 
-  accessLevels: AccessLevel[] = [];
   buildings: BuildingItem[] = [];
   requesterDialogVisible = false;
   selectedVisit: Visit | null = null;
 
   ngOnInit(): void {
     this.loadData();
-    this.loadAccessLevels();
     this.loadBuildings();
-  }
-
-  loadAccessLevels(): void {
-    this.api.get<PaginatedResult<AccessLevel>>('/access-control/access-levels', { limit: 100, active: 1, visitorAccess: 1 }).subscribe({
-      next: (r) => { this.accessLevels = r.items; },
-      error: () => { },
-    });
   }
 
   loadBuildings(): void {
@@ -375,10 +367,21 @@ export class VisitListComponent implements OnInit {
   }
 
   goToDetail(visitId: string): void {
+    if (!this.permissionService.hasPermission('visits.read')) {
+      this.notify.error('COMMON.ACTION_NOT_ALLOWED');
+      return;
+    }
     this.router.navigate(['/visits', visitId]);
   }
 
   openDialog(visit?: Visit): void {
+    const canOpen = visit
+      ? this.permissionService.hasPermission('visits.update')
+      : this.permissionService.hasPermission('visits.create');
+    if (!canOpen) {
+      this.notify.error('COMMON.ACTION_NOT_ALLOWED');
+      return;
+    }
     this.visitDialog.open(visit);
   }
 
@@ -388,6 +391,10 @@ export class VisitListComponent implements OnInit {
   }
 
   async onDelete(visit: Visit): Promise<void> {
+    if (!this.canDeleteVisit(visit)) {
+      this.notify.error('COMMON.ACTION_NOT_ALLOWED');
+      return;
+    }
     if (!await this.confirmService.confirm('VISITS.DELETE_CONFIRM')) return;
     this.visitsApi.deleteVisit(visit.id).subscribe({
       next: () => { this.notify.success('COMMON.SUCCESS'); this.loadData(); },
@@ -396,6 +403,10 @@ export class VisitListComponent implements OnInit {
   }
 
   exportData(): void {
+    if (!this.permissionService.hasPermission('visits.read')) {
+      this.notify.error('COMMON.ACTION_NOT_ALLOWED');
+      return;
+    }
     const event = this.lastLazyEvent ?? {};
     const params: Record<string, string | number> = {
       sortBy: event.sortField || 'plannedStartTimeUtc',
@@ -412,5 +423,22 @@ export class VisitListComponent implements OnInit {
       },
       error: (err) => this.notify.error(err),
     });
+  }
+
+  canDeleteVisit(visit: Visit): boolean {
+    if (!this.permissionService.hasPermission('visits.delete')) {
+      return false;
+    }
+
+    if (!this.permissionService.hasRole('דלפקים')) {
+      return true;
+    }
+
+    const currentUserId = this.permissionService.getCurrentUserId();
+    if (!currentUserId) {
+      return false;
+    }
+
+    return visit.createdByUserId === currentUserId;
   }
 }

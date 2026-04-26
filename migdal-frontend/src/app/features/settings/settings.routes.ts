@@ -27,6 +27,15 @@ export const SETTINGS_ROUTES: Routes = [
             ),
     },
     {
+        path: 'ad-group-role-mappings',
+        canActivate: [permissionGuard],
+        data: { permission: 'settings.read' },
+        loadComponent: () =>
+            import('./ad-group-role-mappings/ad-group-role-mappings.component').then(
+                (m) => m.AdGroupRoleMappingsComponent,
+            ),
+    },
+    {
         path: 'card-templates',
         canActivate: [permissionGuard],
         data: { permission: 'settings.card-templates.read' },
@@ -60,6 +69,15 @@ export const SETTINGS_ROUTES: Routes = [
         loadComponent: () =>
             import('./buildings/building-list/building-list.component').then(
                 (m) => m.BuildingListComponent,
+            ),
+    },
+    {
+        path: 'permanent-escorts',
+        canActivate: [permissionGuard],
+        data: { permission: 'settings.permanent-escorts.read' },
+        loadComponent: () =>
+            import('./permanent-escorts/permanent-escorts-management.component').then(
+                (m) => m.PermanentEscortsManagementComponent,
             ),
     },
 ];

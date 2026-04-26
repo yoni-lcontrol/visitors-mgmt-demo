@@ -6,10 +6,18 @@
     "configurations": [
         {
             "type": "node-terminal",
-            "name": "Run Script: start (migdal-backend)",
+            "name": "Backend: Debug (watch)",
             "request": "launch",
-            "command": "npm run start",
+            "command": "npm run start:debug",
             "cwd": "${workspaceFolder}\\migdal-backend"
+        },
+        {
+            "type": "node",
+            "name": "Backend: Attach",
+            "request": "attach",
+            "port": 9229,
+            "restart": true,
+            "skipFiles": ["<node_internals>/**"]
         }
     ]
 }

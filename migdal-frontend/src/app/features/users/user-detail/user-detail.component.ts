@@ -35,7 +35,13 @@ import { DateFormatPipe } from '@shared/pipes/date-format.pipe';
           </div>
           <div class="detail-item">
             <label>{{ 'USERS.ROLES' | translate }}</label>
-            <span>@for (r of user.roles; track r.id) { <span class="role-chip">{{ r.name }}</span> }</span>
+            <span>
+              @for (role of getUserRoles(); track role.id) {
+                <span class="role-chip">{{ role.name }}</span>
+              } @empty {
+                -
+              }
+            </span>
           </div>
           <div class="detail-item">
             <label>{{ 'COMMON.STATUS' | translate }}</label>
@@ -67,5 +73,15 @@ export class UserDetailComponent implements OnInit {
   ngOnInit(): void {
     const id = this.route.snapshot.params['id'];
     this.api.get<User>(`/users/${id}`).subscribe((u) => (this.user = u));
+  }
+
+  getUserRoles() {
+    if (!this.user) {
+      return [];
+    }
+
+    return this.user.roles && this.user.roles.length > 0
+      ? this.user.roles
+      : (this.user.role ? [this.user.role] : []);
   }
 }

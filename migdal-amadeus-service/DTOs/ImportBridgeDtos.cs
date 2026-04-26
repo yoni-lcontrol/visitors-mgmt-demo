@@ -12,6 +12,7 @@ public class CallbackController
 {
     public string Name { get; set; } = string.Empty;
     public string? ExternalId { get; set; }
+    public bool Active { get; set; }
     public List<CallbackDoor> Doors { get; set; } = [];
     public List<CallbackExtension> Extensions { get; set; } = [];
 }
@@ -51,4 +52,5 @@ public class CallbackAccessLevel
     public string Name { get; set; } = string.Empty;
     public bool Active { get; set; } = true;
     public bool VisitorAccess { get; set; }
+    public string? ExternalId { get; set; }
 }

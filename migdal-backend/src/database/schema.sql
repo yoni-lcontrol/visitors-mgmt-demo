@@ -16,6 +16,7 @@ CREATE TABLE [Users] (
     [passwordHash]  NVARCHAR(255)    NOT NULL,
     [firstName]     NVARCHAR(100)    NOT NULL,
     [lastName]      NVARCHAR(100)    NOT NULL,
+    [roleId]        UNIQUEIDENTIFIER NULL,
     [lastLoginAt]   DATETIME2        NULL,
     [isActive]      BIT              NOT NULL DEFAULT 1,
     [createdBy]     UNIQUEIDENTIFIER NULL,
@@ -29,6 +30,7 @@ CREATE TABLE [Users] (
 
 CREATE INDEX [IX_Users_IsActive] ON [Users] ([isActive]);
 CREATE INDEX [IX_Users_Username] ON [Users] ([username]);
+CREATE INDEX [IX_Users_RoleId]   ON [Users] ([roleId]);
 
 -- =============================================
 -- 2. ROLES
@@ -47,6 +49,10 @@ CREATE TABLE [Roles] (
     CONSTRAINT [PK_Roles]      PRIMARY KEY ([id]),
     CONSTRAINT [UQ_Roles_Name] UNIQUE ([name])
 );
+
+-- Add FK from Users.roleId → Roles (after Roles table exists)
+ALTER TABLE [Users]
+    ADD CONSTRAINT [FK_Users_Role] FOREIGN KEY ([roleId]) REFERENCES [Roles]([id]);
 
 -- =============================================
 -- 3. PERMISSIONS
@@ -71,22 +77,7 @@ CREATE TABLE [Permissions] (
 CREATE INDEX [IX_Permissions_Module] ON [Permissions] ([module]);
 
 -- =============================================
--- 4. USER ↔ ROLE JUNCTION (Many-to-Many)
--- =============================================
-CREATE TABLE [UserRoles] (
-    [userId] UNIQUEIDENTIFIER NOT NULL,
-    [roleId] UNIQUEIDENTIFIER NOT NULL,
-
-    CONSTRAINT [PK_UserRoles]         PRIMARY KEY ([userId], [roleId]),
-    CONSTRAINT [FK_UserRoles_User]    FOREIGN KEY ([userId]) REFERENCES [Users]([id]) ON DELETE CASCADE,
-    CONSTRAINT [FK_UserRoles_Role]    FOREIGN KEY ([roleId]) REFERENCES [Roles]([id]) ON DELETE CASCADE
-);
-
-CREATE INDEX [IX_UserRoles_UserId] ON [UserRoles] ([userId]);
-CREATE INDEX [IX_UserRoles_RoleId] ON [UserRoles] ([roleId]);
-
--- =============================================
--- 5. ROLE ↔ PERMISSION JUNCTION (Many-to-Many)
+-- 4. ROLE ↔ PERMISSION JUNCTION (Many-to-Many)
 -- =============================================
 CREATE TABLE [RolePermissions] (
     [roleId]       UNIQUEIDENTIFIER NOT NULL,

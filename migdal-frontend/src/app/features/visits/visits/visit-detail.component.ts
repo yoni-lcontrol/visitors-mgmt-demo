@@ -17,6 +17,7 @@ import { ExcelImportService } from '@core/services/excel-import.service';
 import { BlacklistCheckService } from '@core/services/blacklist-check.service';
 import { VisitorSearchService, VisitorSuggestion } from '@core/services/visitor-search.service';
 import { AdSearchService, AdPersonSuggestion } from '@core/services/ad-search.service';
+import { SectorsLookupService, SectorLookupItem } from '@core/services/sectors-lookup.service';
 import { VisitsApiService } from '../services/visits-api.service';
 import { buildVehicleTypeOptions } from '@core/utils/vehicle-type.util';
 import { VisitorPrintService } from '../services/visitor-print.service';
@@ -35,8 +36,6 @@ import {
   VisitorAccessLogEntry,
   VisitorStatus,
   VisitorAccessEventType,
-  AccessLevel,
-  PaginatedResult,
   InlineVisitor,
   InlineEscort,
 } from '@core/models/entities.model';
@@ -103,6 +102,12 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
             <div class="info-item full-width">
               <span class="info-label">{{ 'VISITS.PURPOSE_OF_VISIT' | translate }}</span>
               <span class="info-value">{{ visit.purposeOfVisit }}</span>
+            </div>
+          }
+          @if (visit.sector) {
+            <div class="info-item">
+              <span class="info-label">{{ 'VISITS.SECTOR' | translate }}</span>
+              <span class="info-value">{{ visit.sector.name }}</span>
             </div>
           }
           @if (visit.building) {
@@ -255,18 +260,6 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
               </div>
             </div>
             <div class="form-row">
-              <div class="field">
-                <label><i class="pi pi-lock"></i> {{ 'VISITS.ACCESS_LEVEL' | translate }} <span class="required">*</span></label>
-                <p-dropdown [options]="accessLevels" [(ngModel)]="v.accessLevelId"
-                  optionLabel="name" optionValue="id"
-                  [placeholder]="'VISITS.SELECT_ACCESS_LEVEL' | translate"
-                  [style]="{width: '100%'}"
-                  appendTo="body"
-                  [class.input-invalid]="isAccessLevelRemoved(v.accessLevelId)"></p-dropdown>
-                @if (isAccessLevelRemoved(v.accessLevelId)) {
-                  <small class="field-error"><i class="pi pi-exclamation-triangle"></i> {{ 'VALIDATION.ACCESS_LEVEL_REMOVED' | translate }}</small>
-                }
-              </div>
               <div class="field">
                 <label><i class="pi pi-envelope"></i> {{ 'VISITS.EMAIL' | translate }}</label>
                 <input type="email" [(ngModel)]="v.email" [pattern]="emailPattern" #vEmail="ngModel" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" />
@@ -474,6 +467,20 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                 }
               </div>
             </div>
+            <div class="form-row">
+              <div class="field">
+                <label>{{ 'VISITS.SECTOR' | translate }}</label>
+                <p-dropdown
+                  [options]="escortSectorOptions"
+                  [(ngModel)]="e.sector"
+                  optionLabel="name"
+                  optionValue="name"
+                  [placeholder]="'VISITS.SECTOR' | translate"
+                  appendTo="body"
+                  [style]="{width: '100%'}"
+                ></p-dropdown>
+              </div>
+            </div>
           </div>
         }
         <button class="btn btn-secondary btn-add-inline" (click)="addNewEscortRow()">
@@ -557,18 +564,6 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
               </div>
             </div>
             <div class="form-row">
-              <div class="field">
-                <label><i class="pi pi-lock"></i> {{ 'VISITS.ACCESS_LEVEL' | translate }} <span class="required">*</span></label>
-                <p-dropdown [options]="accessLevels" [(ngModel)]="editingVisitor.accessLevelId"
-                  optionLabel="name" optionValue="id"
-                  [placeholder]="'VISITS.SELECT_ACCESS_LEVEL' | translate"
-                  [style]="{width: '100%'}"
-                  appendTo="body"
-                  [class.input-invalid]="isAccessLevelRemoved(editingVisitor.accessLevelId)"></p-dropdown>
-                @if (isAccessLevelRemoved(editingVisitor.accessLevelId)) {
-                  <small class="field-error"><i class="pi pi-exclamation-triangle"></i> {{ 'VALIDATION.ACCESS_LEVEL_REMOVED' | translate }}</small>
-                }
-              </div>
               <div class="field">
                 <label><i class="pi pi-envelope"></i> {{ 'VISITS.EMAIL' | translate }}</label>
                 <input type="email" [(ngModel)]="editingVisitor.email" [pattern]="emailPattern" #evEmail="ngModel" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" />
@@ -735,6 +730,20 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                 } @else if (eeEmail.hasError('pattern') && eeEmail.touched) {
                   <small class="field-error">{{ 'VALIDATION.EMAIL' | translate }}</small>
                 }
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label>{{ 'VISITS.SECTOR' | translate }}</label>
+                <p-dropdown
+                  [options]="escortSectorOptions"
+                  [(ngModel)]="editingEscort.sector"
+                  optionLabel="name"
+                  optionValue="name"
+                  [placeholder]="'VISITS.SECTOR' | translate"
+                  appendTo="body"
+                  [style]="{width: '100%'}"
+                ></p-dropdown>
               </div>
             </div>
           </div>
@@ -1019,6 +1028,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   private blacklistCheck = inject(BlacklistCheckService);
   private visitorSearch = inject(VisitorSearchService);
   private adSearch = inject(AdSearchService);
+  private sectorsLookup = inject(SectorsLookupService);
   private visitsApi = inject(VisitsApiService);
   private printService = inject(VisitorPrintService);
   private confirmService = inject(ConfirmService);
@@ -1049,12 +1059,12 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   eventCheckedOut = VisitorAccessEventType.CheckedOut;
 
   vehicleTypeOptions: { label: string; value: string }[] = [];
+  escortSectorOptions: SectorLookupItem[] = [];
 
   // Add visitor dialog
   showAddVisitorDialog = false;
   newVisitors: InlineVisitor[] = [];
   savingVisitor = false;
-  accessLevels: AccessLevel[] = [];
   importErrors: string[] = [];
   blacklistMap = new Map<number, { checking: boolean; blacklisted: boolean; reason?: string }>();
   private blacklistSubjects = new Map<number, Subject<string>>();
@@ -1140,15 +1150,27 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     this.canRequestParking = this.permissionService.hasPermission('parking.request');
     this.translateService.onLangChange.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.vehicleTypeOptions = buildVehicleTypeOptions(this.translateService));
     this.visitId = this.route.snapshot.paramMap.get('visitId') ?? '';
+    this.loadEscortSectorOptions();
     this.loadVisit();
     this.loadVisitors();
     this.loadEscorts();
-    this.loadAccessLevels();
     this.initPrintListeners();
   }
 
   goBack(): void {
     this.router.navigate(['/visits']);
+  }
+
+  private denyAction(): void {
+    this.notify.error('COMMON.ACTION_NOT_ALLOWED');
+  }
+
+  private ensurePermission(permission: string): boolean {
+    if (this.permissionService.hasPermission(permission)) {
+      return true;
+    }
+    this.denyAction();
+    return false;
   }
 
   loadVisit(): void {
@@ -1187,10 +1209,10 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadAccessLevels(): void {
-    this.api.get<PaginatedResult<AccessLevel>>('/access-control/access-levels', { limit: 100, active: 1, visitorAccess: 1 }).subscribe({
-      next: (res) => { this.accessLevels = res.items; },
-      error: () => { },
+  private loadEscortSectorOptions(): void {
+    this.sectorsLookup.getActiveSectors().subscribe({
+      next: (items) => { this.escortSectorOptions = items; },
+      error: () => { this.escortSectorOptions = []; },
     });
   }
 
@@ -1233,6 +1255,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   }
 
   registerEvent(vv: VisitVisitor, eventType: VisitorAccessEventType): void {
+    if (!this.ensurePermission('visits.update')) return;
     this.api.post('/visitor-access-logs', {
       visitVisitorId: vv.id,
       eventType,
@@ -1257,6 +1280,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   }
 
   async removeVisitor(vv: VisitVisitor): Promise<void> {
+    if (!this.ensurePermission('visits.delete')) return;
     if (!await this.confirmService.confirm('COMMON.CONFIRM_REMOVE')) return;
     this.visitsApi.removeVisitor(this.visitId, vv.id).subscribe({
       next: () => { this.notify.success('COMMON.SUCCESS'); this.loadVisit(); this.loadVisitors(); },
@@ -1265,6 +1289,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   }
 
   async removeEscort(escort: VisitEscort): Promise<void> {
+    if (!this.ensurePermission('visits.delete')) return;
     if (!await this.confirmService.confirm('COMMON.CONFIRM_REMOVE')) return;
     this.visitsApi.removeEscort(this.visitId, escort.id).subscribe({
       next: () => { this.notify.success('COMMON.SUCCESS'); this.loadEscorts(); },
@@ -1275,6 +1300,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   // -- Add Visitor Dialog --
 
   openAddVisitorDialog(): void {
+    if (!this.ensurePermission('visits.create')) return;
     this.newVisitors = [];
     this.importErrors = [];
     this.clearBlacklistState();
@@ -1283,7 +1309,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   }
 
   addNewVisitorRow(): void {
-    this.newVisitors.push({ firstName: '', lastName: '', email: '', phone: '', personId: '', hasVehicle: false, carNumber: '', vehicleType: '', accessLevelId: '', requestParking: false });
+    this.newVisitors.push({ firstName: '', lastName: '', email: '', phone: '', personId: '', hasVehicle: false, carNumber: '', vehicleType: '', requestParking: false });
   }
 
   removeNewVisitor(index: number): void {
@@ -1341,7 +1367,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
           hasVehicle: !!(row['carNumber']),
           carNumber: row['carNumber'] ?? '',
           vehicleType: row['vehicleType'] ?? '',
-          accessLevelId: '',
           requestParking: false,
         });
       }
@@ -1362,10 +1387,11 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   isAddVisitorsValid(): boolean {
     if (!this.newVisitors.length) return false;
     if (this.hasBlacklistedNewVisitor()) return false;
-    return this.newVisitors.every(v => !!v.firstName && !!v.lastName && !!v.personId && !!v.accessLevelId && !this.isAccessLevelRemoved(v.accessLevelId) && (!v.hasVehicle || (!!v.carNumber && !!v.vehicleType)));
+    return this.newVisitors.every(v => !!v.firstName && !!v.lastName && !!v.personId && (!v.hasVehicle || (!!v.carNumber && !!v.vehicleType)));
   }
 
   addVisitors(): void {
+    if (!this.ensurePermission('visits.create')) return;
     if (!this.isAddVisitorsValid()) return;
     this.savingVisitor = true;
     const body = {
@@ -1378,7 +1404,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
         hasVehicle: v.hasVehicle,
         carNumber: v.hasVehicle ? (v.carNumber || undefined) : undefined,
         vehicleType: v.hasVehicle ? (v.vehicleType || undefined) : undefined,
-        accessLevelId: v.accessLevelId,
         requestParking: v.hasVehicle ? v.requestParking : undefined,
       })),
     };
@@ -1398,13 +1423,14 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   // -- Add Escort Dialog --
 
   openAddEscortDialog(): void {
+    if (!this.ensurePermission('visits.create')) return;
     this.newEscorts = [];
     this.addNewEscortRow();
     this.showAddEscortDialog = true;
   }
 
   addNewEscortRow(): void {
-    this.newEscorts.push({ firstName: '', lastName: '', phone: '', email: '' });
+    this.newEscorts.push({ firstName: '', lastName: '', phone: '', email: '', sector: '' });
   }
 
   removeNewEscort(index: number): void {
@@ -1417,6 +1443,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   }
 
   addEscorts(): void {
+    if (!this.ensurePermission('visits.create')) return;
     if (!this.isAddEscortsValid()) return;
     this.savingEscort = true;
     const body = {
@@ -1425,6 +1452,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
         lastName: e.lastName,
         phone: e.phone,
         email: e.email,
+        sector: e.sector || undefined,
       })),
     };
     this.visitsApi.addEscorts(this.visitId, body).subscribe({
@@ -1442,6 +1470,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   // -- Edit Visitor Dialog --
 
   openEditVisitorDialog(vv: VisitVisitor): void {
+    if (!this.ensurePermission('visits.update')) return;
     this.editingVisitorVvId = vv.id;
     this.editingVisitor = {
       firstName: vv.visitor?.firstName ?? '',
@@ -1452,7 +1481,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
       hasVehicle: !!(vv.visitor?.carNumber),
       carNumber: vv.visitor?.carNumber ?? '',
       vehicleType: vv.visitor?.vehicleType ?? '',
-      accessLevelId: vv.accessLevel?.id ?? '',
       requestParking: !!vv.parkingRequest,
     };
     this.editBlacklistStatus = null;
@@ -1468,8 +1496,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     if (!this.editingVisitor) return false;
     if (this.editBlacklistStatus?.blacklisted) return false;
     if (this.editVehicleBlacklistStatus?.blacklisted) return false;
-    if (!this.editingVisitor.firstName || !this.editingVisitor.lastName || !this.editingVisitor.personId || !this.editingVisitor.accessLevelId) return false;
-    if (this.isAccessLevelRemoved(this.editingVisitor.accessLevelId)) return false;
+    if (!this.editingVisitor.firstName || !this.editingVisitor.lastName || !this.editingVisitor.personId) return false;
     if (this.editingVisitor.hasVehicle && (!this.editingVisitor.carNumber || !this.editingVisitor.vehicleType)) return false;
     return true;
   }
@@ -1536,6 +1563,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   }
 
   saveEditVisitor(): void {
+    if (!this.ensurePermission('visits.update')) return;
     if (!this.isEditVisitorValid() || !this.editingVisitor) return;
     this.savingEditVisitor = true;
     const v = this.editingVisitor;
@@ -1548,7 +1576,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
       hasVehicle: v.hasVehicle,
       carNumber: v.hasVehicle ? (v.carNumber || undefined) : undefined,
       vehicleType: v.hasVehicle ? (v.vehicleType || undefined) : undefined,
-      accessLevelId: v.accessLevelId,
       requestParking: v.hasVehicle ? v.requestParking : undefined,
     };
     this.visitsApi.updateVisitor(this.visitId, this.editingVisitorVvId, body).subscribe({
@@ -1566,12 +1593,14 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   // -- Edit Escort Dialog --
 
   openEditEscortDialog(escort: VisitEscort): void {
+    if (!this.ensurePermission('visits.update')) return;
     this.editingEscortId = escort.id;
     this.editingEscort = {
       firstName: escort.firstName,
       lastName: escort.lastName,
       phone: escort.phone,
       email: escort.email,
+      sector: escort.sector ?? '',
     };
     this.showEditEscortDialog = true;
   }
@@ -1582,6 +1611,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   }
 
   saveEditEscort(): void {
+    if (!this.ensurePermission('visits.update')) return;
     if (!this.isEditEscortValid() || !this.editingEscort) return;
     this.savingEditEscort = true;
     const e = this.editingEscort;
@@ -1590,6 +1620,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
       lastName: e.lastName,
       phone: e.phone,
       email: e.email,
+      sector: e.sector || undefined,
     };
     this.visitsApi.updateEscort(this.visitId, this.editingEscortId, body).subscribe({
       next: () => {
@@ -1693,9 +1724,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     v.carNumber = visitor.carNumber ?? '';
     v.vehicleType = visitor.vehicleType ?? '';
     v.hasVehicle = !!(visitor.carNumber);
-    if (visitor.accessLevelId && this.accessLevels.some(al => al.id === visitor.accessLevelId)) {
-      v.accessLevelId = visitor.accessLevelId;
-    }
     this.visitorSuggestions.delete(index);
     this.showNoResults.delete(index);
     this.suggestionsVisible.delete(index);
@@ -1786,9 +1814,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     this.editingVisitor.carNumber = visitor.carNumber ?? '';
     this.editingVisitor.vehicleType = visitor.vehicleType ?? '';
     this.editingVisitor.hasVehicle = !!(visitor.carNumber);
-    if (visitor.accessLevelId && this.accessLevels.some(al => al.id === visitor.accessLevelId)) {
-      this.editingVisitor.accessLevelId = visitor.accessLevelId;
-    }
     this.editVisitorSuggestions = [];
     this.editShowNoResults = false;
     this.editSuggestionsVisible = false;
@@ -1807,11 +1832,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
       if (status.blacklisted) return true;
     }
     return false;
-  }
-
-  isAccessLevelRemoved(accessLevelId: string): boolean {
-    if (!accessLevelId) return false;
-    return !this.accessLevels.some(al => al.id === accessLevelId);
   }
 
   isDuplicateNewPersonId(index: number): boolean {
@@ -2070,6 +2090,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   // ── Check-In Code Actions ──
 
   resendCheckInCode(vv: VisitVisitor): void {
+    if (!this.ensurePermission('visits.check-in-code.send')) return;
     this.visitsApi.resendCheckInCode(vv.id).subscribe({
       next: (result) => {
         this.notify.success(result.sent ? 'VISITS.CODE_RESENT' : 'VISITS.CODE_RESEND_FAILED');
@@ -2079,6 +2100,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   }
 
   regenerateCheckInCode(vv: VisitVisitor): void {
+    if (!this.ensurePermission('visits.check-in-code.regenerate')) return;
     this.visitsApi.regenerateCheckInCode(vv.id).subscribe({
       next: (newCode) => {
         this.codeMap.set(vv.id, newCode.code);

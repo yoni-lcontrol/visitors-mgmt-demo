@@ -165,7 +165,15 @@ public class BackendApiClient : IBackendApiClient
                 $"Backend request '{endpointName}' failed with status {(int)response.StatusCode} ({response.StatusCode}). Response: {errorBody}");
         }
 
-        var items = await response.Content.ReadFromJsonAsync<List<T>>(cancellationToken);
-        return items ?? [];
+        // Backend wraps all responses in { success, data, timestamp }
+        var envelope = await response.Content.ReadFromJsonAsync<BackendApiEnvelope<List<T>>>(cancellationToken);
+        return envelope?.Data ?? [];
+    }
+
+    private sealed class BackendApiEnvelope<T>
+    {
+        public bool Success { get; set; }
+        public T? Data { get; set; }
+        public string? Timestamp { get; set; }
     }
 }

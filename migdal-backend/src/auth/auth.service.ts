@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { RefreshToken } from './entities/refresh-token.entity';
-import { EntraIdService, EntraTokenClaims } from './entra-id.service';
+import { EntraIdService } from './entra-id.service';
 import { UsersService } from '../users/users.service';
 import { AuditService } from '../audit/audit.service';
 import { LoginDto } from './dto/login.dto';
@@ -18,6 +18,30 @@ import * as crypto from 'crypto';
 @Injectable()
 export class AuthService {
     private readonly logger = new Logger(AuthService.name);
+
+    private mapUserResponse(user: {
+        id: string;
+        username: string;
+        firstName: string;
+        lastName: string;
+        email?: string | null;
+        phone?: string | null;
+        sector?: { id: string; name: string } | null;
+        role: { id: string; name: string; permissions: { key: string }[] } | null;
+        roles?: Array<{ id: string; name: string; permissions?: { key: string }[] }>;
+    }) {
+        return {
+            id: user.id,
+            username: user.username,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email ?? null,
+            phone: user.phone ?? null,
+            sector: user.sector ? { id: user.sector.id, name: user.sector.name } : null,
+            roles: this.extractRoleNames(user),
+            permissions: this.extractPermissions(user),
+        };
+    }
 
     constructor(
         private readonly jwtService: JwtService,
@@ -52,14 +76,11 @@ export class AuthService {
         await this.usersService.updateLastLogin(user.id);
 
         // Generate tokens
-        const { accessToken, refreshToken } = await this.generateTokens(
+        const { accessToken: localAccessToken, refreshToken } = await this.generateTokens(
             user,
             userAgent,
             ipAddress,
         );
-
-        // Build user permissions from roles
-        const permissions = this.extractPermissions(user);
 
         this.auditService.log({
             userId: user.id,
@@ -74,18 +95,9 @@ export class AuthService {
         }).catch(() => { });
 
         return {
-            accessToken,
+            accessToken: localAccessToken,
             refreshToken,
-            user: {
-                id: user.id,
-                username: user.username,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                email: user.email ?? null,
-                phone: user.phone ?? null,
-                roles: user.roles.map((r) => r.name),
-                permissions,
-            },
+            user: this.mapUserResponse(user),
         };
     }
 
@@ -115,7 +127,7 @@ export class AuthService {
         oldRefreshToken: string,
         userAgent?: string,
         ipAddress?: string,
-    ): Promise<{ accessToken: string; refreshToken: string; user: { id: string; username: string; firstName: string; lastName: string; email: string | null; phone: string | null; roles: string[]; permissions: string[] } }> {
+    ): Promise<{ accessToken: string; refreshToken: string; user: { id: string; username: string; firstName: string; lastName: string; email: string | null; phone: string | null; sector: { id: string; name: string } | null; roles: string[]; permissions: string[] } }> {
         const hash = this.hashToken(oldRefreshToken);
         const storedToken = await this.refreshTokenRepo.findOne({
             where: { tokenHash: hash, isRevoked: false },
@@ -135,20 +147,10 @@ export class AuthService {
         }
 
         const tokens = await this.generateTokens(user, userAgent, ipAddress);
-        const permissions = this.extractPermissions(user);
 
         return {
             ...tokens,
-            user: {
-                id: user.id,
-                username: user.username,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                email: user.email ?? null,
-                phone: user.phone ?? null,
-                roles: user.roles.map((r) => r.name),
-                permissions,
-            },
+            user: this.mapUserResponse(user),
         };
     }
 
@@ -158,22 +160,16 @@ export class AuthService {
             throw new UnauthorizedException('User not found');
         }
 
-        const permissions = this.extractPermissions(user);
-
-        return {
-            id: user.id,
-            username: user.username,
-            firstName: user.firstName,
-            lastName: user.lastName,
-            email: user.email ?? null,
-            phone: user.phone ?? null,
-            roles: user.roles.map((r) => r.name),
-            permissions,
-        };
+        return this.mapUserResponse(user);
     }
 
     private async generateTokens(
-        user: { id: string; username: string; roles: { id: string; name: string; permissions: { key: string }[] }[] },
+        user: {
+            id: string;
+            username: string;
+            role: { id: string; name: string; permissions: { key: string }[] } | null;
+            roles?: Array<{ id: string; name: string; permissions?: { key: string }[] }>;
+        },
         userAgent?: string,
         ipAddress?: string,
     ): Promise<{ accessToken: string; refreshToken: string }> {
@@ -182,8 +178,8 @@ export class AuthService {
         const payload: JwtPayload = {
             sub: user.id,
             username: user.username,
-            roles: user.roles.map((r) => r.name),
-            roleIds: user.roles.map((r) => r.id),
+            roles: this.extractRoleNames(user),
+            roleIds: this.extractRoleIds(user),
             permissions,
         };
 
@@ -208,15 +204,50 @@ export class AuthService {
     }
 
     private extractPermissions(
-        user: { roles: { permissions: { key: string }[] }[] },
+        user: {
+            role: { permissions: { key: string }[] } | null;
+            roles?: Array<{ permissions?: { key: string }[] }>;
+        },
     ): string[] {
         const permSet = new Set<string>();
-        for (const role of user.roles) {
-            for (const perm of role.permissions) {
+
+        const roles = user.roles && user.roles.length > 0
+            ? user.roles
+            : (user.role ? [user.role] : []);
+
+        for (const role of roles) {
+            for (const perm of role.permissions ?? []) {
                 permSet.add(perm.key);
             }
         }
+
         return [...permSet];
+    }
+
+    private extractRoleNames(
+        user: {
+            role: { id: string; name: string } | null;
+            roles?: Array<{ id: string; name: string }>;
+        },
+    ): string[] {
+        const roles = user.roles && user.roles.length > 0
+            ? user.roles
+            : (user.role ? [user.role] : []);
+
+        return roles.map((r) => r.name);
+    }
+
+    private extractRoleIds(
+        user: {
+            role: { id: string; name: string } | null;
+            roles?: Array<{ id: string; name: string }>;
+        },
+    ): string[] {
+        const roles = user.roles && user.roles.length > 0
+            ? user.roles
+            : (user.role ? [user.role] : []);
+
+        return roles.map((r) => r.id);
     }
 
     private hashToken(token: string): string {
@@ -236,15 +267,15 @@ export class AuthService {
     }
 
     async loginWithEntra(
-        idToken: string,
+        accessToken: string,
         userAgent?: string,
         ipAddress?: string,
     ): Promise<LoginResponseDto> {
-        const claims = await this.entraIdService.validateIdToken(idToken);
+        const claims = await this.entraIdService.validateAccessToken(accessToken);
         const config = this.entraIdService.getConfig();
 
-        // 1. Try to find user by externalAuthId (oid)
-        let user = await this.usersService.findByExternalAuthId(claims.oid);
+        // 1. Try to find user by Entra identity (oid + tid)
+        let user = await this.usersService.findByExternalIdentity(claims.oid, claims.tid);
 
         // 2. Fallback: find by email/UPN
         if (!user) {
@@ -253,13 +284,19 @@ export class AuthService {
                 user = await this.usersService.findByEmail(email);
                 if (user) {
                     // Link the external identity to this existing user
-                    await this.usersService.linkExternalAuth(user.id, 'entra', claims.oid);
+                    await this.usersService.linkExternalAuth(user.id, {
+                        provider: 'entra',
+                        externalId: claims.oid,
+                        tenantId: claims.tid,
+                        displayName: claims.name,
+                        email,
+                    });
                 }
             }
         }
 
-        // 3. Auto-provision if enabled and user not found
-        if (!user && config.autoProvision) {
+        // 3. Unknown-user policy: autoProvision | pending | deny
+        if (!user && config.unknownUserMode === 'autoProvision') {
             const email = this.entraIdService.extractEmail(claims);
             const { firstName, lastName } = this.entraIdService.extractDisplayName(claims);
             const username = claims.upn ?? claims.preferred_username ?? email ?? claims.oid;
@@ -268,11 +305,27 @@ export class AuthService {
                 username,
                 firstName,
                 lastName,
+                displayName: claims.name ?? `${firstName} ${lastName}`.trim(),
                 email: email ?? null,
                 externalAuthProvider: 'entra',
                 externalAuthId: claims.oid,
+                externalTenantId: claims.tid,
                 roleNames: [config.defaultRole],
             });
+        }
+
+        if (!user && config.unknownUserMode === 'pending') {
+            await this.usersService.createPendingExternalUser({
+                oid: claims.oid,
+                tid: claims.tid,
+                preferredUsername: claims.preferred_username ?? claims.upn ?? null,
+                email: this.entraIdService.extractEmail(claims),
+                displayName: claims.name ?? null,
+            });
+
+            throw new UnauthorizedException(
+                'No matching local account found. Your sign-in request is pending administrator approval.',
+            );
         }
 
         if (!user) {
@@ -286,16 +339,17 @@ export class AuthService {
         }
 
         // Update external login timestamp
-        await this.usersService.updateLastExternalLogin(user.id);
+        await this.usersService.updateLastExternalLogin(user.id, {
+            displayName: claims.name,
+            email: this.entraIdService.extractEmail(claims),
+        });
 
         // Generate local app tokens (same as password login)
-        const { accessToken, refreshToken } = await this.generateTokens(
+        const { accessToken: localAccessToken, refreshToken } = await this.generateTokens(
             user,
             userAgent,
             ipAddress,
         );
-
-        const permissions = this.extractPermissions(user);
 
         this.auditService.log({
             userId: user.id,
@@ -309,18 +363,9 @@ export class AuthService {
         }).catch(() => { });
 
         return {
-            accessToken,
+            accessToken: localAccessToken,
             refreshToken,
-            user: {
-                id: user.id,
-                username: user.username,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                email: user.email ?? null,
-                phone: user.phone ?? null,
-                roles: user.roles.map((r) => r.name),
-                permissions,
-            },
+            user: this.mapUserResponse(user),
         };
     }
 }

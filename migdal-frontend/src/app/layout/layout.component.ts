@@ -7,14 +7,50 @@ import { TranslationService } from '../core/i18n/translation.service';
 import { WorkstationSessionService } from '../core/services/workstation-session.service';
 import { DeviceStatusService } from '../core/services/device-status.service';
 import { ScannerEventService } from '../core/services/scanner-event.service';
+import { AdSyncProgressService } from '../core/services/ad-sync-progress.service';
 import { ToastModule } from 'primeng/toast';
+import { ProgressBarModule } from 'primeng/progressbar';
+import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-layout',
   standalone: true,
-  imports: [RouterOutlet, HeaderComponent, SidebarComponent, AsyncPipe, ToastModule],
+  imports: [RouterOutlet, HeaderComponent, SidebarComponent, AsyncPipe, ToastModule, ProgressBarModule, TranslateModule],
   template: `
     <p-toast position="top-right" />
+    @if ((adSync.progress$ | async); as syncProgress) {
+      @if (syncProgress.phase !== 'idle') {
+        <div class="ad-sync-bar" [class.completed]="syncProgress.phase === 'completed'" [class.failed]="syncProgress.phase === 'failed'">
+          <div class="ad-sync-bar-content">
+            <div class="ad-sync-bar-info">
+              @if (syncProgress.phase === 'fetching' || syncProgress.phase === 'processing') {
+                <i class="pi pi-spin pi-spinner"></i>
+              } @else if (syncProgress.phase === 'completed') {
+                <i class="pi pi-check-circle"></i>
+              } @else if (syncProgress.phase === 'failed') {
+                <i class="pi pi-exclamation-triangle"></i>
+              }
+              <span class="ad-sync-bar-label">{{ 'AD_SYNC.TITLE' | translate }}</span>
+              @if (syncProgress.phase === 'fetching') {
+                <span class="ad-sync-bar-msg">{{ 'AD_SYNC.FETCHING' | translate }}</span>
+              } @else if (syncProgress.phase === 'processing') {
+                <span class="ad-sync-bar-msg">{{ syncProgress.current }}/{{ syncProgress.total }} — {{ 'AD_SYNC.CREATED' | translate }}: {{ syncProgress.created }}, {{ 'AD_SYNC.UPDATED' | translate }}: {{ syncProgress.updated }}</span>
+              } @else if (syncProgress.phase === 'completed') {
+                <span class="ad-sync-bar-msg">{{ 'AD_SYNC.CREATED' | translate }}: {{ syncProgress.created }}, {{ 'AD_SYNC.UPDATED' | translate }}: {{ syncProgress.updated }}, {{ 'AD_SYNC.DEACTIVATED' | translate }}: {{ syncProgress.deactivated }}</span>
+              } @else if (syncProgress.phase === 'failed') {
+                <span class="ad-sync-bar-msg">{{ syncProgress.message }}</span>
+              }
+            </div>
+            <button class="ad-sync-bar-close" (click)="adSync.dismiss()" [title]="'COMMON.CLOSE' | translate">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          @if (syncProgress.phase === 'processing' || syncProgress.phase === 'fetching') {
+            <p-progressBar [value]="syncProgress.percent" [showValue]="false" [style]="{height: '3px'}"></p-progressBar>
+          }
+        </div>
+      }
+    }
     <div class="app-layout" [class.sidebar-open]="sidebarOpen" [class.rtl]="(translation.direction$ | async) === 'rtl'">
       <div class="sidebar-backdrop" (click)="sidebarOpen = false"></div>
       <app-sidebar [collapsed]="!sidebarOpen" (closeSidebar)="sidebarOpen = false" (menuItemClicked)="onMobileMenuClick()" />
@@ -27,6 +63,77 @@ import { ToastModule } from 'primeng/toast';
     </div>
   `,
   styles: [`
+      .ad-sync-bar {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        z-index: 1100;
+        min-width: 360px;
+        max-width: 520px;
+        background: var(--color-surface, #fff);
+        border-radius: 10px;
+        box-shadow: 0 4px 24px rgba(2, 1, 64, 0.16);
+        border: 1.5px solid var(--color-accent, #6c63ff);
+        overflow: hidden;
+        animation: adSyncSlideIn 0.3s ease;
+      }
+      .ad-sync-bar.completed { border-color: #2e7d32; }
+      .ad-sync-bar.failed { border-color: #c62828; }
+      .ad-sync-bar-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+      }
+      .ad-sync-bar-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex: 1;
+        min-width: 0;
+      }
+      .ad-sync-bar-info > i {
+        font-size: 1.1rem;
+        color: var(--color-accent, #6c63ff);
+        flex-shrink: 0;
+      }
+      .ad-sync-bar.completed .ad-sync-bar-info > i { color: #2e7d32; }
+      .ad-sync-bar.failed .ad-sync-bar-info > i { color: #c62828; }
+      .ad-sync-bar-label {
+        font-weight: 600;
+        font-size: 0.85rem;
+        white-space: nowrap;
+      }
+      .ad-sync-bar-msg {
+        font-size: 0.8rem;
+        color: var(--color-text-secondary, #5c5a78);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .ad-sync-bar-close {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--color-text-muted, #9896ad);
+        padding: 0.25rem;
+        border-radius: 4px;
+        flex-shrink: 0;
+      }
+      .ad-sync-bar-close:hover { color: var(--color-text, #020140); }
+      :host ::ng-deep .ad-sync-bar .p-progressbar {
+        border-radius: 0;
+        background: transparent;
+      }
+      :host ::ng-deep .ad-sync-bar .p-progressbar .p-progressbar-value {
+        background: var(--color-accent, #6c63ff);
+        border-radius: 0;
+      }
+      @keyframes adSyncSlideIn {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
       .app-layout {
         display: flex;
         height: 100vh;
@@ -73,6 +180,7 @@ import { ToastModule } from 'primeng/toast';
 })
 export class LayoutComponent implements OnInit {
   translation = inject(TranslationService);
+  adSync = inject(AdSyncProgressService);
   private wsSession = inject(WorkstationSessionService);
   private deviceStatus = inject(DeviceStatusService);
   private scannerEvent = inject(ScannerEventService);
@@ -82,6 +190,7 @@ export class LayoutComponent implements OnInit {
     this.wsSession.initListeners();
     this.deviceStatus.initListeners();
     this.scannerEvent.initListeners();
+    this.adSync.initListeners();
     this.wsSession.restoreSession();
   }
 

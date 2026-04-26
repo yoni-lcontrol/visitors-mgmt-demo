@@ -150,4 +150,20 @@ export class AcControllerService {
             description: `Deleted controller "${ctrl.name}"`,
         }).catch(() => { });
     }
+
+    async upsertByExternalId(data: Partial<AcController>): Promise<{ entity: AcController; action: 'created' | 'updated' }> {
+        const { id: _id, ...safeData } = data;
+        if (!safeData.externalId) {
+            const created = await this.controllerRepo.save(this.controllerRepo.create(safeData));
+            return { entity: created, action: 'created' };
+        }
+        const existing = await this.controllerRepo.findOne({ where: { externalId: safeData.externalId } });
+        if (existing) {
+            Object.assign(existing, safeData);
+            const saved = await this.controllerRepo.save(existing);
+            return { entity: saved, action: 'updated' };
+        }
+        const created = await this.controllerRepo.save(this.controllerRepo.create(safeData));
+        return { entity: created, action: 'created' };
+    }
 }

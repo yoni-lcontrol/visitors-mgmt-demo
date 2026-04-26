@@ -60,6 +60,26 @@ public sealed class AmadeusEventContextTests
         Assert.Null(result.LogId);
     }
 
+    [Fact]
+    public void TryParse_WithCardholderNames_ParsesFirstAndLastName()
+    {
+        const string payload = """
+            {
+              "cardholderFirstName": "Dana",
+              "cardholderLastName": "Levi",
+              "cardholderUID": "cardholder-1",
+              "type": 1
+            }
+            """;
+
+        var result = AmadeusEventContext.TryParse(payload, "AccessEventArrived");
+
+        Assert.NotNull(result);
+        Assert.Equal("Dana", result.CardholderFirstName);
+        Assert.Equal("Levi", result.CardholderLastName);
+        Assert.Equal("cardholder-1", result.CardholderUid);
+    }
+
     // ── TryParse: failure / edge cases ───────────────────────────────────────
 
     [Fact]

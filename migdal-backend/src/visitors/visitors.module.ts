@@ -23,11 +23,11 @@ import { ParkingRequestService } from './parking-request.service';
 import { ParkingRequestController } from './parking-request.controller';
 import { VisitorAccessLogController } from './visitor-access-log.controller';
 import { VisitVisitorsController } from './visit-visitors.controller';
+import { VisitorPersistenceService } from './visitor-persistence.service';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { PrintingModule } from '../printing/printing.module';
 import { SettingsModule } from '../settings/settings.module';
 import { User } from '../users/entities/user.entity';
-import { AccessLevel } from '../access-control/entities/access-level.entity';
 import { Building } from '../buildings/entities/building.entity';
 
 @Module({
@@ -37,7 +37,6 @@ import { Building } from '../buildings/entities/building.entity';
             Visit, VisitVisitor, VisitEscort, VisitorAccessLog, VisitVisitorStatus,
             VisitVisitorCheckInCode,
             ParkingRequest,
-            AccessLevel,
             Building,
         ]),
         BlacklistModule,
@@ -52,7 +51,7 @@ import { Building } from '../buildings/entities/building.entity';
         VisitorLogController,
         VisitsController, VisitorsController,
     ],
-    providers: [VisitorsService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService],
-    exports: [VisitorsService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService],
+    providers: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService],
+    exports: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService],
 })
 export class VisitorsModule { }

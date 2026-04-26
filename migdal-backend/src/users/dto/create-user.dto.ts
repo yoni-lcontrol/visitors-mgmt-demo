@@ -1,6 +1,7 @@
-import { IsNotEmpty, IsString, MinLength, IsOptional, IsEmail, Matches } from 'class-validator';
+import { IsNotEmpty, IsString, MinLength, IsOptional, IsEmail, Matches, IsArray } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { GUID_REGEX } from '../../common/constants/regex.constants';
 
 export class CreateUserDto {
     @ApiProperty({ example: 'john.doe' })
@@ -44,8 +45,14 @@ export class CreateUserDto {
     @Matches(/^\d+$/, { message: 'idNumber must contain only digits' })
     idNumber!: string;
 
-    @ApiPropertyOptional({ example: ['role-uuid-1'], type: [String] })
+    @ApiPropertyOptional({ example: 'role-uuid-1' })
     @IsOptional()
-    @IsString({ each: true })
+    @IsString()
+    roleId?: string;
+
+    @ApiPropertyOptional({ description: 'Array of role IDs to assign', type: [String] })
+    @IsOptional()
+    @IsArray()
+    @Matches(GUID_REGEX, { each: true, message: 'each value in roleIds must be a GUID' })
     roleIds?: string[];
 }

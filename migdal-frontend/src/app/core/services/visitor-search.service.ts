@@ -11,7 +11,6 @@ export interface VisitorSuggestion {
     email: string | null;
     carNumber: string | null;
     vehicleType: string | null;
-    accessLevelId: string | null;
 }
 
 @Injectable({ providedIn: 'root' })

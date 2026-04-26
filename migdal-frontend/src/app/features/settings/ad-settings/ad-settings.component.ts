@@ -44,6 +44,7 @@ import { AdConfiguration } from '@core/models/entities.model';
             <th>{{ 'AD_SETTINGS.LDAP_URL' | translate }}</th>
             <th>{{ 'AD_SETTINGS.PORT' | translate }}</th>
             <th>{{ 'AD_SETTINGS.SSL' | translate }}</th>
+            <th>{{ 'AD_SETTINGS.TARGET_GROUPS' | translate }}</th>
             <th>{{ 'COMMON.ACTIONS' | translate }}</th>
           </tr>
         </ng-template>
@@ -63,7 +64,11 @@ import { AdConfiguration } from '@core/models/entities.model';
                 {{ item.useSsl ? ('COMMON.YES' | translate) : ('COMMON.NO' | translate) }}
               </span>
             </td>
+            <td class="groups-cell">{{ item.targetGroups?.length ? item.targetGroups.join(', ') : '-' }}</td>
             <td class="actions">
+              <button class="btn-icon" *hasPermission="'settings.update'" (click)="testConnection(item)" [title]="'AD_SETTINGS.TEST_CONNECTION' | translate" [disabled]="testingId === item.id">
+                <i class="pi" [class.pi-spin]="testingId === item.id" [class.pi-spinner]="testingId === item.id" [class.pi-bolt]="testingId !== item.id"></i>
+              </button>
               <button class="btn-icon" *hasPermission="'settings.update'" (click)="openDialog(item)" [title]="'COMMON.EDIT' | translate">
                 <i class="pi pi-pencil"></i>
               </button>
@@ -74,7 +79,7 @@ import { AdConfiguration } from '@core/models/entities.model';
           </tr>
         </ng-template>
         <ng-template pTemplate="emptymessage">
-          <tr><td colspan="6" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
+          <tr><td colspan="7" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
         </ng-template>
       </p-table>
     </div>
@@ -142,6 +147,15 @@ import { AdConfiguration } from '@core/models/entities.model';
               <label>{{ 'COMMON.DESCRIPTION' | translate }}</label>
               <textarea formControlName="description" rows="2" [placeholder]="'PLACEHOLDER.ENTER_DESCRIPTION' | translate"></textarea>
             </div>
+            <div class="field full-width">
+              <label>{{ 'AD_SETTINGS.TARGET_GROUPS' | translate }}</label>
+              <textarea
+                formControlName="targetGroupsText"
+                rows="3"
+                [placeholder]="'AD_SETTINGS.TARGET_GROUPS_PLACEHOLDER' | translate"
+              ></textarea>
+              <small class="hint">{{ 'AD_SETTINGS.TARGET_GROUPS_HELP' | translate }}</small>
+            </div>
           </div>
         </form>
       }
@@ -158,6 +172,7 @@ import { AdConfiguration } from '@core/models/entities.model';
     .name-cell { font-weight: 500; }
     .desc-text { display: block; color: var(--color-text-muted, #9896ad); font-size: 0.78rem; margin-top: 0.15rem; }
     .url-cell { font-family: monospace; font-size: 0.82rem; color: var(--color-text-secondary, #5c5a78); }
+    .groups-cell { min-width: 220px; font-size: 0.82rem; color: var(--color-text-secondary, #5c5a78); }
     .ssl-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 99px; font-size: 0.75rem; font-weight: 600; }
     .ssl-on { background: #e8f5e9; color: #2e7d32; }
     .ssl-off { background: var(--color-primary-wash, #eeedf8); color: var(--color-text-muted, #9896ad); }
@@ -166,6 +181,7 @@ import { AdConfiguration } from '@core/models/entities.model';
     .full-width { grid-column: 1 / -1; }
     .dialog-form-grid .field { display: flex; flex-direction: column; }
     .dialog-form-grid .field label { font-weight: 500; margin-bottom: 0.3rem; font-size: 0.85rem; color: var(--color-text-secondary, #5c5a78); }
+    .dialog-form-grid .field .hint { margin-top: 0.35rem; font-size: 0.78rem; color: var(--color-text-muted, #9896ad); }
     .ssl-toggle-row { display: flex; align-items: center; }
     .toggle-pill {
       display: inline-flex; align-items: center; gap: 0.35rem;
@@ -194,6 +210,7 @@ export class AdSettingsComponent implements OnInit {
   editingConfig: AdConfiguration | null = null;
   form: FormGroup = new FormGroup({});
   saving = false;
+  testingId: string | null = null;
 
   ngOnInit(): void {
     this.loadConfigs();
@@ -210,6 +227,27 @@ export class AdSettingsComponent implements OnInit {
     });
   }
 
+  testConnection(config: AdConfiguration): void {
+    this.testingId = config.id;
+    this.api.post<{ success: boolean; message: string; url?: string; bindDn?: string; baseDn?: string; usersFound?: number }>(
+      `/settings/ad-configurations/${config.id}/test-connection`, {},
+    ).subscribe({
+      next: (res) => {
+        this.testingId = null;
+        if (res.success) {
+          this.notify.success(res.message);
+        } else {
+          this.notify.error(`${res.message}\n\nURL: ${res.url}\nBind DN: ${res.bindDn}\nBase DN: ${res.baseDn}`);
+        }
+        console.log('AD test connection result:', res);
+      },
+      error: (err) => {
+        this.testingId = null;
+        this.notify.error(err);
+      },
+    });
+  }
+
   openDialog(config?: AdConfiguration): void {
     this.editingConfig = config ?? null;
     this.form = this.fb.group({
@@ -222,6 +260,7 @@ export class AdSettingsComponent implements OnInit {
       port: [config?.port ?? 389],
       useSsl: [config?.useSsl ?? false],
       description: [config?.description ?? ''],
+      targetGroupsText: [config?.targetGroups?.join('\n') ?? ''],
     });
     this.showDialog = true;
   }
@@ -233,6 +272,12 @@ export class AdSettingsComponent implements OnInit {
     if (this.editingConfig && !payload.password) {
       delete payload.password;
     }
+    if (!payload.port && payload.port !== 0) {
+      delete payload.port;
+    }
+
+    payload.targetGroups = this.parseTargetGroupsText(payload.targetGroupsText);
+    delete payload.targetGroupsText;
 
     const req$ = this.editingConfig
       ? this.api.patch(`/settings/ad-configurations/${this.editingConfig.id}`, payload)
@@ -268,5 +313,25 @@ export class AdSettingsComponent implements OnInit {
     this.form.reset();
     this.form.markAsPristine();
     this.form.markAsUntouched();
+  }
+
+  private parseTargetGroupsText(value: string | null | undefined): string[] {
+    if (!value?.trim()) {
+      return [];
+    }
+
+    const unique = new Map<string, string>();
+    value
+      .split(/[,\n;]/)
+      .map((item) => item.trim())
+      .filter((item) => !!item)
+      .forEach((item) => {
+        const key = item.toLowerCase();
+        if (!unique.has(key)) {
+          unique.set(key, item);
+        }
+      });
+
+    return [...unique.values()];
   }
 }

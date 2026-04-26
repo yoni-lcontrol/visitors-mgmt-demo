@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsOptional, IsInt, IsBoolean, Min, Max } from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional, IsInt, IsBoolean, Min, Max, IsArray, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateAdConfigurationDto {
@@ -37,4 +37,15 @@ export class CreateAdConfigurationDto {
     @ApiPropertyOptional({ example: 'Main corporate directory' })
     @IsOptional() @IsString()
     description?: string;
+
+    @ApiPropertyOptional({
+        type: [String],
+        example: ['Visitors Operators', 'Reception'],
+        description: 'Optional AD group names used to scope user sync to specific groups',
+    })
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    @MaxLength(255, { each: true })
+    targetGroups?: string[];
 }

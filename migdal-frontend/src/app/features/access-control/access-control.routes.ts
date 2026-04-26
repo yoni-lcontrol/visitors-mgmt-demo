@@ -46,4 +46,11 @@ export const ACCESS_CONTROL_ROUTES: Routes = [
                 './access-levels/access-level-list/access-level-list.component'
             ).then((m) => m.AccessLevelListComponent),
     },
+    {
+        path: 'events',
+        loadComponent: () =>
+            import('./events/events.component').then(
+                (m) => m.EventsComponent,
+            ),
+    },
 ];

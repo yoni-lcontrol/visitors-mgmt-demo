@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, of, tap, map, catchError, from, switchMap } from 'rxjs';
+import { BehaviorSubject, Observable, of, tap, map, catchError, from, switchMap, throwError } from 'rxjs';
 import { Router } from '@angular/router';
-import { IPublicClientApplication } from '@azure/msal-browser';
+import { AccountInfo, InteractionRequiredAuthError } from '@azure/msal-browser';
+import { MsalService } from '@azure/msal-angular';
 import { environment } from '../../../environments/environment';
 import { TokenService } from './token.service';
 import { AuthUser, LoginRequest, LoginResponse, EntraLoginRequest, EntraClientConfig } from './auth.models';
@@ -10,12 +11,11 @@ import { UserWebSocketService } from '../websocket/user-websocket.service';
 import { WorkstationSessionService } from '../services/workstation-session.service';
 import { DeviceStatusService } from '../services/device-status.service';
 import { ScannerEventService } from '../services/scanner-event.service';
-import { createMsalInstance, isEntraConfigured } from './msal.config';
+import { getBackendApiScopes, isEntraConfigured } from './msal.config';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
     private readonly apiUrl = `${environment.apiUrl}/auth`;
-    private msalInstance: IPublicClientApplication | null = null;
 
     private currentUserSubject = new BehaviorSubject<AuthUser | null>(null);
     currentUser$ = this.currentUserSubject.asObservable();
@@ -31,6 +31,7 @@ export class AuthService {
         private wsSession: WorkstationSessionService,
         private deviceStatus: DeviceStatusService,
         private scannerEvent: ScannerEventService,
+        private msalService: MsalService,
     ) { }
 
     get currentUser(): AuthUser | null {
@@ -55,17 +56,19 @@ export class AuthService {
     }
 
     logout(): void {
+        const activeAccount = this.msalService.instance.getActiveAccount();
+
         this.http
             .post(`${this.apiUrl}/logout`, {}, { withCredentials: true })
             .subscribe({
-                complete: () => this.clearAuthState(),
-                error: () => this.clearAuthState(),
+                complete: () => this.clearAuthState(activeAccount),
+                error: () => this.clearAuthState(activeAccount),
             });
     }
 
     /** Called by the interceptor when refresh fails — clears state and redirects once. */
     handleAuthFailure(): void {
-        this.clearAuthState();
+        this.clearAuthState(this.msalService.instance.getActiveAccount());
     }
 
     refreshToken(): Observable<{ accessToken: string; user?: AuthUser }> {
@@ -125,7 +128,7 @@ export class AuthService {
         this.userWsService.connect();
     }
 
-    private clearAuthState(): void {
+    private clearAuthState(activeEntraAccount?: AccountInfo | null): void {
         this.userWsService.disconnect();
         this.tokenService.clearAccessToken();
         this.currentUserSubject.next(null);
@@ -133,6 +136,17 @@ export class AuthService {
         this.wsSession.reset();
         this.deviceStatus.reset();
         this.scannerEvent.reset();
+
+        if (activeEntraAccount) {
+            this.msalService.instance.setActiveAccount(null);
+            // Keep local logout non-blocking and best-effort.
+            void this.msalService.instance.logoutPopup({
+                account: activeEntraAccount,
+                postLogoutRedirectUri:
+                    environment.entra.postLogoutRedirectUri || environment.entra.redirectUri,
+            }).catch(() => undefined);
+        }
+
         this.router.navigate(['/login']);
     }
 
@@ -145,19 +159,32 @@ export class AuthService {
     }
 
     loginWithEntra(): Observable<LoginResponse> {
-        return from(this.initMsal()).pipe(
-            switchMap((msal) =>
-                from(msal.loginPopup({
-                    scopes: ['openid', 'profile', 'email'],
-                })),
+        const scopes = getBackendApiScopes();
+
+        return from(this.msalService.instance.initialize()).pipe(
+            switchMap(() =>
+                this.msalService.loginPopup({
+                    scopes,
+                    prompt: 'select_account',
+                }),
             ),
             switchMap((result) => {
-                const idToken = result.idToken;
-                const body: EntraLoginRequest = { idToken };
-                return this.http.post<LoginResponse>(
-                    `${this.apiUrl}/entra-login`,
-                    body,
-                    { withCredentials: true },
+                this.msalService.instance.setActiveAccount(result.account);
+
+                const account = result.account;
+                if (!account) {
+                    throw new Error('No Microsoft account returned from login flow');
+                }
+
+                return this.acquireApiToken(account, scopes).pipe(
+                    switchMap((accessToken) => {
+                        const body: EntraLoginRequest = { accessToken };
+                        return this.http.post<LoginResponse>(
+                            `${this.apiUrl}/entra-login`,
+                            body,
+                            { withCredentials: true },
+                        );
+                    }),
                 );
             }),
             tap((response) => {
@@ -167,11 +194,21 @@ export class AuthService {
         );
     }
 
-    private async initMsal(): Promise<IPublicClientApplication> {
-        if (!this.msalInstance) {
-            this.msalInstance = createMsalInstance();
-            await this.msalInstance.initialize();
-        }
-        return this.msalInstance;
+    private acquireApiToken(account: AccountInfo, scopes: string[]): Observable<string> {
+        return this.msalService.acquireTokenSilent({
+            account,
+            scopes,
+        }).pipe(
+            map((result) => result.accessToken),
+            catchError((error: unknown) => {
+                if (error instanceof InteractionRequiredAuthError) {
+                    return this.msalService.acquireTokenPopup({ account, scopes }).pipe(
+                        map((result) => result.accessToken),
+                    );
+                }
+
+                return throwError(() => error);
+            }),
+        );
     }
 }

@@ -4,6 +4,7 @@ import { Subscription } from 'rxjs';
 import { filter } from 'rxjs/operators';
 import { trigger, state, style, transition, animate } from '@angular/animations';
 import { HasPermissionDirective } from '../../core/permissions/has-permission.directive';
+import { PermissionService } from '../../core/permissions/permission.service';
 import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
@@ -65,28 +66,41 @@ import { TranslateModule } from '@ngx-translate/core';
                 <span>{{ 'NAV.ACCESS_LEVELS' | translate }}</span>
               </a>
             </li>
+            <li>
+              <a routerLink="/access-control/events" routerLinkActive="active" (click)="menuItemClicked.emit()">
+                <i class="pi pi-bell"></i>
+                <span>{{ 'NAV.EVENTS' | translate }}</span>
+              </a>
+            </li>
           </ul>
         </li>
-        <li *hasPermission="'visits.read'" class="has-submenu">
+        @if (canAccessVisitorsManagement()) {
+        <li class="has-submenu">
           <a class="submenu-toggle" [class.active]="isVisitsActive()" (click)="toggleVisits()">
             <i class="pi pi-user-plus"></i>
             <span>{{ 'NAV.VISITORS_MANAGEMENT' | translate }}</span>
             <i class="pi pi-chevron-down chevron" [class.rotated]="visitsOpen"></i>
           </a>
           <ul class="submenu" [@submenu]="visitsOpen ? 'expanded' : 'collapsed'">
-            <li>
+            <li *hasPermission="'visits.read'">
               <a routerLink="/visits" [class.active]="isVisitListActive()" (click)="menuItemClicked.emit()">
                 <i class="pi pi-calendar-plus"></i>
                 <span>{{ 'NAV.VISITS' | translate }}</span>
               </a>
             </li>
-            <li>
+            <li *hasPermission="'visitors.read'">
+              <a routerLink="/visitors" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" (click)="menuItemClicked.emit()">
+                <i class="pi pi-id-card"></i>
+                <span>{{ 'NAV.VISITORS' | translate }}</span>
+              </a>
+            </li>
+            <li *hasPermission="'visits.read'">
               <a routerLink="/visits/calendar" routerLinkActive="active" (click)="menuItemClicked.emit()">
                 <i class="pi pi-calendar"></i>
                 <span>{{ 'NAV.CALENDAR' | translate }}</span>
               </a>
             </li>
-            <li>
+            <li *hasPermission="'visits.read'">
               <a routerLink="/visits/on-site" routerLinkActive="active" (click)="menuItemClicked.emit()">
                 <i class="pi pi-map-marker"></i>
                 <span>{{ 'NAV.ON_SITE' | translate }}</span>
@@ -104,7 +118,7 @@ import { TranslateModule } from '@ngx-translate/core';
                 <span>{{ 'NAV.PARKING_REQUESTS' | translate }}</span>
               </a>
             </li>
-            <li>
+            <li *hasPermission="'visits.read'">
               <a routerLink="/visits/entrance-exit-logs" routerLinkActive="active" (click)="menuItemClicked.emit()">
                 <i class="pi pi-history"></i>
                 <span>{{ 'NAV.ENTRANCE_EXIT_LOGS' | translate }}</span>
@@ -112,6 +126,7 @@ import { TranslateModule } from '@ngx-translate/core';
             </li>
           </ul>
         </li>
+        }
         <li *hasPermission="'settings.read'" class="has-submenu">
           <a class="submenu-toggle" [class.active]="isSettingsActive()" (click)="toggleSettings()">
             <i class="pi pi-cog"></i>
@@ -137,6 +152,12 @@ import { TranslateModule } from '@ngx-translate/core';
                 <span>{{ 'NAV.AD_SETTINGS' | translate }}</span>
               </a>
             </li>
+            <li>
+              <a routerLink="/settings/ad-group-role-mappings" routerLinkActive="active" (click)="menuItemClicked.emit()">
+                <i class="pi pi-users"></i>
+                <span>{{ 'NAV.AD_GROUP_ROLE_MAPPINGS' | translate }}</span>
+              </a>
+            </li>
             <li *hasPermission="'settings.card-templates.read'">
               <a routerLink="/settings/card-templates" routerLinkActive="active" (click)="menuItemClicked.emit()">
                 <i class="pi pi-id-card"></i>
@@ -147,6 +168,12 @@ import { TranslateModule } from '@ngx-translate/core';
               <a routerLink="/settings/buildings" routerLinkActive="active" (click)="menuItemClicked.emit()">
                 <i class="pi pi-building"></i>
                 <span>{{ 'NAV.BUILDINGS' | translate }}</span>
+              </a>
+            </li>
+            <li *hasPermission="'settings.permanent-escorts.read'">
+              <a routerLink="/settings/permanent-escorts" routerLinkActive="active" (click)="menuItemClicked.emit()">
+                <i class="pi pi-user-plus"></i>
+                <span>{{ 'NAV.PERMANENT_ESCORTS' | translate }}</span>
               </a>
             </li>
           </ul>
@@ -303,6 +330,7 @@ import { TranslateModule } from '@ngx-translate/core';
 })
 export class SidebarComponent implements OnInit, OnDestroy {
   private router = inject(Router);
+  private permissionService = inject(PermissionService);
   private routerSub: Subscription | null = null;
 
   @Input() collapsed = false;
@@ -336,7 +364,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   isVisitsActive(): boolean {
-    return this.router.url.startsWith('/visits');
+    return this.router.url.startsWith('/visits') || this.router.url.startsWith('/visitors');
   }
 
   isSettingsActive(): boolean {
@@ -358,10 +386,28 @@ export class SidebarComponent implements OnInit, OnDestroy {
     }
   }
 
+  canAccessVisitorsManagement(): boolean {
+    return this.permissionService.hasAnyPermission([
+      'visitors.read',
+      'visits.read',
+      'blacklist.read',
+      'parking.approve',
+    ]);
+  }
+
   toggleVisits(): void {
     if (!this.visitsOpen) {
       this.visitsOpen = true;
-      this.router.navigate(['/visits']);
+      const target = this.permissionService.hasPermission('visits.read')
+        ? '/visits'
+        : this.permissionService.hasPermission('visitors.read')
+          ? '/visitors'
+          : this.permissionService.hasPermission('blacklist.read')
+            ? '/visits/blacklist'
+            : this.permissionService.hasPermission('parking.approve')
+              ? '/visits/parking-requests'
+              : '/visits';
+      this.router.navigate([target]);
       this.menuItemClicked.emit();
     } else {
       this.visitsOpen = false;

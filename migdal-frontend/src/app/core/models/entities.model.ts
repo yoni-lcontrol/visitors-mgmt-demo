@@ -8,7 +8,9 @@ export interface User {
     idNumber: string | null;
     isActive: boolean;
     lastLoginAt: string | null;
-    roles: Role[];
+    sector?: { id: string; name: string } | null;
+    role: Role | null;
+    roles?: Role[];
     createdAt: string;
     updatedAt: string;
 }
@@ -100,7 +102,11 @@ export interface Visitor {
     personId: string;
     carNumber: string | null;
     vehicleType: string | null;
+    hostName?: string | null;
+    buildingName?: string | null;
+    floor?: number | null;
     createdAt: string;
+    updatedAt: string;
 }
 
 export interface Setting {
@@ -180,6 +186,7 @@ export interface AdConfiguration {
     port: number;
     useSsl: boolean;
     description: string | null;
+    targetGroups: string[];
     createdAt: string;
 }
 
@@ -210,6 +217,7 @@ export enum VehicleType {
 export interface Visit {
     id: string;
     siteId: string | null;
+    sector?: { id: string; name: string } | null;
     buildingId: string | null;
     building?: { id: string; name: string } | null;
     floor: number | null;
@@ -242,8 +250,6 @@ export interface VisitVisitor {
     id: string;
     visitId: string;
     visitorId: string;
-    accessLevelId: string | null;
-    accessLevel: { id: string; name: string } | null;
     notes: string | null;
     visitor: {
         id: string;
@@ -274,6 +280,7 @@ export interface VisitEscort {
     lastName: string;
     phone: string;
     email: string;
+    sector: string | null;
     createdAt: string;
 }
 
@@ -307,7 +314,6 @@ export interface InlineVisitor {
     hasVehicle: boolean;
     carNumber: string;
     vehicleType: string;
-    accessLevelId: string;
     requestParking: boolean;
 }
 
@@ -316,6 +322,7 @@ export interface InlineEscort {
     lastName: string;
     phone: string;
     email: string;
+    sector: string;
 }
 
 // ── Audit Logs ──

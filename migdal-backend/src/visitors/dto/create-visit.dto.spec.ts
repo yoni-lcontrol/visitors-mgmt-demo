@@ -20,7 +20,6 @@ describe('CreateVisitDto', () => {
                 firstName: 'Jane',
                 lastName: 'Smith',
                 personId: '123456789',
-                accessLevelId: 'A0000000-0000-0000-0000-000000000001',
                 phone: '+972509876543',
             },
         ],

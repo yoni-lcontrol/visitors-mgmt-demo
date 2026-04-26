@@ -385,3 +385,6 @@ C:\development\Migdal-new\migdal-app\amadeus-service\Amadeus8.Tests\bin\Debug\ne
 C:\development\Migdal-new\migdal-app\amadeus-service\Amadeus8.Tests\obj\Debug\net9.0\Amadeus8.4EDC8481.Up2Date
 C:\development\Migdal-new\migdal-app\amadeus-service\Amadeus8.Tests\obj\Debug\net9.0\Amadeus8.Tests.genruntimeconfig.cache
 C:\development\Migdal-new\migdal-app\amadeus-service\Amadeus8.Tests\obj\Debug\net9.0\ref\Amadeus8.Tests.dll
+C:\development\Migdal-new\migdal-app\migdal-amadeus-service\Amadeus8.Tests\obj\Debug\net9.0\Amadeus8.Tests.dll
+C:\development\Migdal-new\migdal-app\migdal-amadeus-service\Amadeus8.Tests\obj\Debug\net9.0\refint\Amadeus8.Tests.dll
+C:\development\Migdal-new\migdal-app\migdal-amadeus-service\Amadeus8.Tests\obj\Debug\net9.0\Amadeus8.Tests.pdb

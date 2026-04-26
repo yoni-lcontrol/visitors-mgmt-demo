@@ -1,7 +1,8 @@
-import { Entity, Column } from 'typeorm';
+import { Entity, Column, Index } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { VehicleType } from '../enums/vehicle-type.enum';
 
+@Index('UX_Visitors_PersonId', ['personId'], { unique: true })
 @Entity('Visitors')
 export class Visitor extends BaseEntity {
     @Column({ type: 'nvarchar', length: 100 })

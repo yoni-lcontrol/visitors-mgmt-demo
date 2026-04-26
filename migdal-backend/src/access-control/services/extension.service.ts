@@ -129,4 +129,20 @@ export class ExtensionService {
             description: `Deleted extension "${ext.name}"`,
         }).catch(() => { });
     }
+
+    async upsertByExternalId(data: Partial<Extension>): Promise<{ entity: Extension; action: 'created' | 'updated' }> {
+        const { id: _id, ...safeData } = data;
+        if (!safeData.externalId) {
+            const created = await this.extensionRepo.save(this.extensionRepo.create(safeData));
+            return { entity: created, action: 'created' };
+        }
+        const existing = await this.extensionRepo.findOne({ where: { externalId: safeData.externalId } });
+        if (existing) {
+            Object.assign(existing, safeData);
+            const saved = await this.extensionRepo.save(existing);
+            return { entity: saved, action: 'updated' };
+        }
+        const created = await this.extensionRepo.save(this.extensionRepo.create(safeData));
+        return { entity: created, action: 'created' };
+    }
 }

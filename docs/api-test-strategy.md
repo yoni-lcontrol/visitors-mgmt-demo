@@ -71,6 +71,9 @@ Must test:
 - list users
 - get user by id
 - update user
+- update AD-imported user should be rejected
+- assign single role (`POST /users/:id/role`)
+- assign multiple roles (`POST /users/:id/roles`)
 - delete/deactivate user
 - forbidden access without permission
 

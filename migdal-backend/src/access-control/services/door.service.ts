@@ -129,4 +129,30 @@ export class DoorService {
             description: `Deleted door "${door.name}"`,
         }).catch(() => { });
     }
+
+    async upsertByExternalId(
+        data: Partial<Door>,
+        options?: { disableOnCreate?: boolean },
+    ): Promise<{ entity: Door; action: 'created' | 'updated' }> {
+        const { id: _id, ...safeData } = data;
+        const createPayload = {
+            ...safeData,
+            ...(options?.disableOnCreate && safeData.isActive === undefined ? { isActive: false } : {}),
+        };
+
+        if (!safeData.externalId) {
+            const created = await this.doorRepo.save(this.doorRepo.create(createPayload));
+            return { entity: created, action: 'created' };
+        }
+
+        const existing = await this.doorRepo.findOne({ where: { externalId: safeData.externalId } });
+        if (existing) {
+            Object.assign(existing, safeData);
+            const saved = await this.doorRepo.save(existing);
+            return { entity: saved, action: 'updated' };
+        }
+
+        const created = await this.doorRepo.save(this.doorRepo.create(createPayload));
+        return { entity: created, action: 'created' };
+    }
 }

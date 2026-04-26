@@ -17,7 +17,7 @@ export class Extension extends BaseEntity {
     @Column({ type: 'int', default: 0 })
     extensionIndex!: number;
 
-    @Column({ type: 'nvarchar', length: 200, nullable: true })
+    @Column({ type: 'nvarchar', length: 200, nullable: true, unique: true })
     externalId!: string | null;
 
     @ManyToOne(() => AcController, (controller) => controller.extensions, {

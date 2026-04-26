@@ -19,6 +19,9 @@ export class VisitEscort extends BaseEntity {
     @Column({ type: 'nvarchar', length: 320 })
     email!: string;
 
+    @Column({ type: 'nvarchar', length: 200, nullable: true })
+    sector!: string | null;
+
     @ManyToOne(() => Visit, (v) => v.visitEscorts, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'visitId' })
     visit!: Visit;

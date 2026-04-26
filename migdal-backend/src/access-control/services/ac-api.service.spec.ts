@@ -93,18 +93,19 @@ describe('AccessControlApiService', () => {
     });
 
     describe('triggerFullImport', () => {
-        it('should POST to /api/import with callback URL', async () => {
-            mockHttpService.post.mockReturnValue(of(mockAxiosResponse({ ok: true })));
+        it('should POST to /api/import and return payload', async () => {
+            const mockPayload = { controllers: [{ name: 'C1' }] };
+            mockHttpService.post.mockReturnValue(of(mockAxiosResponse(mockPayload)));
 
-            await service.triggerFullImport();
+            const result = await service.triggerFullImport();
 
             expect(mockHttpService.post).toHaveBeenCalledTimes(1);
             const [url, body] = mockHttpService.post.mock.calls[0];
             expect(url).toBe('http://ac-server:8080/api/import');
             expect(body).toEqual({
                 action: 'import',
-                callbackUrl: 'http://localhost:3000/api/access-control/import/callback',
             });
+            expect(result).toEqual(mockPayload);
         });
 
         it('should throw BadGatewayException on HTTP error', async () => {
@@ -117,17 +118,18 @@ describe('AccessControlApiService', () => {
     });
 
     describe('triggerAccessLevelImport', () => {
-        it('should POST to /api/import/access-levels with callback URL', async () => {
-            mockHttpService.post.mockReturnValue(of(mockAxiosResponse({ ok: true })));
+        it('should POST to /api/import/access-levels and return payload', async () => {
+            const mockPayload = { accessLevels: [{ name: 'VIP' }] };
+            mockHttpService.post.mockReturnValue(of(mockAxiosResponse(mockPayload)));
 
-            await service.triggerAccessLevelImport();
+            const result = await service.triggerAccessLevelImport();
 
             const [url, body] = mockHttpService.post.mock.calls[0];
             expect(url).toBe('http://ac-server:8080/api/import/access-levels');
             expect(body).toEqual({
                 action: 'import-access-levels',
-                callbackUrl: 'http://localhost:3000/api/access-control/import/access-levels/callback',
             });
+            expect(result).toEqual(mockPayload);
         });
     });
 

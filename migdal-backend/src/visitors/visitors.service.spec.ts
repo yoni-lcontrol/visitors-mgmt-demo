@@ -2,17 +2,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { VisitorsService } from './visitors.service';
 import { Visitor } from './entities/visitor.entity';
-import { VisitVisitor } from './entities/visit-visitor.entity';
 import { UsersGateway } from '../websocket/gateways/users.gateway';
-import { BlacklistService } from './blacklist.service';
 import { AuditService } from '../audit/audit.service';
 import { createMockAuditService } from '../test-utils/mock.factory';
+import { VisitorPersistenceService } from './visitor-persistence.service';
 
 describe('VisitorsService', () => {
     let service: VisitorsService;
     let mockRepo: any;
-    let mockVisitVisitorRepo: any;
     let mockAuditService: ReturnType<typeof createMockAuditService>;
+    let mockVisitorPersistence: { upsertByPersonId: jest.Mock; normalizePersonId: jest.Mock; findByPersonId: jest.Mock };
 
     beforeEach(async () => {
         mockRepo = {
@@ -22,25 +21,33 @@ describe('VisitorsService', () => {
             save: jest.fn(),
         };
 
-        mockVisitVisitorRepo = {
-            createQueryBuilder: jest.fn(),
-        };
-
         mockAuditService = createMockAuditService();
+        mockVisitorPersistence = {
+            upsertByPersonId: jest.fn(),
+            normalizePersonId: jest.fn((personId: string) => personId.trim()),
+            findByPersonId: jest.fn(),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 VisitorsService,
                 { provide: getRepositoryToken(Visitor), useValue: mockRepo },
-                { provide: getRepositoryToken(VisitVisitor), useValue: mockVisitVisitorRepo },
+                { provide: VisitorPersistenceService, useValue: mockVisitorPersistence },
                 { provide: UsersGateway, useValue: { broadcastToAll: jest.fn() } },
-                { provide: BlacklistService, useValue: { findActiveByName: jest.fn().mockResolvedValue([]) } },
                 { provide: AuditService, useValue: mockAuditService },
             ],
         }).compile();
 
         service = module.get<VisitorsService>(VisitorsService);
     });
+
+    function buildFindByIdQb(visitor: any) {
+        return {
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            getOne: jest.fn().mockResolvedValue(visitor),
+        };
+    }
 
     describe('searchByPersonId', () => {
         it('should return empty array for empty prefix', async () => {
@@ -76,17 +83,6 @@ describe('VisitorsService', () => {
             };
             mockRepo.createQueryBuilder.mockReturnValue(qb);
 
-            const vvQb = {
-                select: jest.fn().mockReturnThis(),
-                where: jest.fn().mockReturnThis(),
-                andWhere: jest.fn().mockReturnThis(),
-                orderBy: jest.fn().mockReturnThis(),
-                getMany: jest.fn().mockResolvedValue([
-                    { visitorId: '1', accessLevelId: 'al-1' },
-                ]),
-            };
-            mockVisitVisitorRepo.createQueryBuilder.mockReturnValue(vvQb);
-
             const result = await service.searchByPersonId('1234');
 
             expect(mockRepo.createQueryBuilder).toHaveBeenCalledWith('v');
@@ -94,10 +90,7 @@ describe('VisitorsService', () => {
             expect(qb.where).toHaveBeenCalledWith('v.isActive = :active', { active: true });
             expect(qb.andWhere).toHaveBeenCalledWith('v.personId LIKE :prefix', { prefix: '1234%' });
             expect(qb.take).toHaveBeenCalledWith(10);
-            expect(mockVisitVisitorRepo.createQueryBuilder).toHaveBeenCalledWith('vv');
-            expect(result).toEqual([
-                { ...mockVisitors[0], accessLevelId: 'al-1' },
-            ]);
+            expect(result).toEqual(mockVisitors);
         });
 
         it('should trim whitespace from prefix before querying', async () => {
@@ -119,8 +112,11 @@ describe('VisitorsService', () => {
 
     describe('create', () => {
         it('should audit log on create', async () => {
-            mockRepo.findOne.mockResolvedValue({ id: 'v-1', firstName: 'John', lastName: 'Doe', isActive: true });
-            mockRepo.save.mockImplementation((e: any) => Promise.resolve({ id: 'v-1', ...e }));
+            mockVisitorPersistence.upsertByPersonId.mockResolvedValue({
+                action: 'created',
+                visitor: { id: 'v-1' },
+            });
+            mockRepo.createQueryBuilder.mockReturnValueOnce(buildFindByIdQb({ id: 'v-1', firstName: 'John', lastName: 'Doe', isActive: true }));
             await service.create({ firstName: 'John', lastName: 'Doe', personId: '123456789' } as any, 'user-1');
             expect(mockAuditService.log).toHaveBeenCalledWith(expect.objectContaining({
                 module: 'visitors', action: 'CREATE', entity: 'Visitor', userId: 'user-1',
@@ -130,7 +126,10 @@ describe('VisitorsService', () => {
 
     describe('update', () => {
         it('should audit log on update with old values', async () => {
-            mockRepo.findOne.mockResolvedValue({ id: 'v-1', firstName: 'John', lastName: 'Doe', personId: '123', isActive: true });
+            mockVisitorPersistence.findByPersonId.mockResolvedValue(null);
+            mockRepo.createQueryBuilder
+                .mockReturnValueOnce(buildFindByIdQb({ id: 'v-1', firstName: 'John', lastName: 'Doe', personId: '123', isActive: true }))
+                .mockReturnValueOnce(buildFindByIdQb({ id: 'v-1', firstName: 'Jane', lastName: 'Doe', personId: '123', isActive: true }));
             mockRepo.save.mockResolvedValue({});
             await service.update('v-1', { firstName: 'Jane' } as any, 'user-1');
             expect(mockAuditService.log).toHaveBeenCalledWith(expect.objectContaining({
@@ -142,7 +141,7 @@ describe('VisitorsService', () => {
 
     describe('remove', () => {
         it('should audit log on delete', async () => {
-            mockRepo.findOne.mockResolvedValue({ id: 'v-1', firstName: 'John', lastName: 'Doe', isActive: true });
+            mockRepo.createQueryBuilder.mockReturnValueOnce(buildFindByIdQb({ id: 'v-1', firstName: 'John', lastName: 'Doe', isActive: true }));
             mockRepo.save.mockResolvedValue({});
             await service.remove('v-1', 'user-1');
             expect(mockAuditService.log).toHaveBeenCalledWith(expect.objectContaining({

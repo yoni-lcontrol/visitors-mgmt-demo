@@ -4,13 +4,13 @@
     BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, SelectQueryBuilder } from 'typeorm';
 import { Visit } from './entities/visit.entity';
 import { VisitVisitor } from './entities/visit-visitor.entity';
 import { VisitEscort } from './entities/visit-escort.entity';
 import { VisitVisitorStatus } from './entities/visit-visitor-status.entity';
 import { Visitor } from './entities/visitor.entity';
-import { CreateVisitDto } from './dto/create-visit.dto';
+import { CreateVisitDto, VisitRequesterDto } from './dto/create-visit.dto';
 import { UpdateVisitDto } from './dto/update-visit.dto';
 import { VisitorStatus } from './enums/visitor-status.enum';
 import { VisitsQueryDto, TimeFilter } from './dto/visits-query.dto';
@@ -30,20 +30,26 @@ import { ParkingRequestStatus } from './enums/parking-request-status.enum';
 import { PermissionKey } from '../common/enums/permission-key.enum';
 import { resolveVisitRequester, buildSmsData } from './visit.utils';
 import { getDayBoundsUtc } from '../common/utils/date.util';
+import { VisitorPersistenceService } from './visitor-persistence.service';
+import {
+    isEscortRequiredForVisit,
+    isOnBehalfOnlyRole,
+    resolveCreatorScopeRequirements,
+    shouldRestrictDeletionToOwnVisits,
+    VisitRoleName,
+} from './visit-role-policy';
 
 @Injectable()
 export class VisitsService {
     constructor(
         @InjectRepository(Visit)
         private readonly visitRepo: Repository<Visit>,
-        @InjectRepository(VisitVisitor)
-        private readonly visitVisitorRepo: Repository<VisitVisitor>,
-        @InjectRepository(VisitEscort)
-        private readonly visitEscortRepo: Repository<VisitEscort>,
         @InjectRepository(VisitVisitorStatus)
         private readonly statusRepo: Repository<VisitVisitorStatus>,
         @InjectRepository(Visitor)
         private readonly visitorRepo: Repository<Visitor>,
+        @InjectRepository(VisitEscort)
+        private readonly escortRepo: Repository<VisitEscort>,
         private readonly dataSource: DataSource,
         private readonly wsGateway: UsersGateway,
         @InjectRepository(User)
@@ -51,6 +57,7 @@ export class VisitsService {
         private readonly smsNotification: SmsNotificationService,
         private readonly emailNotification: EmailNotificationService,
         private readonly auditService: AuditService,
+        private readonly visitorPersistence: VisitorPersistenceService,
         private readonly participantService: VisitParticipantService,
         private readonly checkInCodeService: VisitCheckInCodeService,
     ) { }
@@ -59,29 +66,235 @@ export class VisitsService {
         return resolveVisitRequester(visit);
     }
 
+    private normalizeAutoEscortOrThrow(
+        source: {
+            firstName?: string | null;
+            lastName?: string | null;
+            phone?: string | null;
+            email?: string | null;
+            sector?: string | null;
+        },
+        sourceLabel: string,
+    ): { firstName: string; lastName: string; phone: string; email: string; sector: string | null } {
+        const firstName = source.firstName?.trim() ?? '';
+        const lastName = source.lastName?.trim() ?? '';
+        const phone = source.phone?.trim() ?? '';
+        const email = source.email?.trim() ?? '';
+
+        if (!firstName || !lastName || !phone || !email) {
+            throw new BadRequestException(
+                `Cannot auto-assign escort from ${sourceLabel}: firstName, lastName, phone and email are required`,
+            );
+        }
+
+        return {
+            firstName,
+            lastName,
+            phone,
+            email,
+            sector: source.sector?.trim() ? source.sector.trim() : null,
+        };
+    }
+
+    private buildAutoEscortFromRequester(requester: VisitRequesterDto): {
+        firstName: string;
+        lastName: string;
+        phone: string;
+        email: string;
+        sector: string | null;
+    } {
+        return this.normalizeAutoEscortOrThrow(
+            {
+                firstName: requester.firstName,
+                lastName: requester.lastName,
+                phone: requester.phone,
+                email: requester.email,
+            },
+            'visit requester',
+        );
+    }
+
+    private buildAutoEscortFromUser(user: User | null, sourceLabel: string): {
+        firstName: string;
+        lastName: string;
+        phone: string;
+        email: string;
+        sector: string | null;
+    } {
+        if (!user) {
+            throw new BadRequestException(`Cannot auto-assign escort from ${sourceLabel}: user not found`);
+        }
+
+        return this.normalizeAutoEscortOrThrow(
+            {
+                firstName: user.firstName,
+                lastName: user.lastName,
+                phone: user.phone,
+                email: user.email,
+                sector: user.sector?.name ?? null,
+            },
+            sourceLabel,
+        );
+    }
+
+    private getCreateEscorts(
+        dto: CreateVisitDto,
+        isSelfRequester: boolean,
+        currentUser: User | null,
+    ): Array<{ firstName: string; lastName: string; phone: string; email: string; sector?: string | null }> {
+        const explicitEscorts = dto.escorts ?? [];
+        if (explicitEscorts.length > 0) {
+            return explicitEscorts;
+        }
+
+        if (!isSelfRequester && dto.visitRequester) {
+            return [this.buildAutoEscortFromRequester(dto.visitRequester)];
+        }
+
+        return [this.buildAutoEscortFromUser(currentUser, 'current user')];
+    }
+
+    private async resolveAutoEscortForUpdate(
+        visit: Visit,
+        dto: UpdateVisitDto,
+        currentUserId?: string,
+    ): Promise<{ firstName: string; lastName: string; phone: string; email: string; sector: string | null }> {
+        if (dto.visitRequester !== undefined) {
+            if (dto.visitRequester === null) {
+                if (!currentUserId) {
+                    throw new BadRequestException('Cannot auto-assign escort from current user: user not found');
+                }
+                const currentUser = await this.userRepo.findOne({
+                    where: { id: currentUserId },
+                    relations: ['sector'],
+                });
+                return this.buildAutoEscortFromUser(currentUser, 'current user');
+            }
+
+            return this.buildAutoEscortFromRequester(dto.visitRequester as VisitRequesterDto);
+        }
+
+        if (visit.visitRequesterUserId) {
+            const requesterUser = visit.visitRequesterUser ?? await this.userRepo.findOne({
+                where: { id: visit.visitRequesterUserId },
+                relations: ['sector'],
+            });
+            return this.buildAutoEscortFromUser(requesterUser, 'visit requester user');
+        }
+
+        return this.normalizeAutoEscortOrThrow(
+            {
+                firstName: visit.visitRequesterFirstName,
+                lastName: visit.visitRequesterLastName,
+                phone: visit.visitRequesterPhone,
+                email: visit.visitRequesterEmail,
+            },
+            'visit requester',
+        );
+    }
+
+    private async ensureAutoEscortForUpdate(
+        visit: Visit,
+        dto: UpdateVisitDto,
+        currentUserId?: string,
+    ): Promise<void> {
+        const escortCount = await this.escortRepo.count({
+            where: {
+                visitId: visit.id,
+                isActive: true,
+            },
+        });
+
+        if (escortCount > 0) {
+            return;
+        }
+
+        const autoEscort = await this.resolveAutoEscortForUpdate(visit, dto, currentUserId);
+        const escort = this.escortRepo.create({
+            visitId: visit.id,
+            ...autoEscort,
+            createdBy: currentUserId ?? null,
+            updatedBy: currentUserId ?? null,
+        });
+        await this.escortRepo.save(escort);
+    }
+
+    private async resolveScopedCreatorUserIds(currentUserId?: string, userRoles?: string[]): Promise<string[] | null> {
+        const creatorIds = new Set<string>();
+        const scopeRequirements = resolveCreatorScopeRequirements(userRoles);
+
+        if (scopeRequirements?.includeCurrentUser && currentUserId) {
+            creatorIds.add(currentUserId);
+        }
+
+        if (scopeRequirements?.includeTrainingCenterUsers) {
+            const trainingCenterUsers = await this.userRepo
+                .createQueryBuilder('user')
+                .leftJoin('user.role', 'primaryRole')
+                .leftJoin('user.roles', 'secondaryRole')
+                .where('primaryRole.name = :roleName', { roleName: VisitRoleName.TrainingCenter })
+                .orWhere('secondaryRole.name = :roleName', { roleName: VisitRoleName.TrainingCenter })
+                .select('user.id', 'id')
+                .getRawMany<{ id: string }>();
+
+            for (const user of trainingCenterUsers) {
+                if (user.id) {
+                    creatorIds.add(user.id);
+                }
+            }
+        }
+
+        if (scopeRequirements === null) {
+            return null;
+        }
+
+        return [...creatorIds];
+    }
+
+    private applyCreatorScopeToVisitsQuery(
+        qb: SelectQueryBuilder<any>,
+        creatorUserIds: string[] | null,
+    ): void {
+        if (creatorUserIds === null) {
+            return;
+        }
+
+        if (creatorUserIds.length === 0) {
+            qb.andWhere('1 = 0');
+            return;
+        }
+
+        qb.andWhere('v.createdByUserId IN (:...creatorUserIds)', { creatorUserIds });
+    }
+
     // â”€â”€ Today Summary â”€â”€
 
-    async getTodaySummary(): Promise<{
+    async getTodaySummary(currentUserId?: string, userRoles?: string[]): Promise<{
         totalVisitsToday: number;
         arrivedToday: number;
         checkedInToday: number;
         completedToday: number;
     }> {
         const { dayStart, dayEnd } = getDayBoundsUtc();
+        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userRoles);
 
         // Count today's visits
-        const totalVisitsToday = await this.visitRepo
+        const totalVisitsToday = this.visitRepo
             .createQueryBuilder('v')
             .where('v.isActive = :active', { active: true })
             .andWhere('v.plannedStartTimeUtc < :dayEnd', { dayEnd })
             .andWhere(
                 '(v.plannedStartTimeUtc >= :dayStart OR (v.plannedEndTimeUtc IS NOT NULL AND v.plannedEndTimeUtc >= :dayStartBound))',
                 { dayStart, dayStartBound: dayStart },
-            )
+            );
+
+        this.applyCreatorScopeToVisitsQuery(totalVisitsToday, creatorUserIds);
+
+        const totalVisitsTodayCount = await totalVisitsToday
             .getCount();
 
         // Count visitor statuses for today's visits
-        const rows = await this.statusRepo
+        const rows = this.statusRepo
             .createQueryBuilder('s')
             .select('s.currentStatus', 'currentStatus')
             .addSelect('COUNT(*)', 'cnt')
@@ -93,14 +306,18 @@ export class VisitsService {
             .andWhere(
                 '(v.plannedStartTimeUtc >= :dayStart OR (v.plannedEndTimeUtc IS NOT NULL AND v.plannedEndTimeUtc >= :dayStartBound))',
                 { dayStart, dayStartBound: dayStart },
-            )
+            );
+
+        this.applyCreatorScopeToVisitsQuery(rows, creatorUserIds);
+
+        const statusRows = await rows
             .groupBy('s.currentStatus')
             .getRawMany();
 
         let arrivedToday = 0;
         let checkedInToday = 0;
         let completedToday = 0;
-        for (const row of rows) {
+        for (const row of statusRows) {
             const status = +row.currentStatus;
             const count = +row.cnt;
             if (status === VisitorStatus.Arrived) arrivedToday = count;
@@ -108,14 +325,22 @@ export class VisitsService {
             if (status === VisitorStatus.CheckedOut) completedToday = count;
         }
 
-        return { totalVisitsToday, arrivedToday, checkedInToday, completedToday };
+        return { totalVisitsToday: totalVisitsTodayCount, arrivedToday, checkedInToday, completedToday };
     }
 
     // â”€â”€ Visits CRUD â”€â”€
 
-    async findVisitsByDateRange(rangeStart: string, rangeEnd: string, search?: string): Promise<any[]> {
+    async findVisitsByDateRange(
+        rangeStart: string,
+        rangeEnd: string,
+        search?: string,
+        currentUserId?: string,
+        userRoles?: string[],
+    ): Promise<any[]> {
+        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userRoles);
         const qb = this.visitRepo
             .createQueryBuilder('v')
+            .leftJoinAndSelect('v.sector', 'sector')
             .leftJoinAndSelect('v.visitRequesterUser', 'reqUser')
             .where('v.isActive = :active', { active: true })
             .andWhere('v.plannedStartTimeUtc < :rangeEnd', { rangeEnd })
@@ -123,6 +348,8 @@ export class VisitsService {
                 '(v.plannedEndTimeUtc IS NOT NULL AND v.plannedEndTimeUtc > :rangeStart) OR (v.plannedEndTimeUtc IS NULL AND v.plannedStartTimeUtc >= :rangeStart)',
                 { rangeStart },
             );
+
+        this.applyCreatorScopeToVisitsQuery(qb, creatorUserIds);
 
         if (search) {
             qb.andWhere(
@@ -139,14 +366,15 @@ export class VisitsService {
 
         return items.map((visit) => ({
             ...visit,
+            sector: visit.sector ? { id: visit.sector.id, name: visit.sector.name } : null,
             visitRequester: this.resolveVisitRequester(visit),
             statusSummary: summaries[visit.id] ?? { total: 0, pending: 0, arrived: 0, checkedIn: 0, checkedOut: 0 },
         }));
     }
 
-    async findAllVisits(query: VisitsQueryDto): Promise<PaginatedResult<any>> {
+    async findAllVisits(query: VisitsQueryDto, currentUserId?: string, userRoles?: string[]): Promise<PaginatedResult<any>> {
         const { page, limit } = query;
-        const qb = this.buildVisitsQuery(query);
+        const qb = await this.buildVisitsQuery(query, currentUserId, userRoles);
 
         const total = await qb.getCount();
         const items = await qb.skip((page - 1) * limit).take(limit).getMany();
@@ -157,6 +385,7 @@ export class VisitsService {
         const result = items.map((visit) => ({
             ...visit,
             buildingName: visit.building?.name ?? null,
+            sector: visit.sector ? { id: visit.sector.id, name: visit.sector.name } : null,
             floor: visit.floor ?? null,
             visitRequester: this.resolveVisitRequester(visit),
             statusSummary: summaries[visit.id] ?? { total: 0, pending: 0, arrived: 0, checkedIn: 0, checkedOut: 0 },
@@ -165,8 +394,8 @@ export class VisitsService {
         return { items: result, total, page, limit, totalPages: Math.ceil(total / limit) };
     }
 
-    async exportVisitsToExcel(query: VisitsQueryDto): Promise<Buffer> {
-        const qb = this.buildVisitsQuery(query);
+    async exportVisitsToExcel(query: VisitsQueryDto, currentUserId?: string, userRoles?: string[]): Promise<Buffer> {
+        const qb = await this.buildVisitsQuery(query, currentUserId, userRoles);
         qb.leftJoinAndSelect('v.visitVisitors', 'vv')
             .leftJoinAndSelect('vv.visitor', 'visitor')
             .leftJoinAndSelect('vv.status', 'vvStatus')
@@ -189,6 +418,7 @@ export class VisitsService {
             const requester = this.resolveVisitRequester(visit);
             const baseRow = {
                 'Visit Title': visit.title,
+                'Sector': visit.sector?.name ?? '',
                 'Building': visit.building?.name ?? '',
                 'Floor': visit.floor ?? '',
                 'Purpose': visit.purposeOfVisit ?? '',
@@ -239,13 +469,17 @@ export class VisitsService {
         return toExcelBuffer(rows, 'Visits');
     }
 
-    private buildVisitsQuery(query: VisitsQueryDto) {
+    private async buildVisitsQuery(query: VisitsQueryDto, currentUserId?: string, userRoles?: string[]) {
         const { search, sortBy, sortOrder, filters, timeFilter } = query;
+        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userRoles);
         const qb = this.visitRepo
             .createQueryBuilder('v')
+            .leftJoinAndSelect('v.sector', 'sector')
             .leftJoinAndSelect('v.building', 'building')
             .leftJoinAndSelect('v.visitRequesterUser', 'reqUser')
             .where('v.isActive = :active', { active: true });
+
+        this.applyCreatorScopeToVisitsQuery(qb, creatorUserIds);
 
         if (timeFilter) {
             this.applyTimeFilter(qb, timeFilter);
@@ -262,6 +496,7 @@ export class VisitsService {
             title: 'v.title',
             purposeOfVisit: 'v.purposeOfVisit',
             siteId: 'v.siteId',
+            sectorName: 'sector.name',
             buildingName: 'building.name',
             floor: 'v.floor',
             plannedStartTimeUtc: 'v.plannedStartTimeUtc',
@@ -271,6 +506,7 @@ export class VisitsService {
 
         const sortable: Record<string, string> = {
             title: 'v.title',
+            sectorName: 'sector.name',
             buildingName: 'building.name',
             floor: 'v.floor',
             plannedStartTimeUtc: 'v.plannedStartTimeUtc',
@@ -335,23 +571,34 @@ export class VisitsService {
         return map;
     }
 
-    async findVisitById(id: string): Promise<any> {
+    async findVisitById(id: string, currentUserId?: string, userRoles?: string[]): Promise<any> {
+        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userRoles);
         const visit = await this.visitRepo.findOne({
             where: { id, isActive: true },
-            relations: ['building', 'visitRequesterUser'],
+            relations: ['sector', 'building', 'visitRequesterUser'],
         });
         if (!visit) throw new NotFoundException('Visit not found');
+
+        if (creatorUserIds !== null && !creatorUserIds.includes(visit.createdByUserId ?? '')) {
+            throw new NotFoundException('Visit not found');
+        }
 
         const summary = await this.getStatusSummaries([id]);
         return {
             ...visit,
+            sector: visit.sector ? { id: visit.sector.id, name: visit.sector.name } : null,
             building: visit.building ? { id: visit.building.id, name: visit.building.name } : null,
             visitRequester: this.resolveVisitRequester(visit),
             statusSummary: summary[id] ?? { total: 0, pending: 0, arrived: 0, checkedIn: 0, checkedOut: 0 },
         };
     }
 
-    async createVisit(dto: CreateVisitDto, currentUserId?: string, userPermissions?: string[]): Promise<any> {
+    async createVisit(
+        dto: CreateVisitDto,
+        currentUserId?: string,
+        userPermissions?: string[],
+        userRoles?: string[],
+    ): Promise<any> {
         if (!dto.visitors || dto.visitors.length === 0) {
             throw new BadRequestException('A visit must have at least one visitor');
         }
@@ -362,11 +609,21 @@ export class VisitsService {
             throw new BadRequestException('visitRequester is required');
         }
 
+        if (isOnBehalfOnlyRole(userRoles) && isSelfRequester) {
+            throw new BadRequestException('This role must create visits on behalf of another requester');
+        }
+
+        if (isEscortRequiredForVisit(userRoles, isSelfRequester) && (!dto.escorts || dto.escorts.length === 0)) {
+            throw new BadRequestException('At least one escort is required for the current user');
+        }
+
+        const currentUser = currentUserId
+            ? await this.userRepo.findOne({ where: { id: currentUserId }, relations: ['sector'] })
+            : null;
+        const escortsToCreate = this.getCreateEscorts(dto, isSelfRequester, currentUser);
+
         // Check blacklist for all visitors
         await this.participantService.validateVisitorsNotBlacklisted(dto.visitors);
-
-        // Validate access level IDs
-        await this.participantService.validateAccessLevelIds(dto.visitors.map(v => v.accessLevelId));
 
         const plannedStart = new Date(dto.plannedStartTimeUtc);
         const plannedEnd = new Date(dto.plannedEndTimeUtc);
@@ -383,6 +640,7 @@ export class VisitsService {
                 title: dto.title,
                 purposeOfVisit: dto.purposeOfVisit ?? null,
                 siteId: dto.siteId ?? null,
+                sectorId: currentUser?.sectorId ?? null,
                 buildingId: dto.buildingId ?? null,
                 floor: dto.floor ?? null,
                 plannedStartTimeUtc: plannedStart,
@@ -399,24 +657,19 @@ export class VisitsService {
             const savedVisit = await qr.manager.save(visit);
 
             for (const v of dto.visitors) {
-                const visitor = qr.manager.create(Visitor, {
+                const { visitor: savedVisitor } = await this.visitorPersistence.upsertByPersonId({
                     firstName: v.firstName,
                     lastName: v.lastName,
-                    fullName: `${v.firstName} ${v.lastName}`,
                     email: v.email ?? null,
                     phone: v.phone ?? null,
                     personId: v.personId,
                     carNumber: v.hasVehicle ? (v.carNumber ?? null) : null,
                     vehicleType: v.hasVehicle ? (v.vehicleType ?? null) : null,
-                    createdBy: currentUserId ?? null,
-                    updatedBy: currentUserId ?? null,
-                });
-                const savedVisitor = await qr.manager.save(visitor);
+                }, currentUserId, qr.manager);
 
                 const vv = qr.manager.create(VisitVisitor, {
                     visitId: savedVisit.id,
                     visitorId: savedVisitor.id,
-                    accessLevelId: v.accessLevelId,
                     notes: v.notes ?? null,
                     createdBy: currentUserId ?? null,
                     updatedBy: currentUserId ?? null,
@@ -445,13 +698,14 @@ export class VisitsService {
                 }
             }
 
-            for (const e of dto.escorts) {
+            for (const e of escortsToCreate) {
                 const escort = qr.manager.create(VisitEscort, {
                     visitId: savedVisit.id,
                     firstName: e.firstName,
                     lastName: e.lastName,
                     phone: e.phone,
                     email: e.email,
+                    sector: e.sector?.trim() ? e.sector.trim() : null,
                     createdBy: currentUserId ?? null,
                     updatedBy: currentUserId ?? null,
                 });
@@ -468,7 +722,7 @@ export class VisitsService {
                 entity: 'Visit',
                 entityId: savedVisit.id,
                 description: `Created visit "${savedVisit.title}" with ${dto.visitors.length} visitors`,
-                newValue: { title: dto.title, siteId: dto.siteId, visitorCount: dto.visitors.length, escortCount: dto.escorts.length },
+                newValue: { title: dto.title, siteId: dto.siteId, sectorId: currentUser?.sectorId ?? null, visitorCount: dto.visitors.length, escortCount: escortsToCreate.length },
             }).catch(() => { });
 
             // Trigger SMS for visit created (fire-and-forget)
@@ -485,9 +739,8 @@ export class VisitsService {
             let requesterName = '';
             if (dto.visitRequester) {
                 requesterName = [dto.visitRequester.firstName, dto.visitRequester.lastName].filter(Boolean).join(' ');
-            } else if (currentUserId) {
-                const user = await this.userRepo.findOne({ where: { id: currentUserId } });
-                if (user) requesterName = [user.firstName, user.lastName].filter(Boolean).join(' ');
+            } else if (currentUser) {
+                requesterName = [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ');
             }
 
             this.smsNotification.triggerSms(NotificationEvent.VisitCreated, {
@@ -520,7 +773,7 @@ export class VisitsService {
                 .then(() => this.checkInCodeService.sendCodeNotifications(savedVisit.id, currentUserId))
                 .catch(() => { });
 
-            return this.findVisitById(savedVisit.id);
+            return this.findVisitById(savedVisit.id, currentUserId, userRoles);
         } catch (err) {
             await qr.rollbackTransaction();
             throw err;
@@ -573,6 +826,7 @@ export class VisitsService {
             updatedBy: currentUserId ?? null,
         });
         await this.visitRepo.save(visit);
+        await this.ensureAutoEscortForUpdate(visit, dto, currentUserId);
 
         // Reload with visitRequesterUser for SMS/email hostName resolution
         if (visit.visitRequesterUserId && !visit.visitRequesterUser) {
@@ -599,12 +853,16 @@ export class VisitsService {
             newValue: { title: dto.title, siteId: dto.siteId, buildingId: dto.buildingId, purposeOfVisit: dto.purposeOfVisit },
         }).catch(() => { });
 
-        return this.findVisitById(id);
+        return this.findVisitById(id, currentUserId);
     }
 
-    async removeVisit(id: string, currentUserId?: string): Promise<void> {
+    async removeVisit(id: string, currentUserId?: string, userRoles?: string[]): Promise<void> {
         const visit = await this.visitRepo.findOne({ where: { id, isActive: true } });
         if (!visit) throw new NotFoundException('Visit not found');
+
+        if (shouldRestrictDeletionToOwnVisits(userRoles) && visit.createdByUserId !== currentUserId) {
+            throw new NotFoundException('Visit not found');
+        }
 
         // Trigger SMS for visit deleted before soft-delete (fire-and-forget)
         this.smsNotification.triggerSms(NotificationEvent.VisitDeleted, buildSmsData(visit))

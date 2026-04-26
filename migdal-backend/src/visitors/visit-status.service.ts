@@ -293,6 +293,15 @@ export class VisitStatusService {
                     this.emailNotification.triggerEmail(event, buildSmsData(visit, visitor))
                         .catch(() => { });
                 }
+            } else if (dto.eventType === VisitorAccessEventType.CheckedOut) {
+                const visit = await this.visitRepo.findOne({ where: { id: vv.visitId } });
+                const visitor = await this.visitorRepo.findOne({ where: { id: vv.visitorId } });
+                if (visit && visitor) {
+                    this.smsNotification.triggerSms(NotificationEvent.VisitorCheckedOut, buildSmsData(visit, visitor))
+                        .catch(() => { });
+                    this.emailNotification.triggerEmail(NotificationEvent.VisitorCheckedOut, buildSmsData(visit, visitor))
+                        .catch(() => { });
+                }
             }
 
             return savedLog;

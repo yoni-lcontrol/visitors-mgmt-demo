@@ -79,6 +79,7 @@
         "ACCESS_CONTROL": "בקרת גישה",
         "CONTROLLERS": "בקרים",
         "ACCESS_LEVELS": "רמות גישה",
+        "EVENTS": "אירועים",
         "VISITORS_MANAGEMENT": "ניהול מבקרים",
         "BLACKLIST": "רשימה שחורה",
         "PARKING_REQUESTS": "בקשות חניה",
@@ -86,12 +87,15 @@
         "ON_SITE": "באתר",
         "ENTRANCE_EXIT_LOGS": "יומן כניסות / יציאות",
         "VISITS": "ביקורים",
+        "VISITORS": "מאגר אורחים",
         "SETTINGS": "הגדרות",
         "GENERAL_SETTINGS": "כללי",
         "NOTIFICATION_SETTINGS": "התראות",
         "AD_SETTINGS": "Active Directory",
+        "AD_GROUP_ROLE_MAPPINGS": "מיפוי קבוצות AD לתפקידים",
         "CARD_TEMPLATES": "עיצוב כרטיסים",
         "BUILDINGS": "מבנים",
+        "PERMANENT_ESCORTS": "מלווים קבועים",
         "WORKSTATIONS": "עמדות עבודה",
         "AUDIT_LOGS": "יומן פעולות"
     },
@@ -106,6 +110,8 @@
         "LOGIN_SUBTITLE": "הכנס את פרטי ההתחברות שלך לגישה לפלטפורמה",
         "INVALID_CREDENTIALS": "שם משתמש או סיסמה שגויים",
         "ACCOUNT_DEACTIVATED": "חשבונך הושבת. אנא פנה למנהל המערכת שלך לשחזור הגישה.",
+        "ACCOUNT_PENDING_APPROVAL": "חשבון Microsoft שלך זוהה אך ממתין לאישור מנהל המערכת.",
+        "ACCOUNT_NOT_PROVISIONED": "לא נמצא משתמש מקומי תואם. אנא פנה למנהל המערכת.",
         "OR": "או",
         "LOGIN_WITH_MICROSOFT": "התחבר עם Microsoft"
     },
@@ -146,6 +152,7 @@
         "SAVE_SUCCESS": "נשמר בהצלחה",
         "SAVE_ERROR": "שמירה נכשלה",
         "DELETE_SUCCESS": "נמחק בהצלחה",
+        "ACTION_NOT_ALLOWED": "אין לך הרשאה לבצע פעולה זו",
         "ROWS_PER_PAGE": "שורות בעמוד",
         "SHOWING": "מציג",
         "OF": "מתוך",
@@ -250,12 +257,15 @@
         "LAST_NAME": "שם משפחה",
         "PASSWORD": "סיסמה",
         "ROLES": "תפקידים",
+        "ROLE": "תפקיד",
         "LAST_LOGIN": "התחברות אחרונה",
         "NEVER": "מעולם לא",
         "EMAIL": "דוא\"ל",
         "PHONE": "טלפון",
+        "SECTOR": "תחום",
         "ID_NUMBER": "תעודת זהות",
         "SYNC_AD": "סנכרון מ-AD",
+        "SYNC_STARTED": "סנכרון AD הופעל ברקע",
         "SYNC_SUCCESS": "סנכרון AD הושלם: {{totalCreated}} נוצרו, {{totalUpdated}} עודכנו, {{totalDeactivated}} הושבתו, {{totalSkipped}} דולגו",
         "SYNC_PARTIAL": "סנכרון AD הושלם חלקית: {{totalCreated}} נוצרו, {{totalUpdated}} עודכנו, {{totalDeactivated}} הושבתו. חלק מחיבורי ה-AD נכשלו.",
         "SYNC_FAILED": "סנכרון משתמשים מ-Active Directory נכשל",
@@ -325,10 +335,31 @@
         "ACCESS_LEVEL_NAME": "שם רמת גישה",
         "ADD_ACCESS_LEVEL": "הוסף רמת גישה",
         "EDIT_ACCESS_LEVEL": "ערוך רמת גישה",
-        "VISITOR_ACCESS": "גישת מבקרים"
+        "VISITOR_ACCESS": "גישת מבקרים",
+        "IMPORT_RESULTS": "תוצאות ייבוא",
+        "CREATED": "נוצרו",
+        "UPDATED": "עודכנו",
+        "SKIPPED": "דולגו",
+        "EVENTS": "אירועים",
+        "EVENTS_TITLE": "אירועים בזמן אמת",
+        "EVENT_TYPE": "סוג אירוע",
+        "EQUIPMENT": "ציוד",
+        "EQUIPMENT_KIND": "סוג ציוד",
+        "CARDHOLDER": "בעל כרטיס",
+        "CARD_CODE": "קוד כרטיס",
+        "OCCURRED_AT": "זמן אירוע",
+        "NO_EVENTS": "עדיין לא התקבלו אירועים. אירועים יופיעו כאן בזמן אמת.",
+        "CLEAR_EVENTS": "נקה אירועים",
+        "LISTENING": "מאזין לאירועים..."
     },
     "VISITORS": {
         "TITLE": "ניהול מבקרים",
+        "PAGE_TITLE": "מאגר אורחים",
+        "PAGE_DESCRIPTION": "צפייה, חיפוש, ייצוא וניהול ספריית המבקרים המשותפת לפי מספר זהות.",
+        "VISITOR_NAME": "שם המבקר",
+        "HOST_NAME": "שם המארח",
+        "BUILDING": "בניין",
+        "FLOOR": "קומה",
         "ADD_VISITOR": "הוסף מבקר",
         "EDIT_VISITOR": "ערוך מבקר",
         "FIRST_NAME": "שם פרטי",
@@ -342,6 +373,9 @@
         "STATUS_CHECKED_IN": "נכנס",
         "STATUS_CHECKED_OUT": "יצא",
         "DELETE_CONFIRM": "האם אתה בטוח שברצונך למחוק רשומת מבקר זו?",
+        "CREATED_SUCCESS": "המבקר נשמר בהצלחה",
+        "UPDATED_SUCCESS": "פרטי המבקר עודכנו בהצלחה",
+        "DELETED_SUCCESS": "המבקר נמחק בהצלחה",
         "PERSON_ID": "מספר זהות",
         "CAR_NUMBER": "מספר רכב",
         "HAS_VEHICLE": "מגיע עם רכב",
@@ -530,6 +564,7 @@
             "roles": "תפקידים",
             "access-control": "בקרת גישה",
             "visits": "ביקורים",
+            "visitors": "מבקרים",
             "settings": "הגדרות",
             "audit": "יומן ביקורת",
             "devices": "מכשירים",
@@ -571,6 +606,13 @@
                     "send": "שליחת קוד כניסה",
                     "regenerate": "חידוש קוד כניסה"
                 }
+            },
+            "visitors": {
+                "create": "יצירת מבקרים",
+                "read": "צפייה במבקרים",
+                "update": "עדכון מבקרים",
+                "delete": "מחיקת מבקרים",
+                "export": "ייצוא מבקרים"
             },
             "settings": {
                 "read": "צפייה בהגדרות",
@@ -654,6 +696,13 @@
                     "send": "שליחה או שליחה מחדש של קוד כניסה למבקר",
                     "regenerate": "חידוש קוד כניסה למבקר"
                 }
+            },
+            "visitors": {
+                "create": "יצירת רשומות מבקר בספרייה המשותפת",
+                "read": "צפייה בספריית המבקרים ובפרטי מבקר",
+                "update": "עדכון רשומות מבקר קיימות",
+                "delete": "מחיקת רשומות מבקר",
+                "export": "ייצוא נתוני ספריית המבקרים"
             },
             "settings": {
                 "read": "צפייה בהגדרות מערכת",
@@ -792,10 +841,21 @@
         "PASSWORD": "סיסמה",
         "PORT": "פורט",
         "SSL": "SSL",
-        "DELETE_CONFIRM": "האם אתה בטוח שברצונך למחוק תצורת AD זו?"
+        "TARGET_GROUPS": "קבוצות AD לייבוא",
+        "TARGET_GROUPS_PLACEHOLDER": "Visitors Operators\nReception",
+        "TARGET_GROUPS_HELP": "אופציונלי. קבוצה בכל שורה (או מופרד בפסיקים). כשמוגדר, סנכרון AD מייבא משתמשים רק מהקבוצות האלו.",
+        "DELETE_CONFIRM": "האם אתה בטוח שברצונך למחוק תצורת AD זו?",
+        "TEST_CONNECTION": "בדוק חיבור"
+    },
+    "AD_SYNC": {
+        "TITLE": "סנכרון AD",
+        "FETCHING": "מביא משתמשים מ-Active Directory...",
+        "CREATED": "נוצרו",
+        "UPDATED": "עודכנו",
+        "DEACTIVATED": "הושבתו"
     },
     "AD_SEARCH": {
-        "NO_RESULTS": "לא נמצאו אנשים ב-Active Directory",
+        "NO_RESULTS": "לא נמצא משתמש",
         "ERROR_NO_CONFIG": "לא נמצאה תצורת Active Directory",
         "ERROR_SEARCH_FAILED": "החיפוש נכשל, נסה שוב"
     },
@@ -851,6 +911,7 @@
         "EDIT_VISIT": "ערוך ביקור",
         "VIEW_DETAIL": "צפה בפרטים",
         "VISIT_TITLE": "כותרת",
+        "SECTOR": "תחום",
         "PURPOSE_OF_VISIT": "מטרת הביקור",
         "FLOOR": "קומה",
         "VISIT_DETAILS": "פרטי ביקור",
@@ -864,6 +925,7 @@
         "VISIT_REQUESTER": "מבקש ביקור",
         "NO_REQUESTER": "אין מידע על מבקש הביקור",
         "REQUESTER_IS_SOMEONE_ELSE": "מישהו אחר הוא המבקש",
+        "ON_BEHALF_ONLY_REQUIRED": "התפקיד שלך יכול ליצור ביקור רק בשם מישהו אחר",
         "FIRST_NAME": "שם פרטי",
         "LAST_NAME": "שם משפחה",
         "PHONE": "טלפון",
@@ -1073,8 +1135,39 @@
         "BUILDING": "מבנה",
         "NAME": "שם",
         "ADDRESS": "כתובת",
+        "ACCESS_LEVELS": "רמות גישה",
         "CREATE": "צור מבנה",
         "EDIT": "ערוך מבנה",
-        "SELECT_BUILDING": "בחר מבנה"
+        "SELECT_BUILDING": "בחר מבנה",
+        "SELECT_ACCESS_LEVELS": "בחר רמות גישה"
+    },
+    "PERMANENT_ESCORTS": {
+        "TITLE": "ניהול מלווים קבועים",
+        "DESCRIPTION": "הוספה או הסרה של מלווים קבועים מתוך משתמשי המערכת.",
+        "ADD": "הוסף מלווה קבוע",
+        "DOMAIN": "תחום / אזור / מחלקה",
+        "USER": "משתמש",
+        "FULL_NAME": "שם מלא",
+        "USERNAME": "שם משתמש",
+        "EMAIL": "דוא\"ל",
+        "SELECT_DOMAIN": "בחר תחום",
+        "SELECT_USER": "בחר משתמש",
+        "SELECT_DOMAIN_FIRST": "יש לבחור תחום תחילה",
+        "VALIDATION_DOMAIN_REQUIRED": "יש לבחור תחום לפני הוספת מלווה קבוע.",
+        "VALIDATION_USER_REQUIRED": "יש לבחור משתמש לפני הוספת מלווה קבוע.",
+        "ADDED_SUCCESS": "מלווה קבוע נוסף בהצלחה",
+        "REMOVED_SUCCESS": "מלווה קבוע הוסר בהצלחה",
+        "CONFIRM_REMOVE": "להסיר את {{name}} מרשימת המלווים הקבועים?"
+    },
+    "AD_GROUP_ROLE_MAPPINGS": {
+        "TITLE": "מיפוי קבוצות AD לתפקידים",
+        "DESCRIPTION": "מיפוי בין קבוצות Active Directory לתפקידי מערכת עבור שיוך תפקידים אוטומטי בייבוא AD",
+        "CREATE": "צור מיפוי",
+        "EDIT": "ערוך מיפוי",
+        "GROUP_NAME": "שם קבוצת AD",
+        "GROUP_NAME_PLACEHOLDER": "לדוגמה: Visitors Operators",
+        "ROLE": "תפקיד",
+        "SELECT_ROLE": "בחר תפקיד",
+        "CONFIRM_DELETE": "האם למחוק את המיפוי \"{{groupName}}\"?"
     }
 }

@@ -7,6 +7,9 @@ import {
     Param,
     Query,
     Res,
+    HttpCode,
+    HttpStatus,
+    Logger,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -15,6 +18,7 @@ import { UsersService } from './users.service';
 import { AdSyncService } from './ad-sync.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { AssignUserRolesDto } from './dto/assign-user-roles.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
@@ -67,9 +71,14 @@ export class UsersController {
 
     @Post('sync-ad')
     @RequirePermissions(PermissionKey.UsersSync)
-    @ApiOperation({ summary: 'Trigger full AD user synchronization' })
+    @HttpCode(HttpStatus.ACCEPTED)
+    @ApiOperation({ summary: 'Trigger full AD user synchronization (async, progress via WebSocket)' })
     syncFromAd(@CurrentUser('sub') currentUserId: string) {
-        return this.adSyncService.syncAll(currentUserId);
+        // Fire-and-forget: run sync in background, progress reported via WS events
+        this.adSyncService.syncAll(currentUserId).catch((err) => {
+            new Logger('UsersController').error('Background AD sync failed', (err as Error).stack);
+        });
+        return { message: 'AD sync started, progress will be reported via WebSocket' };
     }
 
     @Patch(':id')
@@ -83,14 +92,25 @@ export class UsersController {
         return this.usersService.update(id, dto, currentUserId);
     }
 
-    @Post(':id/roles')
+    @Post(':id/role')
     @RequirePermissions(PermissionKey.UsersUpdate)
-    @ApiOperation({ summary: 'Assign roles to user' })
-    assignRoles(
+    @ApiOperation({ summary: 'Assign role to user' })
+    assignRole(
         @Param('id', ParseUUIDPipe) id: string,
-        @Body('roleIds') roleIds: string[],
+        @Body('roleId') roleId: string | null,
         @CurrentUser('sub') currentUserId: string,
     ) {
-        return this.usersService.assignRoles(id, roleIds, currentUserId);
+        return this.usersService.assignRole(id, roleId, currentUserId);
+    }
+
+    @Post(':id/roles')
+    @RequirePermissions(PermissionKey.UsersUpdate)
+    @ApiOperation({ summary: 'Assign multiple roles to user' })
+    assignRoles(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: AssignUserRolesDto,
+        @CurrentUser('sub') currentUserId: string,
+    ) {
+        return this.usersService.assignRoles(id, dto.roleIds, currentUserId);
     }
 }

@@ -2,8 +2,9 @@ import {
     IsNotEmpty,
     IsString,
     IsEmail,
+    IsOptional,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class VisitEscortItemDto {
     @ApiProperty({ example: 'Sarah' })
@@ -25,4 +26,9 @@ export class VisitEscortItemDto {
     @IsEmail()
     @IsNotEmpty()
     email!: string;
+
+    @ApiPropertyOptional({ example: 'Security' })
+    @IsOptional()
+    @IsString()
+    sector?: string;
 }

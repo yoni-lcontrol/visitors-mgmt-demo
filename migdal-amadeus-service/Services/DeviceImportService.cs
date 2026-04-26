@@ -10,6 +10,23 @@ namespace Amadeus8.Services;
 
 public class DeviceImportService : IDeviceImportService
 {
+    private const string StageFetch = "fetch";
+    private const string StageValidate = "validate";
+    private const string StageMap = "map";
+    private const string StageSave = "save";
+    private const string StageUpdate = "update";
+
+    private const string CategoryInvalidSourceData = "invalid-source-data";
+    private const string CategoryMissingRequiredField = "missing-required-field";
+    private const string CategoryBadMapping = "bad-mapping";
+    private const string CategoryDuplicateConflict = "duplicate-key-conflict";
+    private const string CategoryForeignKeyIssue = "foreign-key-issue";
+    private const string CategoryNullValue = "null-value";
+    private const string CategoryParsing = "parsing-conversion";
+    private const string CategoryDatabaseSave = "database-save-update";
+    private const string CategoryUnexpectedApi = "unexpected-api-response";
+    private const string CategoryUnhandled = "unhandled";
+
     private readonly IAmadeusApiClient _apiClient;
     private readonly IBackendEquipmentSnapshotProvider _backendSnapshotProvider;
     private readonly AmadeusDbContext _dbContext;
@@ -37,7 +54,7 @@ public class DeviceImportService : IDeviceImportService
         var startedUtc = DateTime.UtcNow;
         var totalResult = new SyncResultDto { Operation = "FullSync", StartedUtc = startedUtc, Success = true };
 
-        if (!EnsureBackendAvailable(totalResult))
+        if (!await EnsureBackendAvailableAsync(totalResult, cancellationToken))
         {
             return totalResult;
         }
@@ -58,8 +75,14 @@ public class DeviceImportService : IDeviceImportService
             totalResult.Success = totalResult.Failed == 0;
 
             _logger.LogInformation(
-                "Full import completed. Created: {Created}, Updated: {Updated}, Unchanged: {Unchanged}, Failed: {Failed}",
-                totalResult.Created, totalResult.Updated, totalResult.Unchanged, totalResult.Failed);
+                "Full import completed. TotalReceived: {TotalReceived}, Succeeded: {Succeeded}, Created: {Created}, Updated: {Updated}, Unchanged: {Unchanged}, Skipped: {Skipped}, Failed: {Failed}",
+                totalResult.TotalReceived,
+                totalResult.Succeeded,
+                totalResult.Created,
+                totalResult.Updated,
+                totalResult.Unchanged,
+                totalResult.Skipped,
+                totalResult.Failed);
         }
         catch (OperationCanceledException)
         {
@@ -70,6 +93,15 @@ public class DeviceImportService : IDeviceImportService
             totalResult.Success = false;
             totalResult.CompletedUtc = DateTime.UtcNow;
             totalResult.ErrorMessage = ex.Message;
+            RecordFailure(
+                totalResult,
+                equipmentType: "FullSync",
+                externalId: null,
+                name: null,
+                stage: StageFetch,
+                category: CategoryUnhandled,
+                message: ex.Message,
+                ex);
             _logger.LogError(ex, "Full import failed");
         }
 
@@ -80,7 +112,7 @@ public class DeviceImportService : IDeviceImportService
     {
         var result = new SyncResultDto { Operation = "ImportControllers", StartedUtc = DateTime.UtcNow };
 
-        if (!EnsureBackendAvailable(result))
+        if (!await EnsureBackendAvailableAsync(result, cancellationToken))
         {
             return result;
         }
@@ -111,25 +143,23 @@ public class DeviceImportService : IDeviceImportService
                     break;
                 }
 
+                result.TotalReceived += externalControllers.Count;
+                _logger.LogInformation(
+                    "Controller batch {Batch} received {BatchReceived} records from Amadeus",
+                    batchIndex,
+                    externalControllers.Count);
+
                 foreach (var ext in externalControllers)
                 {
-                    try
-                    {
-                        await UpsertControllerAsync(ext, cancellationToken, result);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        result.Failed++;
-                        _logger.LogError(ex, "Failed to upsert controller with external ID {ExternalId}", ext.Id);
-                    }
+                    await ProcessRecordAsync(
+                        result,
+                        equipmentType: "Controller",
+                        externalId: ext.Id,
+                        name: ext.Name,
+                        cancellationToken,
+                        (token, syncResult) => UpsertControllerAsync(ext, token, syncResult),
+                        defaultStage: StageMap);
                 }
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
-                _dbContext.ChangeTracker.Clear();
 
                 processed += externalControllers.Count;
                 skip += externalControllers.Count;
@@ -151,8 +181,14 @@ public class DeviceImportService : IDeviceImportService
             result.CompletedUtc = DateTime.UtcNow;
 
             _logger.LogInformation(
-                "Controller import completed. Created: {Created}, Updated: {Updated}, Unchanged: {Unchanged}, Failed: {Failed}",
-                result.Created, result.Updated, result.Unchanged, result.Failed);
+                "Controller import completed. TotalReceived: {TotalReceived}, Succeeded: {Succeeded}, Created: {Created}, Updated: {Updated}, Unchanged: {Unchanged}, Skipped: {Skipped}, Failed: {Failed}",
+                result.TotalReceived,
+                result.Succeeded,
+                result.Created,
+                result.Updated,
+                result.Unchanged,
+                result.Skipped,
+                result.Failed);
         }
         catch (OperationCanceledException)
         {
@@ -163,6 +199,15 @@ public class DeviceImportService : IDeviceImportService
             result.Success = false;
             result.CompletedUtc = DateTime.UtcNow;
             result.ErrorMessage = ex.Message;
+            RecordFailure(
+                result,
+                equipmentType: "Controller",
+                externalId: null,
+                name: null,
+                stage: StageFetch,
+                category: CategoryUnhandled,
+                message: ex.Message,
+                ex);
             _logger.LogError(ex, "Controller import failed");
         }
 
@@ -173,7 +218,7 @@ public class DeviceImportService : IDeviceImportService
     {
         var result = new SyncResultDto { Operation = "ImportDoors", StartedUtc = DateTime.UtcNow };
 
-        if (!EnsureBackendAvailable(result))
+        if (!await EnsureBackendAvailableAsync(result, cancellationToken))
         {
             return result;
         }
@@ -204,25 +249,23 @@ public class DeviceImportService : IDeviceImportService
                     break;
                 }
 
+                result.TotalReceived += externalReaders.Count;
+                _logger.LogInformation(
+                    "Door batch {Batch} received {BatchReceived} records from Amadeus",
+                    batchIndex,
+                    externalReaders.Count);
+
                 foreach (var reader in externalReaders)
                 {
-                    try
-                    {
-                        await UpsertDoorFromReaderAsync(reader, cancellationToken, result);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        result.Failed++;
-                        _logger.LogError(ex, "Failed to upsert door from reader with external ID {ExternalId}", reader.Id);
-                    }
+                    await ProcessRecordAsync(
+                        result,
+                        equipmentType: "Door",
+                        externalId: reader.Id,
+                        name: reader.Name,
+                        cancellationToken,
+                        (token, syncResult) => UpsertDoorFromReaderAsync(reader, token, syncResult),
+                        defaultStage: StageMap);
                 }
-
-                await _dbContext.SaveChangesAsync(cancellationToken);
-                _dbContext.ChangeTracker.Clear();
 
                 processed += externalReaders.Count;
                 skip += externalReaders.Count;
@@ -247,8 +290,14 @@ public class DeviceImportService : IDeviceImportService
             result.CompletedUtc = DateTime.UtcNow;
 
             _logger.LogInformation(
-                "Door import completed. Created: {Created}, Updated: {Updated}, Unchanged: {Unchanged}, Failed: {Failed}",
-                result.Created, result.Updated, result.Unchanged, result.Failed);
+                "Door import completed. TotalReceived: {TotalReceived}, Succeeded: {Succeeded}, Created: {Created}, Updated: {Updated}, Unchanged: {Unchanged}, Skipped: {Skipped}, Failed: {Failed}",
+                result.TotalReceived,
+                result.Succeeded,
+                result.Created,
+                result.Updated,
+                result.Unchanged,
+                result.Skipped,
+                result.Failed);
         }
         catch (OperationCanceledException)
         {
@@ -259,6 +308,15 @@ public class DeviceImportService : IDeviceImportService
             result.Success = false;
             result.CompletedUtc = DateTime.UtcNow;
             result.ErrorMessage = ex.Message;
+            RecordFailure(
+                result,
+                equipmentType: "Door",
+                externalId: null,
+                name: null,
+                stage: StageFetch,
+                category: CategoryUnhandled,
+                message: ex.Message,
+                ex);
             _logger.LogError(ex, "Door import failed");
         }
 
@@ -269,7 +327,7 @@ public class DeviceImportService : IDeviceImportService
     {
         var result = new SyncResultDto { Operation = "ImportExtensions", StartedUtc = DateTime.UtcNow };
 
-        if (!EnsureBackendAvailable(result))
+        if (!await EnsureBackendAvailableAsync(result, cancellationToken))
         {
             return result;
         }
@@ -289,8 +347,14 @@ public class DeviceImportService : IDeviceImportService
             result.CompletedUtc = DateTime.UtcNow;
 
             _logger.LogInformation(
-                "Extension import completed. Created: {Created}, Updated: {Updated}, Unchanged: {Unchanged}, Failed: {Failed}",
-                result.Created, result.Updated, result.Unchanged, result.Failed);
+                "Extension import completed. TotalReceived: {TotalReceived}, Succeeded: {Succeeded}, Created: {Created}, Updated: {Updated}, Unchanged: {Unchanged}, Skipped: {Skipped}, Failed: {Failed}",
+                result.TotalReceived,
+                result.Succeeded,
+                result.Created,
+                result.Updated,
+                result.Unchanged,
+                result.Skipped,
+                result.Failed);
         }
         catch (OperationCanceledException)
         {
@@ -301,6 +365,15 @@ public class DeviceImportService : IDeviceImportService
             result.Success = false;
             result.CompletedUtc = DateTime.UtcNow;
             result.ErrorMessage = ex.Message;
+            RecordFailure(
+                result,
+                equipmentType: "Extension",
+                externalId: null,
+                name: null,
+                stage: StageFetch,
+                category: CategoryUnhandled,
+                message: ex.Message,
+                ex);
             _logger.LogError(ex, "Extension import failed");
         }
 
@@ -358,8 +431,14 @@ public class DeviceImportService : IDeviceImportService
 
         if (string.IsNullOrEmpty(reader.ControllerId))
         {
-            _logger.LogWarning("Reader {ReaderId} has no ControllerId, skipping", reader.Id);
-            result.Failed++;
+            RecordSkipped(
+                result,
+                equipmentType: "Door",
+                externalId: reader.Id,
+                name: reader.Name,
+                stage: StageValidate,
+                category: CategoryMissingRequiredField,
+                message: "Reader record is missing ControllerId.");
             return;
         }
 
@@ -368,8 +447,14 @@ public class DeviceImportService : IDeviceImportService
 
         if (controller is null)
         {
-            _logger.LogWarning("Controller {ControllerId} not found for reader {ReaderId}, skipping", reader.ControllerId, reader.Id);
-            result.Failed++;
+            RecordFailure(
+                result,
+                equipmentType: "Door",
+                externalId: reader.Id,
+                name: reader.Name,
+                stage: StageMap,
+                category: CategoryForeignKeyIssue,
+                message: $"Controller '{reader.ControllerId}' was not found for reader import.");
             return;
         }
 
@@ -428,18 +513,47 @@ public class DeviceImportService : IDeviceImportService
 
         if (string.IsNullOrEmpty(controllerExternalId))
         {
-            result.Failed++;
+            RecordSkipped(
+                result,
+                equipmentType: "DoorIo",
+                externalId: externalId,
+                name: name,
+                stage: StageValidate,
+                category: CategoryMissingRequiredField,
+                message: "Door IO record is missing ControllerId.");
             return;
         }
 
         var controller = await _dbContext.Controllers
             .FirstOrDefaultAsync(c => c.ExternalId == controllerExternalId, cancellationToken);
-        if (controller is null) { result.Failed++; return; }
+        if (controller is null)
+        {
+            RecordFailure(
+                result,
+                equipmentType: "DoorIo",
+                externalId: externalId,
+                name: name,
+                stage: StageMap,
+                category: CategoryForeignKeyIssue,
+                message: $"Controller '{controllerExternalId}' was not found for door IO import.");
+            return;
+        }
 
         // Find the first door for this controller to associate the IO with
         var door = await _dbContext.Doors
             .FirstOrDefaultAsync(d => d.ControllerId == controller.Id, cancellationToken);
-        if (door is null) { result.Failed++; return; }
+        if (door is null)
+        {
+            RecordFailure(
+                result,
+                equipmentType: "DoorIo",
+                externalId: externalId,
+                name: name,
+                stage: StageMap,
+                category: CategoryForeignKeyIssue,
+                message: $"Door for controller '{controllerExternalId}' was not found for door IO import.");
+            return;
+        }
 
         var existing = await _dbContext.DoorIos
             .FirstOrDefaultAsync(io => io.ExternalId == externalId, cancellationToken);
@@ -486,13 +600,31 @@ public class DeviceImportService : IDeviceImportService
 
         if (string.IsNullOrEmpty(controllerExternalId))
         {
-            result.Failed++;
+            RecordSkipped(
+                result,
+                equipmentType: "Extension",
+                externalId: moduleId,
+                name: moduleId,
+                stage: StageValidate,
+                category: CategoryMissingRequiredField,
+                message: "Extension source record is missing ControllerId.");
             return;
         }
 
         var controller = await _dbContext.Controllers
             .FirstOrDefaultAsync(c => c.ExternalId == controllerExternalId, cancellationToken);
-        if (controller is null) { result.Failed++; return; }
+        if (controller is null)
+        {
+            RecordFailure(
+                result,
+                equipmentType: "Extension",
+                externalId: moduleId,
+                name: moduleId,
+                stage: StageMap,
+                category: CategoryForeignKeyIssue,
+                message: $"Controller '{controllerExternalId}' was not found for extension import.");
+            return;
+        }
 
         var existing = await _dbContext.Extensions
             .FirstOrDefaultAsync(e => e.ExternalId == moduleId, cancellationToken);
@@ -513,6 +645,19 @@ public class DeviceImportService : IDeviceImportService
         }
         else
         {
+            if (existing.ControllerId != controller.Id)
+            {
+                RecordFailure(
+                    result,
+                    equipmentType: "Extension",
+                    externalId: moduleId,
+                    name: moduleId,
+                    stage: StageUpdate,
+                    category: CategoryDuplicateConflict,
+                    message: $"Extension '{moduleId}' already exists with a different controller mapping.");
+                return;
+            }
+
             result.Unchanged++;
         }
     }
@@ -538,6 +683,8 @@ public class DeviceImportService : IDeviceImportService
                 break;
             }
 
+            result.TotalReceived += inputsPage.Count;
+
             foreach (var input in inputsPage)
             {
                 if (!string.IsNullOrEmpty(input.ModuleId))
@@ -545,23 +692,15 @@ public class DeviceImportService : IDeviceImportService
                     continue;
                 }
 
-                try
-                {
-                    await UpsertDoorIoAsync(input.Id, input.ControllerId, input.Name, input.InputType ?? "Input", "Input", cancellationToken, result);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    result.Failed++;
-                    _logger.LogError(ex, "Failed to upsert door IO for input {InputId}", input.Id);
-                }
+                await ProcessRecordAsync(
+                    result,
+                    equipmentType: "DoorIo",
+                    externalId: input.Id,
+                    name: input.Name,
+                    cancellationToken,
+                    (token, syncResult) => UpsertDoorIoAsync(input.Id, input.ControllerId, input.Name, input.InputType ?? "Input", "Input", token, syncResult),
+                    defaultStage: StageMap);
             }
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            _dbContext.ChangeTracker.Clear();
 
             processed += inputsPage.Count;
             skip += inputsPage.Count;
@@ -601,6 +740,8 @@ public class DeviceImportService : IDeviceImportService
                 break;
             }
 
+            result.TotalReceived += outputsPage.Count;
+
             foreach (var output in outputsPage)
             {
                 if (!string.IsNullOrEmpty(output.ModuleId))
@@ -608,23 +749,15 @@ public class DeviceImportService : IDeviceImportService
                     continue;
                 }
 
-                try
-                {
-                    await UpsertDoorIoAsync(output.Id, output.ControllerId, output.Name, output.OutputType ?? "Output", "Output", cancellationToken, result);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    result.Failed++;
-                    _logger.LogError(ex, "Failed to upsert door IO for output {OutputId}", output.Id);
-                }
+                await ProcessRecordAsync(
+                    result,
+                    equipmentType: "DoorIo",
+                    externalId: output.Id,
+                    name: output.Name,
+                    cancellationToken,
+                    (token, syncResult) => UpsertDoorIoAsync(output.Id, output.ControllerId, output.Name, output.OutputType ?? "Output", "Output", token, syncResult),
+                    defaultStage: StageMap);
             }
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            _dbContext.ChangeTracker.Clear();
 
             processed += outputsPage.Count;
             skip += outputsPage.Count;
@@ -667,6 +800,8 @@ public class DeviceImportService : IDeviceImportService
                 break;
             }
 
+            result.TotalReceived += inputsPage.Count;
+
             foreach (var input in inputsPage)
             {
                 if (string.IsNullOrEmpty(input.ModuleId))
@@ -680,22 +815,15 @@ public class DeviceImportService : IDeviceImportService
                     continue;
                 }
 
-                try
-                {
-                    await UpsertExtensionAsync(input.ModuleId, input.ControllerId, cancellationToken, result);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    result.Failed++;
-                    _logger.LogError(ex, "Failed to upsert extension {ModuleId}", input.ModuleId);
-                }
+                await ProcessRecordAsync(
+                    result,
+                    equipmentType: "Extension",
+                    externalId: input.ModuleId,
+                    name: input.ModuleId,
+                    cancellationToken,
+                    (token, syncResult) => UpsertExtensionAsync(input.ModuleId, input.ControllerId, token, syncResult),
+                    defaultStage: StageMap);
             }
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
 
             foreach (var input in inputsPage)
             {
@@ -704,23 +832,15 @@ public class DeviceImportService : IDeviceImportService
                     continue;
                 }
 
-                try
-                {
-                    await UpsertExtensionIoAsync(input.Id, input.ModuleId, input.ControllerId, input.Name, input.InputType ?? "Input", "Input", cancellationToken, result);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    result.Failed++;
-                    _logger.LogError(ex, "Failed to upsert extension IO for input {InputId}", input.Id);
-                }
+                await ProcessRecordAsync(
+                    result,
+                    equipmentType: "ExtensionIo",
+                    externalId: input.Id,
+                    name: input.Name,
+                    cancellationToken,
+                    (token, syncResult) => UpsertExtensionIoAsync(input.Id, input.ModuleId, input.ControllerId, input.Name, input.InputType ?? "Input", "Input", token, syncResult),
+                    defaultStage: StageMap);
             }
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            _dbContext.ChangeTracker.Clear();
 
             processed += inputsPage.Count;
             skip += inputsPage.Count;
@@ -763,6 +883,8 @@ public class DeviceImportService : IDeviceImportService
                 break;
             }
 
+            result.TotalReceived += outputsPage.Count;
+
             foreach (var output in outputsPage)
             {
                 if (string.IsNullOrEmpty(output.ModuleId))
@@ -776,22 +898,15 @@ public class DeviceImportService : IDeviceImportService
                     continue;
                 }
 
-                try
-                {
-                    await UpsertExtensionAsync(output.ModuleId, output.ControllerId, cancellationToken, result);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    result.Failed++;
-                    _logger.LogError(ex, "Failed to upsert extension {ModuleId}", output.ModuleId);
-                }
+                await ProcessRecordAsync(
+                    result,
+                    equipmentType: "Extension",
+                    externalId: output.ModuleId,
+                    name: output.ModuleId,
+                    cancellationToken,
+                    (token, syncResult) => UpsertExtensionAsync(output.ModuleId, output.ControllerId, token, syncResult),
+                    defaultStage: StageMap);
             }
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
 
             foreach (var output in outputsPage)
             {
@@ -800,23 +915,15 @@ public class DeviceImportService : IDeviceImportService
                     continue;
                 }
 
-                try
-                {
-                    await UpsertExtensionIoAsync(output.Id, output.ModuleId, output.ControllerId, output.Name, output.OutputType ?? "Output", "Output", cancellationToken, result);
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    result.Failed++;
-                    _logger.LogError(ex, "Failed to upsert extension IO for output {OutputId}", output.Id);
-                }
+                await ProcessRecordAsync(
+                    result,
+                    equipmentType: "ExtensionIo",
+                    externalId: output.Id,
+                    name: output.Name,
+                    cancellationToken,
+                    (token, syncResult) => UpsertExtensionIoAsync(output.Id, output.ModuleId, output.ControllerId, output.Name, output.OutputType ?? "Output", "Output", token, syncResult),
+                    defaultStage: StageMap);
             }
-
-            await _dbContext.SaveChangesAsync(cancellationToken);
-            _dbContext.ChangeTracker.Clear();
 
             processed += outputsPage.Count;
             skip += outputsPage.Count;
@@ -841,17 +948,59 @@ public class DeviceImportService : IDeviceImportService
 
         if (string.IsNullOrEmpty(controllerExternalId))
         {
-            result.Failed++;
+            RecordSkipped(
+                result,
+                equipmentType: "ExtensionIo",
+                externalId: externalId,
+                name: name,
+                stage: StageValidate,
+                category: CategoryMissingRequiredField,
+                message: "Extension IO record is missing ControllerId.");
             return;
         }
 
         var controller = await _dbContext.Controllers
             .FirstOrDefaultAsync(c => c.ExternalId == controllerExternalId, cancellationToken);
-        if (controller is null) { result.Failed++; return; }
+        if (controller is null)
+        {
+            RecordFailure(
+                result,
+                equipmentType: "ExtensionIo",
+                externalId: externalId,
+                name: name,
+                stage: StageMap,
+                category: CategoryForeignKeyIssue,
+                message: $"Controller '{controllerExternalId}' was not found for extension IO import.");
+            return;
+        }
 
         var extension = await _dbContext.Extensions
             .FirstOrDefaultAsync(e => e.ExternalId == extensionExternalId, cancellationToken);
-        if (extension is null) { result.Failed++; return; }
+        if (extension is null)
+        {
+            RecordFailure(
+                result,
+                equipmentType: "ExtensionIo",
+                externalId: externalId,
+                name: name,
+                stage: StageMap,
+                category: CategoryForeignKeyIssue,
+                message: $"Extension '{extensionExternalId}' was not found for extension IO import.");
+            return;
+        }
+
+        if (extension.ControllerId != controller.Id)
+        {
+            RecordFailure(
+                result,
+                equipmentType: "ExtensionIo",
+                externalId: externalId,
+                name: name,
+                stage: StageMap,
+                category: CategoryDuplicateConflict,
+                message: $"Extension '{extensionExternalId}' is mapped to a different controller than '{controllerExternalId}'.");
+            return;
+        }
 
         var existing = await _dbContext.ExtensionIos
             .FirstOrDefaultAsync(io => io.ExternalId == externalId, cancellationToken);
@@ -897,12 +1046,224 @@ public class DeviceImportService : IDeviceImportService
         return $"{moduleId}|{controllerExternalId ?? string.Empty}";
     }
 
+    private async Task ProcessRecordAsync(
+        SyncResultDto result,
+        string equipmentType,
+        string? externalId,
+        string? name,
+        CancellationToken cancellationToken,
+        Func<CancellationToken, SyncResultDto, Task> upsert,
+        string defaultStage)
+    {
+        if (string.IsNullOrWhiteSpace(externalId))
+        {
+            RecordSkipped(
+                result,
+                equipmentType,
+                externalId,
+                name,
+                StageValidate,
+                CategoryMissingRequiredField,
+                "Source record is missing required external ID.");
+            return;
+        }
+
+        var before = Snapshot(result);
+
+        try
+        {
+            await upsert(cancellationToken, result);
+
+            var delta = GetSuccessfulDelta(before, result);
+            if (delta <= 0)
+            {
+                _dbContext.ChangeTracker.Clear();
+                return;
+            }
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+            result.Succeeded += delta;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (DbUpdateException ex)
+        {
+            RestoreSnapshot(result, before);
+            RecordFailure(
+                result,
+                equipmentType,
+                externalId,
+                name,
+                StageSave,
+                ClassifyDbFailure(ex),
+                ex.Message,
+                ex);
+        }
+        catch (FormatException ex)
+        {
+            RestoreSnapshot(result, before);
+            RecordFailure(
+                result,
+                equipmentType,
+                externalId,
+                name,
+                defaultStage,
+                CategoryParsing,
+                ex.Message,
+                ex);
+        }
+        catch (InvalidOperationException ex)
+        {
+            RestoreSnapshot(result, before);
+            RecordFailure(
+                result,
+                equipmentType,
+                externalId,
+                name,
+                defaultStage,
+                CategoryUnexpectedApi,
+                ex.Message,
+                ex);
+        }
+        catch (Exception ex)
+        {
+            RestoreSnapshot(result, before);
+            RecordFailure(
+                result,
+                equipmentType,
+                externalId,
+                name,
+                defaultStage,
+                CategoryUnhandled,
+                ex.Message,
+                ex);
+        }
+        finally
+        {
+            _dbContext.ChangeTracker.Clear();
+        }
+    }
+
+    private static (int Created, int Updated, int Unchanged, int Succeeded) Snapshot(SyncResultDto result)
+    {
+        return (result.Created, result.Updated, result.Unchanged, result.Succeeded);
+    }
+
+    private static void RestoreSnapshot(SyncResultDto result, (int Created, int Updated, int Unchanged, int Succeeded) snapshot)
+    {
+        result.Created = snapshot.Created;
+        result.Updated = snapshot.Updated;
+        result.Unchanged = snapshot.Unchanged;
+        result.Succeeded = snapshot.Succeeded;
+    }
+
+    private static int GetSuccessfulDelta((int Created, int Updated, int Unchanged, int Succeeded) before, SyncResultDto after)
+    {
+        var beforeTotal = before.Created + before.Updated + before.Unchanged;
+        var afterTotal = after.Created + after.Updated + after.Unchanged;
+        return Math.Max(0, afterTotal - beforeTotal);
+    }
+
+    private void RecordSkipped(
+        SyncResultDto result,
+        string equipmentType,
+        string? externalId,
+        string? name,
+        string stage,
+        string category,
+        string message,
+        Exception? exception = null)
+    {
+        result.Skipped++;
+        RecordFailureDetail(result, equipmentType, externalId, name, stage, category, message, exception);
+    }
+
+    private void RecordFailure(
+        SyncResultDto result,
+        string equipmentType,
+        string? externalId,
+        string? name,
+        string stage,
+        string category,
+        string message,
+        Exception? exception = null)
+    {
+        result.Failed++;
+        RecordFailureDetail(result, equipmentType, externalId, name, stage, category, message, exception);
+    }
+
+    private void RecordFailureDetail(
+        SyncResultDto result,
+        string equipmentType,
+        string? externalId,
+        string? name,
+        string stage,
+        string category,
+        string message,
+        Exception? exception)
+    {
+        var detail = new ImportFailureDetailDto
+        {
+            EquipmentType = equipmentType,
+            ExternalId = externalId,
+            Name = name,
+            FailureStage = stage,
+            FailureCategory = category,
+            Message = message,
+            StackTrace = exception?.StackTrace
+        };
+
+        result.Failures.Add(detail);
+
+        _logger.LogError(
+            exception,
+            "{Operation} record failed. EquipmentType={EquipmentType}, ExternalId={ExternalId}, Name={Name}, Stage={Stage}, Category={Category}, Message={Message}",
+            result.Operation,
+            detail.EquipmentType,
+            detail.ExternalId,
+            detail.Name,
+            detail.FailureStage,
+            detail.FailureCategory,
+            detail.Message);
+    }
+
+    private static string ClassifyDbFailure(DbUpdateException exception)
+    {
+        var text = $"{exception.Message} {exception.InnerException?.Message}";
+
+        if (text.Contains("FOREIGN KEY", StringComparison.OrdinalIgnoreCase))
+        {
+            return CategoryForeignKeyIssue;
+        }
+
+        if (text.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("duplicate", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("conflict", StringComparison.OrdinalIgnoreCase))
+        {
+            return CategoryDuplicateConflict;
+        }
+
+        if (text.Contains("NULL", StringComparison.OrdinalIgnoreCase)
+            || text.Contains("cannot insert null", StringComparison.OrdinalIgnoreCase))
+        {
+            return CategoryNullValue;
+        }
+
+        return CategoryDatabaseSave;
+    }
+
     private static void Accumulate(SyncResultDto total, SyncResultDto partial)
     {
+        total.TotalReceived += partial.TotalReceived;
         total.Created += partial.Created;
         total.Updated += partial.Updated;
         total.Unchanged += partial.Unchanged;
+        total.Succeeded += partial.Succeeded;
+        total.Skipped += partial.Skipped;
         total.Failed += partial.Failed;
+        total.Failures.AddRange(partial.Failures);
         if (!partial.Success && partial.ErrorMessage is not null)
         {
             total.ErrorMessage = total.ErrorMessage is null
@@ -1118,10 +1479,30 @@ public class DeviceImportService : IDeviceImportService
         return false;
     }
 
-    private bool EnsureBackendAvailable(SyncResultDto result)
+    private async Task<bool> EnsureBackendAvailableAsync(SyncResultDto result, CancellationToken cancellationToken)
     {
         if (TryGetStartupSnapshot(out _))
         {
+            return true;
+        }
+
+        // Snapshot was not loaded at startup — attempt an on-demand refresh
+        _logger.LogWarning(
+            "{Operation}: backend snapshot missing, attempting on-demand refresh before giving up.",
+            result.Operation);
+
+        try
+        {
+            await _backendSnapshotProvider.EnsureLoadedAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "{Operation}: on-demand backend snapshot refresh failed.", result.Operation);
+        }
+
+        if (TryGetStartupSnapshot(out _))
+        {
+            _logger.LogInformation("{Operation}: backend snapshot recovered via on-demand refresh.", result.Operation);
             return true;
         }
 

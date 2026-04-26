@@ -30,39 +30,53 @@ export class VisitorsController {
     constructor(private readonly visitorsService: VisitorsService) { }
 
     @Get()
-    @RequirePermissions(PermissionKey.VisitsRead)
+    @RequirePermissions(PermissionKey.VisitorsRead)
     @ApiOperation({ summary: 'List visitors (paginated)' })
-    findAll(@Query() query: PaginationQueryDto) {
-        return this.visitorsService.findAll(query);
+    findAll(
+        @Query() query: PaginationQueryDto,
+        @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
+    ) {
+        return this.visitorsService.findAll(query, currentUserId, roles);
     }
 
     @Get('search')
     @RequirePermissions(PermissionKey.VisitsRead)
     @ApiOperation({ summary: 'Search visitors by personId prefix' })
-    searchByPersonId(@Query('personId') personId: string) {
-        return this.visitorsService.searchByPersonId(personId);
+    searchByPersonId(
+        @Query('personId') personId: string,
+        @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
+    ) {
+        return this.visitorsService.searchByPersonId(personId, currentUserId, roles);
     }
 
     @Get('export')
-    @RequirePermissions(PermissionKey.VisitsRead)
+    @RequirePermissions(PermissionKey.VisitorsExport)
     @ApiOperation({ summary: 'Export visitors as Excel' })
     async export(
         @Query() query: PaginationQueryDto,
+        @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
         @Res() res: Response,
     ) {
-        const file = await this.visitorsService.exportToExcel(query);
+        const file = await this.visitorsService.exportToExcel(query, currentUserId, roles);
         sendExcelResponse(res, file, 'visitors.xlsx');
     }
 
     @Get(':id')
-    @RequirePermissions(PermissionKey.VisitsRead)
+    @RequirePermissions(PermissionKey.VisitorsRead)
     @ApiOperation({ summary: 'Get visitor by ID' })
-    findOne(@Param('id', ParseUUIDPipe) id: string) {
-        return this.visitorsService.findById(id);
+    findOne(
+        @Param('id', ParseUUIDPipe) id: string,
+        @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
+    ) {
+        return this.visitorsService.findById(id, currentUserId, roles);
     }
 
     @Post()
-    @RequirePermissions(PermissionKey.VisitsCreate)
+    @RequirePermissions(PermissionKey.VisitorsCreate)
     @ApiOperation({ summary: 'Create visitor invitation' })
     create(
         @Body() dto: CreateVisitorDto,
@@ -72,24 +86,26 @@ export class VisitorsController {
     }
 
     @Patch(':id')
-    @RequirePermissions(PermissionKey.VisitsUpdate)
+    @RequirePermissions(PermissionKey.VisitorsUpdate)
     @ApiOperation({ summary: 'Update visitor' })
     update(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: UpdateVisitorDto,
         @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
     ) {
-        return this.visitorsService.update(id, dto, currentUserId);
+        return this.visitorsService.update(id, dto, currentUserId, roles);
     }
 
     @Delete(':id')
-    @RequirePermissions(PermissionKey.VisitsDelete)
+    @RequirePermissions(PermissionKey.VisitorsDelete)
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation({ summary: 'Soft-delete visitor' })
     remove(
         @Param('id', ParseUUIDPipe) id: string,
         @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
     ) {
-        return this.visitorsService.remove(id, currentUserId);
+        return this.visitorsService.remove(id, currentUserId, roles);
     }
 }

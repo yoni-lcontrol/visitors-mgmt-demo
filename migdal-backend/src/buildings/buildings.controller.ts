@@ -22,6 +22,13 @@ export class BuildingsController {
         return this.buildingsService.findAll(query);
     }
 
+    @Get('access-levels')
+    @RequirePermissions(PermissionKey.BuildingsRead)
+    @ApiOperation({ summary: 'List active access levels for building assignment' })
+    findAccessLevels() {
+        return this.buildingsService.findAccessLevels();
+    }
+
     @Get(':id')
     @RequirePermissions(PermissionKey.BuildingsRead)
     @ApiOperation({ summary: 'Get building by ID' })

@@ -1,6 +1,7 @@
-import { Entity, Column, ManyToMany, JoinTable, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, ManyToMany, JoinTable } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { Role } from '../../roles/entities/role.entity';
+import { Sector } from '../../sectors/entities/sector.entity';
 
 @Entity('Users')
 export class User extends BaseEntity {
@@ -52,10 +53,30 @@ export class User extends BaseEntity {
     @Column({ type: 'nvarchar', length: 255, nullable: true })
     externalAuthId!: string | null;
 
+    @Column({ type: 'nvarchar', length: 100, nullable: true })
+    externalTenantId!: string | null;
+
+    @Column({ type: 'nvarchar', length: 200, nullable: true })
+    displayName!: string | null;
+
     @Column({ type: 'datetime2', nullable: true })
     lastExternalLoginAt!: Date | null;
 
-    @ManyToMany(() => Role, (role) => role.users, { eager: false })
+    @Column({ type: 'uniqueidentifier', nullable: true })
+    sectorId!: string | null;
+
+    @ManyToOne(() => Sector, { eager: false, nullable: true })
+    @JoinColumn({ name: 'sectorId' })
+    sector!: Sector | null;
+
+    @Column({ type: 'uniqueidentifier', nullable: true })
+    roleId!: string | null;
+
+    @ManyToOne(() => Role, (role) => role.users, { eager: false, nullable: true })
+    @JoinColumn({ name: 'roleId' })
+    role!: Role | null;
+
+    @ManyToMany(() => Role, { eager: false })
     @JoinTable({
         name: 'UserRoles',
         joinColumn: { name: 'userId', referencedColumnName: 'id' },

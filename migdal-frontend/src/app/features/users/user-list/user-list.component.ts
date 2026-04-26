@@ -1,15 +1,15 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
-import { forkJoin, of } from 'rxjs';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
+import { forkJoin, of, Subscription } from 'rxjs';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { TableModule } from 'primeng/table';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
-import { InputSwitchModule } from 'primeng/inputswitch';
 import { UsersApiService } from '../services/users-api.service';
 import { HasPermissionDirective } from '@core/permissions/has-permission.directive';
 import { NotificationService } from '@core/notifications/notification.service';
 import { ConfirmService } from '@core/services/confirm.service';
+import { AdSyncProgressService } from '@core/services/ad-sync-progress.service';
 import { downloadBlob } from '@core/utils/download.util';
 import { User, Role } from '@core/models/entities.model';
 import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.constants';
@@ -17,14 +17,14 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
 @Component({
   selector: 'app-user-list',
   standalone: true,
-  imports: [TranslateModule, FormsModule, ReactiveFormsModule, HasPermissionDirective, TableModule, InputTextModule, InputSwitchModule, DialogModule],
+  imports: [TranslateModule, ReactiveFormsModule, HasPermissionDirective, TableModule, InputTextModule, DialogModule],
   template: `
     <div class="page-header">
       <h1>{{ 'USERS.TITLE' | translate }}</h1>
       <div class="header-actions">
         <button class="btn btn-secondary" *hasPermission="'users.read'" (click)="exportData()"><i class="pi pi-file-excel"></i> {{ 'COMMON.EXPORT' | translate }}</button>
-        <button class="btn btn-secondary" *hasPermission="'users.sync'" (click)="syncFromAd()" [disabled]="syncing">
-          <i class="pi" [class.pi-spin]="syncing" [class.pi-spinner]="syncing" [class.pi-sync]="!syncing"></i> {{ 'USERS.SYNC_AD' | translate }}
+        <button class="btn btn-secondary" *hasPermission="'users.sync'" (click)="syncFromAd()" [disabled]="adSyncProgress.isActive">
+          <i class="pi" [class.pi-spin]="adSyncProgress.isActive" [class.pi-spinner]="adSyncProgress.isActive" [class.pi-sync]="!adSyncProgress.isActive"></i> {{ 'USERS.SYNC_AD' | translate }}
         </button>
         <button class="btn btn-primary" *hasPermission="'users.create'" (click)="openDialog()">
           <i class="pi pi-plus"></i> {{ 'USERS.ADD_USER' | translate }}
@@ -65,8 +65,9 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
             <th pSortableColumn="username">{{ 'USERS.USERNAME' | translate }} <p-sortIcon field="username" /> <p-columnFilter field="username" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="email">{{ 'USERS.EMAIL' | translate }} <p-sortIcon field="email" /> <p-columnFilter field="email" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="phone">{{ 'USERS.PHONE' | translate }} <p-sortIcon field="phone" /> <p-columnFilter field="phone" type="text" display="menu"></p-columnFilter></th>
+            <th pSortableColumn="sectorName">{{ 'USERS.SECTOR' | translate }} <p-sortIcon field="sectorName" /> <p-columnFilter field="sectorName" type="text" display="menu"></p-columnFilter></th>
             <th>{{ 'USERS.ID_NUMBER' | translate }} </th>
-            <th>{{ 'USERS.ROLES' | translate }} </th>
+            <th>{{ 'USERS.ROLE' | translate }} </th>
             <th>{{ 'COMMON.ACTIVE' | translate }} <p-columnFilter field="isActive" type="text" display="menu"></p-columnFilter></th>
             <th>{{ 'COMMON.ACTIONS' | translate }}</th>
           </tr>
@@ -78,29 +79,38 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
             <td>{{ user.username }}</td>
             <td>{{ user.email ?? '-' }}</td>
             <td>{{ user.phone ?? '-' }}</td>
+            <td>{{ user.sector?.name ?? '-' }}</td>
             <td>{{ user.idNumber ?? '-' }}</td>
             <td>
-              @for (role of user.roles; track role.id) {
+              @for (role of getUserRoles(user); track role.id) {
                 <span class="role-chip">{{ role.name }}</span>
+              } @empty {
+                -
               }
             </td>
             <td>
-              <p-inputSwitch [(ngModel)]="user.isActive" (onChange)="onToggleActive(user)"></p-inputSwitch>
+              <span class="status-badge" [class.active]="user.isActive" [class.inactive]="!user.isActive">
+                {{ user.isActive ? ('COMMON.ACTIVE' | translate) : ('COMMON.INACTIVE' | translate) }}
+              </span>
             </td>
             <td class="actions">
-              <button class="btn-icon" *hasPermission="'users.update'" (click)="openDialog(user)" [title]="'COMMON.EDIT' | translate">
-                <i class="pi pi-pencil"></i>
-              </button>
+              <ng-container *hasPermission="'users.update'">
+                @if (user.isActive) {
+                  <button class="btn-icon" (click)="openDialog(user)" [title]="'COMMON.EDIT' | translate">
+                    <i class="pi pi-pencil"></i>
+                  </button>
+                }
+              </ng-container>
             </td>
           </tr>
         </ng-template>
         <ng-template pTemplate="emptymessage">
-          <tr><td colspan="9" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
+          <tr><td colspan="10" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
         </ng-template>
       </p-table>
     </div>
     <!-- Create / Edit Dialog -->
-    <p-dialog [header]="editingUser ? ('USERS.EDIT_USER' | translate) : ('USERS.ADD_USER' | translate)"
+    <p-dialog [header]="getDialogTitle() | translate"
       [(visible)]="showDialog" (onHide)="onDialogHide()" [modal]="true" [style]="{width: '580px'}" [draggable]="false">
       @if (showDialog) {
         @if (dialogLoading) {
@@ -110,48 +120,49 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
           <div class="dialog-form-grid">
           <div class="field">
             <label>{{ 'USERS.FIRST_NAME' | translate }} <span class="required">*</span></label>
-            <input type="text" formControlName="firstName" [placeholder]="'PLACEHOLDER.ENTER_FIRST_NAME' | translate" />
+            <input type="text" formControlName="firstName" [placeholder]="'PLACEHOLDER.ENTER_FIRST_NAME' | translate" [readonly]="isReadOnlyEdit" [class.readonly-field]="isReadOnlyEdit" />
             @if (dialogForm.get('firstName')?.hasError('required') && dialogForm.get('firstName')?.touched) {
               <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
             }
           </div>
           <div class="field">
             <label>{{ 'USERS.LAST_NAME' | translate }} <span class="required">*</span></label>
-            <input type="text" formControlName="lastName" [placeholder]="'PLACEHOLDER.ENTER_LAST_NAME' | translate" />
+            <input type="text" formControlName="lastName" [placeholder]="'PLACEHOLDER.ENTER_LAST_NAME' | translate" [readonly]="isReadOnlyEdit" [class.readonly-field]="isReadOnlyEdit" />
             @if (dialogForm.get('lastName')?.hasError('required') && dialogForm.get('lastName')?.touched) {
               <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
             }
           </div>
           <div class="field">
             <label>{{ 'USERS.USERNAME' | translate }} <span class="required">*</span></label>
-            <input type="text" formControlName="username" [placeholder]="'PLACEHOLDER.ENTER_USERNAME' | translate" />
+            <input type="text" formControlName="username" [placeholder]="'PLACEHOLDER.ENTER_USERNAME' | translate" [readonly]="isReadOnlyEdit" [class.readonly-field]="isReadOnlyEdit" />
             @if (dialogForm.get('username')?.hasError('required') && dialogForm.get('username')?.touched) {
               <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
             }
           </div>
           <div class="field">
             <label>{{ 'USERS.EMAIL' | translate }}</label>
-            <input type="email" formControlName="email" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" />
+            <input type="email" formControlName="email" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" [readonly]="isReadOnlyEdit" [class.readonly-field]="isReadOnlyEdit" />
             @if (dialogForm.get('email')?.hasError('pattern') && dialogForm.get('email')?.touched) {
               <small class="field-error">{{ 'VALIDATION.EMAIL' | translate }}</small>
             }
           </div>
           <div class="field">
             <label>{{ 'USERS.PHONE' | translate }}</label>
-            <input type="tel" formControlName="phone" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" />
+            <input type="tel" formControlName="phone" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" [readonly]="isReadOnlyEdit" [class.readonly-field]="isReadOnlyEdit" />
             @if (dialogForm.get('phone')?.hasError('pattern') && dialogForm.get('phone')?.touched) {
               <small class="field-error">{{ 'VALIDATION.DIGITS_ONLY' | translate }}</small>
             }
           </div>
           <div class="field">
             <label>{{ 'USERS.ID_NUMBER' | translate }} <span class="required">*</span></label>
-            <input type="tel" formControlName="idNumber" [placeholder]="'PLACEHOLDER.ENTER_ID_NUMBER' | translate" />
+            <input type="tel" formControlName="idNumber" [placeholder]="'PLACEHOLDER.ENTER_ID_NUMBER' | translate" [readonly]="isReadOnlyEdit" [class.readonly-field]="isReadOnlyEdit" />
             @if (dialogForm.get('idNumber')?.hasError('required') && dialogForm.get('idNumber')?.touched) {
               <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
             } @else if (dialogForm.get('idNumber')?.hasError('pattern') && dialogForm.get('idNumber')?.touched) {
               <small class="field-error">{{ 'VALIDATION.DIGITS_ONLY' | translate }}</small>
             }
           </div>
+          @if (!isEditMode) {
           <div class="field full-width">
             <label>{{ 'USERS.PASSWORD' | translate }}</label>
             <input type="password" formControlName="password" autocomplete="new-password" [placeholder]="editingUser ? ('PLACEHOLDER.LEAVE_EMPTY_TO_KEEP' | translate) : ('PLACEHOLDER.ENTER_PASSWORD' | translate)" />
@@ -159,24 +170,37 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
               <small class="field-error">{{ 'VALIDATION.MIN_LENGTH' | translate:{ min: 8 } }}</small>
             }
           </div>
+          }
           <div class="field full-width">
             <label>{{ 'USERS.ROLES' | translate }}</label>
             <div class="roles-grid">
               @for (role of availableRoles; track role.id) {
-                <button type="button" class="role-toggle" [class.selected]="selectedRoleIds.has(role.id)" (click)="toggleRole(role.id)">
-                  <i class="pi" [class.pi-check-circle]="selectedRoleIds.has(role.id)" [class.pi-circle]="!selectedRoleIds.has(role.id)"></i>
+                <button type="button" class="role-toggle" [class.selected]="isRoleSelected(role.id)" (click)="toggleRole(role.id)">
+                  <i class="pi" [class.pi-check-circle]="isRoleSelected(role.id)" [class.pi-circle]="!isRoleSelected(role.id)"></i>
                   {{ role.name }}
                 </button>
+              } @empty {
+                -
               }
             </div>
           </div>
+          @if (editingUser) {
+          <div class="field full-width">
+            <label>{{ 'COMMON.STATUS' | translate }}</label>
+            <span class="readonly-value">{{ editingUser.isActive ? ('COMMON.ACTIVE' | translate) : ('COMMON.INACTIVE' | translate) }}</span>
+          </div>
+          <div class="field full-width">
+            <label>{{ 'USERS.LAST_LOGIN' | translate }}</label>
+            <span class="readonly-value">{{ editingUser.lastLoginAt || '-' }}</span>
+          </div>
+          }
           </div>
         </form>
         }
       }
       <ng-template pTemplate="footer">
         <button class="btn btn-secondary" (click)="showDialog = false">{{ 'COMMON.CANCEL' | translate }}</button>
-        <button class="btn btn-primary" (click)="saveDialog()" [disabled]="dialogForm.invalid || saving">{{ 'COMMON.SAVE' | translate }}</button>
+        <button class="btn btn-primary" (click)="saveDialog()" [disabled]="((!isEditMode && dialogForm.invalid) || saving)">{{ 'COMMON.SAVE' | translate }}</button>
       </ng-template>
     </p-dialog>  `,
   styles: [`
@@ -184,6 +208,23 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
     .header-actions { display: flex; gap: 0.5rem; }
     .table-card { padding: 0; overflow: hidden; }
     .table-header { display: flex; align-items: center; gap: 0.5rem; }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      line-height: 1;
+    }
+    .status-badge.active {
+      background: #e7f8ef;
+      color: #1f7a45;
+    }
+    .status-badge.inactive {
+      background: #f3f4f6;
+      color: #6b7280;
+    }
     .p-input-icon-left { position: relative; }
     .p-input-icon-left i { position: absolute; top: 50%; transform: translateY(-50%); inset-inline-start: 0.75rem; color: var(--color-text-muted, #9896ad); }
     .p-input-icon-left input { padding-inline-start: 2.25rem; }
@@ -193,6 +234,18 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
     .full-width { grid-column: 1 / -1; }
     .dialog-form-grid .field { display: flex; flex-direction: column; }
     .dialog-form-grid .field label { display: block; font-weight: 500; margin-bottom: 0.3rem; font-size: 0.85rem; color: var(--color-text-secondary, #5c5a78); }
+    .readonly-field {
+      background: var(--color-primary-wash, #f4f3fa);
+      color: var(--color-text-secondary, #5c5a78);
+      cursor: default;
+    }
+    .readonly-value {
+      display: inline-block;
+      min-height: 2rem;
+      padding: 0.45rem 0;
+      color: var(--color-text, #1a1a2e);
+      font-size: 0.92rem;
+    }
 
     .checkbox-group { display: flex; flex-wrap: wrap; gap: 0.75rem; }
     .checkbox-label { display: flex; align-items: center; gap: 0.35rem; font-size: 0.9rem; cursor: pointer; }
@@ -231,12 +284,14 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
     .role-toggle.selected i { color: var(--color-accent, #6c63ff); }
   `],
 })
-export class UserListComponent implements OnInit {
+export class UserListComponent implements OnInit, OnDestroy {
   private usersApi = inject(UsersApiService);
   private notify = inject(NotificationService);
   private translate = inject(TranslateService);
   private fb = inject(FormBuilder);
   private confirmService = inject(ConfirmService);
+  adSyncProgress = inject(AdSyncProgressService);
+  private syncCompletedSub?: Subscription;
   users: User[] = [];
   totalRecords = 0;
   rows = 25;
@@ -251,13 +306,29 @@ export class UserListComponent implements OnInit {
   editingUser: User | null = null;
   dialogForm: FormGroup = new FormGroup({});
   saving = false;
-  syncing = false;
   dialogLoading = false;
   availableRoles: Role[] = [];
-  selectedRoleIds = new Set<string>();
+  selectedRoleIds: string[] = [];
+
+  get isEditMode(): boolean {
+    return !!this.editingUser;
+  }
+
+  get isReadOnlyEdit(): boolean {
+    return this.isEditMode;
+  }
 
   ngOnInit(): void {
     this.loadUsers();
+    this.syncCompletedSub = this.adSyncProgress.completed$.subscribe((data) => {
+      if (data) {
+        this.loadUsers();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.syncCompletedSub?.unsubscribe();
   }
 
   loadUsers(event: any = this.lastLazyEvent): void {
@@ -307,27 +378,22 @@ export class UserListComponent implements OnInit {
   }
 
   syncFromAd(): void {
-    this.syncing = true;
+    if (this.adSyncProgress.isActive) return;
     this.usersApi.syncAd().subscribe({
-      next: (res) => {
-        this.syncing = false;
-        if (res.configsProcessed === 0 && res.configsFailed === 0) {
-          this.notify.warn(this.translate.instant('USERS.SYNC_NO_AD'));
-        } else if (res.configsFailed > 0) {
-          this.notify.warn(this.translate.instant('USERS.SYNC_PARTIAL', res));
-        } else {
-          this.notify.success(this.translate.instant('USERS.SYNC_SUCCESS', res));
-        }
-        this.loadUsers();
+      next: () => {
+        this.notify.info(this.translate.instant('USERS.SYNC_STARTED'));
       },
       error: () => {
-        this.syncing = false;
         this.notify.warn(this.translate.instant('USERS.SYNC_FAILED'));
       },
     });
   }
 
   onToggleActive(user: User): void {
+    if (user.isActive) {
+      return;
+    }
+
     this.usersApi.update(user.id, { isActive: user.isActive }).subscribe({
       next: () => this.notify.success('COMMON.SUCCESS'),
       error: (err) => {
@@ -339,7 +405,7 @@ export class UserListComponent implements OnInit {
 
   openDialog(user?: User): void {
     this.editingUser = user ?? null;
-    this.selectedRoleIds = new Set<string>();
+    this.selectedRoleIds = [];
     this.dialogForm = this.fb.group({
       firstName: ['', Validators.required],
       lastName: ['', Validators.required],
@@ -356,6 +422,7 @@ export class UserListComponent implements OnInit {
     }).subscribe(({ roles, userData }) => {
       this.availableRoles = roles.items;
       if (userData) {
+        this.editingUser = userData;
         this.dialogForm.patchValue({
           firstName: userData.firstName,
           lastName: userData.lastName,
@@ -364,29 +431,34 @@ export class UserListComponent implements OnInit {
           phone: userData.phone ?? '',
           idNumber: userData.idNumber ?? '',
         });
-        userData.roles.forEach((r) => this.selectedRoleIds.add(r.id));
+        this.selectedRoleIds = this.getUserRoles(userData).map((role) => role.id);
       }
       this.dialogLoading = false;
     });
     this.showDialog = true;
   }
 
+  isRoleSelected(id: string): boolean {
+    return this.selectedRoleIds.includes(id);
+  }
+
   toggleRole(id: string): void {
-    if (this.selectedRoleIds.has(id)) this.selectedRoleIds.delete(id);
-    else this.selectedRoleIds.add(id);
+    this.selectedRoleIds = this.isRoleSelected(id)
+      ? this.selectedRoleIds.filter((roleId) => roleId !== id)
+      : [...this.selectedRoleIds, id];
   }
 
   saveDialog(): void {
-    if (this.dialogForm.invalid) return;
+    if (!this.isEditMode && this.dialogForm.invalid) return;
     this.saving = true;
     const { password, ...rest } = this.dialogForm.value;
     const payload = {
       ...rest,
       ...(password ? { password } : {}),
-      roleIds: [...this.selectedRoleIds],
+      roleIds: this.selectedRoleIds,
     };
-    const req$ = this.editingUser
-      ? this.usersApi.update(this.editingUser.id, payload)
+    const req$ = this.isEditMode
+      ? this.usersApi.assignRoles(this.editingUser!.id, this.selectedRoleIds)
       : this.usersApi.create(payload);
     req$.subscribe({
       next: () => { this.saving = false; this.showDialog = false; this.notify.success('COMMON.SUCCESS'); this.loadUsers(); },
@@ -398,5 +470,23 @@ export class UserListComponent implements OnInit {
     this.dialogForm.reset();
     this.dialogForm.markAsPristine();
     this.dialogForm.markAsUntouched();
+  }
+
+  getDialogTitle(): string {
+    if (!this.editingUser) {
+      return 'USERS.ADD_USER';
+    }
+
+    return this.isReadOnlyEdit ? 'COMMON.ASSIGN_ROLES' : 'USERS.EDIT_USER';
+  }
+
+  getUserRoles(user: User): Role[] {
+    return user.roles && user.roles.length > 0
+      ? user.roles
+      : (user.role ? [user.role] : []);
+  }
+
+  getSelectedRoles(): Role[] {
+    return this.availableRoles.filter((role) => this.selectedRoleIds.includes(role.id));
   }
 }

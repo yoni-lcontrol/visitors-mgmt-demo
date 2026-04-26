@@ -26,12 +26,42 @@ public class ImportBridgeService : IImportBridgeService
     public async Task<ImportCallbackPayload> ImportDevicesAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Starting device import from Amadeus OData");
-        var syncResult = await _deviceImportService.ImportAllAsync(cancellationToken);
+        SyncResultDto syncResult;
+        try
+        {
+            syncResult = await _deviceImportService.ImportAllAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Device import execution threw an unexpected exception. Returning current topology snapshot from local database.");
+            return await BuildDevicePayloadAsync(cancellationToken);
+        }
 
         if (!syncResult.Success)
         {
-            _logger.LogError("Device import failed: {Error}", syncResult.ErrorMessage);
-            throw new InvalidOperationException($"Device import failed: {syncResult.ErrorMessage}");
+            _logger.LogWarning(
+                "Device import completed with failures. TotalReceived={TotalReceived}, Succeeded={Succeeded}, Failed={Failed}, Skipped={Skipped}, Error={Error}",
+                syncResult.TotalReceived,
+                syncResult.Succeeded,
+                syncResult.Failed,
+                syncResult.Skipped,
+                syncResult.ErrorMessage);
+
+            foreach (var failure in syncResult.Failures.Take(10))
+            {
+                _logger.LogWarning(
+                    "Device import failure detail. EquipmentType={EquipmentType}, ExternalId={ExternalId}, Name={Name}, Stage={Stage}, Category={Category}, Message={Message}",
+                    failure.EquipmentType,
+                    failure.ExternalId,
+                    failure.Name,
+                    failure.FailureStage,
+                    failure.FailureCategory,
+                    failure.Message);
+            }
         }
 
         _logger.LogInformation(
@@ -44,13 +74,43 @@ public class ImportBridgeService : IImportBridgeService
     public async Task<AccessLevelCallbackPayload> ImportAccessLevelsAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Starting access-level import from Amadeus OData");
-        var syncResult = await _accessImportRoutingService.ImportAsync(
-            AccessImportType.AccessLevels, cancellationToken);
+        SyncResultDto syncResult;
+        try
+        {
+            syncResult = await _accessImportRoutingService.ImportAsync(
+                AccessImportType.AccessLevels, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Access-level import execution threw an unexpected exception. Returning current access-level snapshot from local database.");
+            return await BuildAccessLevelPayloadAsync(cancellationToken);
+        }
 
         if (!syncResult.Success)
         {
-            _logger.LogError("Access-level import failed: {Error}", syncResult.ErrorMessage);
-            throw new InvalidOperationException($"Access-level import failed: {syncResult.ErrorMessage}");
+            _logger.LogWarning(
+                "Access-level import completed with failures. TotalReceived={TotalReceived}, Succeeded={Succeeded}, Failed={Failed}, Skipped={Skipped}, Error={Error}",
+                syncResult.TotalReceived,
+                syncResult.Succeeded,
+                syncResult.Failed,
+                syncResult.Skipped,
+                syncResult.ErrorMessage);
+
+            foreach (var failure in syncResult.Failures.Take(10))
+            {
+                _logger.LogWarning(
+                    "Access-level import failure detail. EquipmentType={EquipmentType}, ExternalId={ExternalId}, Name={Name}, Stage={Stage}, Category={Category}, Message={Message}",
+                    failure.EquipmentType,
+                    failure.ExternalId,
+                    failure.Name,
+                    failure.FailureStage,
+                    failure.FailureCategory,
+                    failure.Message);
+            }
         }
 
         _logger.LogInformation(
@@ -76,6 +136,7 @@ public class ImportBridgeService : IImportBridgeService
             {
                 Name = c.Name,
                 ExternalId = c.ExternalId,
+                Active = c.IsActive,
                 Doors = c.Doors.Select(d => new CallbackDoor
                 {
                     Name = d.Name,
@@ -115,6 +176,7 @@ public class ImportBridgeService : IImportBridgeService
                 Name = al.Name,
                 Active = al.IsActive,
                 VisitorAccess = false,
+                ExternalId = al.AmadeusUid,
             }).ToList(),
         };
     }

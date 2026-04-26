@@ -60,10 +60,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
             <span class="info-label">{{ 'ACCESS_CONTROL.PORT' | translate }}</span>
             <span class="info-value">{{ controller.port }}</span>
           </div>
-          <div class="info-item">
-            <span class="info-label">{{ 'ACCESS_CONTROL.EXTERNAL_ID' | translate }}</span>
-            <span class="info-value">{{ controller.externalId ?? '-' }}</span>
-          </div>
         </div>
       </div>
 
@@ -101,7 +97,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                 <th>{{ 'ACCESS_CONTROL.DOOR_NAME' | translate }}</th>
                 <th>{{ 'ACCESS_CONTROL.DOOR_INDEX' | translate }}</th>
                 <th>{{ 'ACCESS_CONTROL.ENTRY_TYPE' | translate }}</th>
-                <th>{{ 'ACCESS_CONTROL.EXTERNAL_ID' | translate }}</th>
                 <th>{{ 'COMMON.ACTIVE' | translate }}</th>
                 <th>{{ 'ACCESS_CONTROL.DOOR_IOS' | translate }}</th>
                 <th style="width: 7rem">{{ 'COMMON.ACTIONS' | translate }}</th>
@@ -118,7 +113,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                 <td class="name-cell">{{ door.name }}</td>
                 <td>{{ door.doorsIndex }}</td>
                 <td>{{ entryTypeLabel(door.entryType) }}</td>
-                <td>{{ door.externalId ?? '-' }}</td>
                 <td>
                   <p-inputSwitch [(ngModel)]="door.isActive" (onChange)="toggleDoorActive(door)"></p-inputSwitch>
                 </td>
@@ -153,7 +147,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                             <th>{{ 'ACCESS_CONTROL.IO_TYPE' | translate }}</th>
                             <th>{{ 'ACCESS_CONTROL.IO_INDEX' | translate }}</th>
                             <th>{{ 'ACCESS_CONTROL.IO_STATE' | translate }}</th>
-                            <th>{{ 'ACCESS_CONTROL.EXTERNAL_ID' | translate }}</th>
                             <th>{{ 'COMMON.ACTIVE' | translate }}</th>
                             <th style="width: 6rem">{{ 'COMMON.ACTIONS' | translate }}</th>
                           </tr>
@@ -165,7 +158,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                               <td>{{ io.type }}</td>
                               <td>{{ io.ioIndex }}</td>
                               <td>{{ io.ioState }}</td>
-                              <td>{{ io.externalId ?? '-' }}</td>
                               <td>
                                 <p-inputSwitch [(ngModel)]="io.isActive" (onChange)="toggleDoorIoActive(door.id, io)"></p-inputSwitch>
                               </td>
@@ -176,7 +168,7 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                             </tr>
                           }
                           @if (doorIoMap[door.id].length === 0) {
-                            <tr><td colspan="7" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
+                            <tr><td colspan="6" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
                           }
                         </tbody>
                       </table>
@@ -216,7 +208,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                 <th>{{ 'ACCESS_CONTROL.EXTENSION_NAME' | translate }}</th>
                 <th>{{ 'ACCESS_CONTROL.TYPE' | translate }}</th>
                 <th>{{ 'ACCESS_CONTROL.EXTENSION_INDEX' | translate }}</th>
-                <th>{{ 'ACCESS_CONTROL.EXTERNAL_ID' | translate }}</th>
                 <th>{{ 'COMMON.ACTIVE' | translate }}</th>
                 <th>{{ 'ACCESS_CONTROL.EXTENSION_IOS' | translate }}</th>
                 <th style="width: 7rem">{{ 'COMMON.ACTIONS' | translate }}</th>
@@ -233,7 +224,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                 <td class="name-cell">{{ ext.name }}</td>
                 <td>{{ ext.type }}</td>
                 <td>{{ ext.extensionIndex }}</td>
-                <td>{{ ext.externalId ?? '-' }}</td>
                 <td>
                   <p-inputSwitch [(ngModel)]="ext.isActive" (onChange)="toggleExtActive(ext)"></p-inputSwitch>
                 </td>
@@ -268,7 +258,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                             <th>{{ 'ACCESS_CONTROL.IO_TYPE' | translate }}</th>
                             <th>{{ 'ACCESS_CONTROL.IO_INDEX' | translate }}</th>
                             <th>{{ 'ACCESS_CONTROL.IO_STATE' | translate }}</th>
-                            <th>{{ 'ACCESS_CONTROL.EXTERNAL_ID' | translate }}</th>
                             <th>{{ 'COMMON.ACTIVE' | translate }}</th>
                             <th style="width: 6rem">{{ 'COMMON.ACTIONS' | translate }}</th>
                           </tr>
@@ -280,7 +269,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                               <td>{{ io.type }}</td>
                               <td>{{ io.ioIndex }}</td>
                               <td>{{ io.ioState }}</td>
-                              <td>{{ io.externalId ?? '-' }}</td>
                               <td>
                                 <p-inputSwitch [(ngModel)]="io.isActive" (onChange)="toggleExtIoActive(ext.id, io)"></p-inputSwitch>
                               </td>
@@ -291,7 +279,7 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                             </tr>
                           }
                           @if (extIoMap[ext.id].length === 0) {
-                            <tr><td colspan="7" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
+                            <tr><td colspan="6" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
                           }
                         </tbody>
                       </table>

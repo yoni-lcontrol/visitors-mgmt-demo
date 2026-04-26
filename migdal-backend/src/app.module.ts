@@ -22,6 +22,9 @@ import { PrintingModule } from './printing/printing.module';
 import { ScanningModule } from './scanning/scanning.module';
 import { HealthModule } from './health/health.module';
 import { BuildingsModule } from './buildings/buildings.module';
+import { AmadeusModule } from './amadeus/amadeus.module';
+import { SectorsModule } from './sectors/sectors.module';
+import { AdGroupRoleMappingsModule } from './ad-group-role-mappings/ad-group-role-mappings.module';
 
 @Module({
     imports: [
@@ -68,6 +71,9 @@ import { BuildingsModule } from './buildings/buildings.module';
         PrintingModule,
         ScanningModule,
         BuildingsModule,
+        AmadeusModule,
+        SectorsModule,
+        AdGroupRoleMappingsModule,
     ],
 })
 export class AppModule { }

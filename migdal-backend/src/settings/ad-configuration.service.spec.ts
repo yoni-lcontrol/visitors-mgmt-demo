@@ -39,9 +39,34 @@ describe('AdConfigurationService', () => {
 
     describe('findById', () => {
         it('should return AD configuration', async () => {
-            mockRepo.findOne.mockResolvedValue({ id: '1', name: 'Corp AD' });
+            mockRepo.findOne.mockResolvedValue({ id: '1', name: 'Corp AD', targetGroupsJson: null });
             const result = await service.findById('1');
             expect(result.name).toBe('Corp AD');
+            expect(result.targetGroups).toEqual([]);
+        });
+
+        it('should parse targetGroups from json', async () => {
+            mockRepo.findOne.mockResolvedValue({
+                id: '1',
+                name: 'Corp AD',
+                domain: 'corp.local',
+                ldapUrl: 'ldap://dc01',
+                baseDn: null,
+                username: 'svc',
+                password: 'secret',
+                port: 389,
+                useSsl: false,
+                description: null,
+                targetGroupsJson: '["Reception","Visitors Operators"]',
+                isActive: true,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+                createdBy: null,
+                updatedBy: null,
+            });
+
+            const result = await service.findById('1');
+            expect(result.targetGroups).toEqual(['Reception', 'Visitors Operators']);
         });
 
         it('should throw NotFoundException', async () => {
@@ -72,6 +97,31 @@ describe('AdConfigurationService', () => {
                 newValue: expect.objectContaining({ password: '***' }),
             }));
         });
+
+        it('should normalize empty baseDn to null on create', async () => {
+            let createdEntity: any;
+            mockRepo.create.mockImplementation((e: any) => { createdEntity = e; return e; });
+            mockRepo.save.mockImplementation((e: any) => Promise.resolve({ id: 'ad-1', ...e }));
+            await service.create({ name: 'Test AD', domain: 'test.com', ldapUrl: 'ldap://test', baseDn: '', username: 'admin', password: 'secret' } as any, 'user-1');
+            expect(createdEntity.baseDn).toBeNull();
+        });
+
+        it('should serialize and deduplicate targetGroups on create', async () => {
+            let createdEntity: any;
+            mockRepo.create.mockImplementation((e: any) => { createdEntity = e; return e; });
+            mockRepo.save.mockImplementation((e: any) => Promise.resolve({ id: 'ad-1', ...e }));
+
+            await service.create({
+                name: 'Test AD',
+                domain: 'test.com',
+                ldapUrl: 'ldap://test',
+                username: 'admin',
+                password: 'secret',
+                targetGroups: [' Reception ', 'reception', 'Visitors Operators'],
+            } as any, 'user-1');
+
+            expect(createdEntity.targetGroupsJson).toBe('["Reception","Visitors Operators"]');
+        });
     });
 
     describe('update', () => {
@@ -91,6 +141,34 @@ describe('AdConfigurationService', () => {
             expect(mockAuditService.log).toHaveBeenCalledWith(expect.objectContaining({
                 module: 'settings', action: 'UPDATE', entity: 'AdConfiguration',
             }));
+        });
+
+        it('should normalize empty baseDn to null on update', async () => {
+            const entity = { id: 'ad-1', name: 'Old', domain: 'old.com', ldapUrl: 'ldap://old', port: 389, useSsl: false, baseDn: 'DC=old,DC=com', targetGroupsJson: null, isActive: true };
+            mockRepo.findOne.mockResolvedValue(entity);
+            mockRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+            await service.update('ad-1', { baseDn: '' } as any, 'user-1');
+            expect(entity.baseDn).toBeNull();
+        });
+
+        it('should serialize targetGroups on update', async () => {
+            const entity = {
+                id: 'ad-1',
+                name: 'Old',
+                domain: 'old.com',
+                ldapUrl: 'ldap://old',
+                port: 389,
+                useSsl: false,
+                baseDn: null,
+                targetGroupsJson: null,
+                isActive: true,
+            };
+            mockRepo.findOne.mockResolvedValue(entity);
+            mockRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+            await service.update('ad-1', { targetGroups: ['Reception', 'reception'] } as any, 'user-1');
+
+            expect(entity.targetGroupsJson).toBe('["Reception"]');
         });
     });
 

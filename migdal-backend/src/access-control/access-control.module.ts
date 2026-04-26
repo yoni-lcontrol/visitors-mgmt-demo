@@ -9,7 +9,6 @@ import {
     ExtensionIo,
     AccessLevel,
 } from './entities';
-import { VisitVisitor } from '../visitors/entities/visit-visitor.entity';
 import { AcControllerController } from './controllers/ac-controller.controller';
 import { ImportController } from './controllers/import.controller';
 import { DoorController } from './controllers/door.controller';
@@ -38,7 +37,6 @@ import { WebsocketModule } from '../websocket/websocket.module';
             DoorIo,
             ExtensionIo,
             AccessLevel,
-            VisitVisitor,
         ]),
         HttpModule,
         WebsocketModule,

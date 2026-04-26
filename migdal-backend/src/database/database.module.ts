@@ -26,6 +26,7 @@ import { AdConfiguration } from '../settings/entities/ad-configuration.entity';
 import { SmsTemplate } from '../settings/entities/sms-template.entity';
 import { EmailTemplate } from '../settings/entities/email-template.entity';
 import { CardTemplate } from '../settings/entities/card-template.entity';
+import { PermanentEscort } from '../settings/entities/permanent-escort.entity';
 import { AuditLog } from '../common/entities/audit-log.entity';
 import { Workstation } from '../workstations/entities/workstation.entity';
 import { UserWorkstationSession } from '../workstations/entities/user-workstation-session.entity';
@@ -45,7 +46,7 @@ const entities = [
     AcController, Door, DoorIo, Extension, ExtensionIo, AccessLevel,
     Visitor, BlacklistEntry,
     Visit, VisitVisitor, VisitEscort, VisitorAccessLog, VisitVisitorStatus, VisitVisitorCheckInCode, ParkingRequest,
-    Setting, NotificationSetting, AdConfiguration, SmsTemplate, EmailTemplate, CardTemplate, AuditLog,
+    Setting, NotificationSetting, AdConfiguration, SmsTemplate, EmailTemplate, CardTemplate, PermanentEscort, AuditLog,
     Workstation, UserWorkstationSession, WorkstationUser, WorkstationRole, WorkstationEnrollmentToken,
     DeviceAgent, DeviceCommandLog, ExternalEventLog,
     Building,

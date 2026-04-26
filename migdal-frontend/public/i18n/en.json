@@ -87,6 +87,7 @@
         "ON_SITE": "On Site",
         "ENTRANCE_EXIT_LOGS": "Entrance / Exit Logs",
         "VISITS": "Visits",
+        "VISITORS": "Visitors",
         "SETTINGS": "Settings",
         "GENERAL_SETTINGS": "General",
         "NOTIFICATION_SETTINGS": "Notifications",
@@ -94,6 +95,7 @@
         "AD_GROUP_ROLE_MAPPINGS": "AD Group-Role Mapping",
         "CARD_TEMPLATES": "Card Templates",
         "BUILDINGS": "Buildings",
+        "PERMANENT_ESCORTS": "Permanent Escorts",
         "WORKSTATIONS": "Workstations",
         "AUDIT_LOGS": "Audit Logs"
     },
@@ -260,6 +262,7 @@
         "NEVER": "Never",
         "EMAIL": "Email",
         "PHONE": "Phone",
+        "SECTOR": "Sector",
         "ID_NUMBER": "ID Number",
         "SYNC_AD": "Sync from AD",
         "SYNC_STARTED": "AD sync started in background",
@@ -351,6 +354,12 @@
     },
     "VISITORS": {
         "TITLE": "Visitors Management",
+        "PAGE_TITLE": "Guest Repository",
+        "PAGE_DESCRIPTION": "View, search, export, and maintain the shared visitor directory by person ID.",
+        "VISITOR_NAME": "Visitor Name",
+        "HOST_NAME": "Host Name",
+        "BUILDING": "Building",
+        "FLOOR": "Floor",
         "ADD_VISITOR": "Add Visitor",
         "EDIT_VISITOR": "Edit Visitor",
         "FIRST_NAME": "First Name",
@@ -364,6 +373,9 @@
         "STATUS_CHECKED_IN": "Checked In",
         "STATUS_CHECKED_OUT": "Checked Out",
         "DELETE_CONFIRM": "Are you sure you want to delete this visitor record?",
+        "CREATED_SUCCESS": "Visitor saved successfully",
+        "UPDATED_SUCCESS": "Visitor updated successfully",
+        "DELETED_SUCCESS": "Visitor deleted successfully",
         "PERSON_ID": "Person ID",
         "CAR_NUMBER": "Car Number",
         "HAS_VEHICLE": "Coming with vehicle",
@@ -552,6 +564,7 @@
             "roles": "Roles",
             "access-control": "Access Control",
             "visits": "Visits",
+            "visitors": "Visitors",
             "settings": "Settings",
             "audit": "Audit",
             "devices": "Devices",
@@ -593,6 +606,13 @@
                     "send": "Send Check-In Code",
                     "regenerate": "Regenerate Check-In Code"
                 }
+            },
+            "visitors": {
+                "create": "Create Visitors",
+                "read": "View Visitors",
+                "update": "Update Visitors",
+                "delete": "Delete Visitors",
+                "export": "Export Visitors"
             },
             "settings": {
                 "read": "View Settings",
@@ -676,6 +696,13 @@
                     "send": "Send or resend check-in code to visitor",
                     "regenerate": "Regenerate check-in code for visitor"
                 }
+            },
+            "visitors": {
+                "create": "Create visitor records in the shared directory",
+                "read": "View the visitor directory and visitor details",
+                "update": "Update existing visitor records",
+                "delete": "Delete visitor records",
+                "export": "Export visitor directory data"
             },
             "settings": {
                 "read": "View system settings",
@@ -1113,6 +1140,24 @@
         "EDIT": "Edit Building",
         "SELECT_BUILDING": "Select building",
         "SELECT_ACCESS_LEVELS": "Select access levels"
+    },
+    "PERMANENT_ESCORTS": {
+        "TITLE": "Permanent Escorts Management",
+        "DESCRIPTION": "Add or remove permanent escorts from existing system users.",
+        "ADD": "Add Permanent Escort",
+        "DOMAIN": "Domain / Area / Department",
+        "USER": "User",
+        "FULL_NAME": "Full Name",
+        "USERNAME": "Username",
+        "EMAIL": "Email",
+        "SELECT_DOMAIN": "Select domain",
+        "SELECT_USER": "Select user",
+        "SELECT_DOMAIN_FIRST": "Select a domain first",
+        "VALIDATION_DOMAIN_REQUIRED": "Select a domain before adding a permanent escort.",
+        "VALIDATION_USER_REQUIRED": "Select a user before adding a permanent escort.",
+        "ADDED_SUCCESS": "Permanent escort added successfully",
+        "REMOVED_SUCCESS": "Permanent escort removed successfully",
+        "CONFIRM_REMOVE": "Remove {{name}} from permanent escorts?"
     },
     "AD_GROUP_ROLE_MAPPINGS": {
         "TITLE": "AD Group-Role Mapping",

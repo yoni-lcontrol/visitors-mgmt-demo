@@ -8,6 +8,7 @@ export interface User {
     idNumber: string | null;
     isActive: boolean;
     lastLoginAt: string | null;
+    sector?: { id: string; name: string } | null;
     role: Role | null;
     roles?: Role[];
     createdAt: string;
@@ -101,7 +102,11 @@ export interface Visitor {
     personId: string;
     carNumber: string | null;
     vehicleType: string | null;
+    hostName?: string | null;
+    buildingName?: string | null;
+    floor?: number | null;
     createdAt: string;
+    updatedAt: string;
 }
 
 export interface Setting {
@@ -275,6 +280,7 @@ export interface VisitEscort {
     lastName: string;
     phone: string;
     email: string;
+    sector: string | null;
     createdAt: string;
 }
 
@@ -316,6 +322,7 @@ export interface InlineEscort {
     lastName: string;
     phone: string;
     email: string;
+    sector: string;
 }
 
 // ── Audit Logs ──

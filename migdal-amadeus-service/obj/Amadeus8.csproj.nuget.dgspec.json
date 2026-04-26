@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "c:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\Amadeus8.csproj": {}
+    "C:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\Amadeus8.csproj": {}
   },
   "projects": {
-    "c:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\Amadeus8.csproj": {
+    "C:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\Amadeus8.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "c:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\Amadeus8.csproj",
+        "projectUniqueName": "C:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\Amadeus8.csproj",
         "projectName": "Amadeus8",
-        "projectPath": "c:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\Amadeus8.csproj",
+        "projectPath": "C:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\Amadeus8.csproj",
         "packagesPath": "C:\\Users\\sarit.b\\.nuget\\packages\\",
-        "outputPath": "c:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\obj\\",
+        "outputPath": "C:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

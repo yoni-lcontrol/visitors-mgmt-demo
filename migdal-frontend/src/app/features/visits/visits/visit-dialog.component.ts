@@ -13,7 +13,8 @@ import { NotificationService } from '@core/notifications/notification.service';
 import { ExcelImportService } from '@core/services/excel-import.service';
 import { BlacklistCheckService } from '@core/services/blacklist-check.service';
 import { VisitorSearchService, VisitorSuggestion } from '@core/services/visitor-search.service';
-import { AdSearchService, AdPersonSuggestion } from '@core/services/ad-search.service';
+import { SystemUserSearchService, SystemUserSuggestion } from '@core/services/system-user-search.service';
+import { SectorsLookupService, SectorLookupItem } from '@core/services/sectors-lookup.service';
 import { Subject, Subscription, EMPTY } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError, finalize } from 'rxjs/operators';
 import { Visit, InlineVisitor, InlineEscort } from '@core/models/entities.model';
@@ -163,9 +164,10 @@ import { AuthService } from '@core/auth/auth.service';
                     @for (p of adRequesterSuggestions; track $index) {
                       <div class="suggestion-item" (mousedown)="$event.preventDefault()" (click)="selectRequesterSuggestion(p)">
                         <div class="suggestion-main">
-                          <span class="suggestion-name">{{ p.displayName || (p.firstName + ' ' + p.lastName) }}</span>
+                              <span class="suggestion-name">{{ p.firstName }} {{ p.lastName }}</span>
                         </div>
                         <div class="suggestion-secondary">
+                          @if (p.sectorName) { <span>{{ p.sectorName }}</span> }
                           @if (p.email) { <span>{{ p.email }}</span> }
                           @if (p.phone) { <span>{{ p.phone }}</span> }
                         </div>
@@ -202,9 +204,10 @@ import { AuthService } from '@core/auth/auth.service';
                   @for (p of adRequesterSuggestions; track $index) {
                     <div class="suggestion-item" (mousedown)="$event.preventDefault()" (click)="selectRequesterSuggestion(p)">
                       <div class="suggestion-main">
-                        <span class="suggestion-name">{{ p.displayName || (p.firstName + ' ' + p.lastName) }}</span>
+                        <span class="suggestion-name">{{ p.firstName }} {{ p.lastName }}</span>
                       </div>
                       <div class="suggestion-secondary">
+                        @if (p.sectorName) { <span>{{ p.sectorName }}</span> }
                         @if (p.email) { <span>{{ p.email }}</span> }
                         @if (p.phone) { <span>{{ p.phone }}</span> }
                       </div>
@@ -545,9 +548,10 @@ import { AuthService } from '@core/auth/auth.service';
                     @for (p of adRequesterSuggestions; track $index) {
                       <div class="suggestion-item" (mousedown)="$event.preventDefault()" (click)="selectRequesterSuggestion(p)">
                         <div class="suggestion-main">
-                          <span class="suggestion-name">{{ p.displayName || (p.firstName + ' ' + p.lastName) }}</span>
+                          <span class="suggestion-name">{{ p.firstName }} {{ p.lastName }}</span>
                         </div>
                         <div class="suggestion-secondary">
+                          @if (p.sectorName) { <span>{{ p.sectorName }}</span> }
                           @if (p.email) { <span>{{ p.email }}</span> }
                           @if (p.phone) { <span>{{ p.phone }}</span> }
                         </div>
@@ -584,9 +588,10 @@ import { AuthService } from '@core/auth/auth.service';
                     @for (p of adRequesterSuggestions; track $index) {
                       <div class="suggestion-item" (mousedown)="$event.preventDefault()" (click)="selectRequesterSuggestion(p)">
                         <div class="suggestion-main">
-                          <span class="suggestion-name">{{ p.displayName || (p.firstName + ' ' + p.lastName) }}</span>
+                          <span class="suggestion-name">{{ p.firstName }} {{ p.lastName }}</span>
                         </div>
                         <div class="suggestion-secondary">
+                          @if (p.sectorName) { <span>{{ p.sectorName }}</span> }
                           @if (p.email) { <span>{{ p.email }}</span> }
                           @if (p.phone) { <span>{{ p.phone }}</span> }
                         </div>
@@ -658,11 +663,10 @@ import { AuthService } from '@core/auth/auth.service';
                         @for (p of adEscortSuggestions.get($index); track $index) {
                           <div class="suggestion-item" (mousedown)="$event.preventDefault()" (click)="selectEscortSuggestion($index, p)">
                             <div class="suggestion-main">
-                              <span class="suggestion-name">{{ p.displayName || (p.firstName + ' ' + p.lastName) }}</span>
+                              <span class="suggestion-name">{{ p.firstName }} {{ p.lastName }}</span>
                             </div>
                             <div class="suggestion-secondary">
-                              @if (p.email) { <span>{{ p.email }}</span> }
-                              @if (p.phone) { <span>{{ p.phone }}</span> }
+                              @if (p.sectorName) { <span>{{ p.sectorName }}</span> }
                             </div>
                           </div>
                         }
@@ -697,11 +701,10 @@ import { AuthService } from '@core/auth/auth.service';
                         @for (p of adEscortSuggestions.get($index); track $index) {
                           <div class="suggestion-item" (mousedown)="$event.preventDefault()" (click)="selectEscortSuggestion($index, p)">
                             <div class="suggestion-main">
-                              <span class="suggestion-name">{{ p.displayName || (p.firstName + ' ' + p.lastName) }}</span>
+                              <span class="suggestion-name">{{ p.firstName }} {{ p.lastName }}</span>
                             </div>
                             <div class="suggestion-secondary">
-                              @if (p.email) { <span>{{ p.email }}</span> }
-                              @if (p.phone) { <span>{{ p.phone }}</span> }
+                              @if (p.sectorName) { <span>{{ p.sectorName }}</span> }
                             </div>
                           </div>
                         }
@@ -736,6 +739,20 @@ import { AuthService } from '@core/auth/auth.service';
                     } @else if (eEmail.hasError('pattern') && eEmail.touched) {
                       <small class="field-error">{{ 'VALIDATION.EMAIL' | translate }}</small>
                     }
+                  </div>
+                </div>
+                <div class="form-row">
+                  <div class="field">
+                    <label><i class="pi pi-sitemap"></i> {{ 'VISITS.SECTOR' | translate }}</label>
+                    <p-dropdown
+                      [(ngModel)]="e.sector"
+                      [options]="escortSectorOptions"
+                      optionLabel="name"
+                      optionValue="name"
+                      [placeholder]="'VISITS.SECTOR' | translate"
+                      appendTo="body"
+                      [style]="{'width':'100%'}"
+                    ></p-dropdown>
                   </div>
                 </div>
               </div>
@@ -936,7 +953,8 @@ export class VisitDialogComponent implements OnDestroy {
   private translate = inject(TranslateService);
   private blacklistCheck = inject(BlacklistCheckService);
   private visitorSearch = inject(VisitorSearchService);
-  private adSearch = inject(AdSearchService);
+  private systemUserSearch = inject(SystemUserSearchService);
+  private sectorsLookup = inject(SectorsLookupService);
   private permissionService = inject(PermissionService);
   private authService = inject(AuthService);
 
@@ -965,6 +983,7 @@ export class VisitDialogComponent implements OnDestroy {
   emailPattern = EMAIL_PATTERN.source;
   saving = false;
   vehicleTypeOptions: { label: string; value: string }[] = [];
+  escortSectorOptions: SectorLookupItem[] = [];
 
   private buildVehicleTypeOptions(): void {
     this.vehicleTypeOptions = buildVehicleTypeOptions(this.translate);
@@ -1015,7 +1034,7 @@ export class VisitDialogComponent implements OnDestroy {
   private searchSubs: Subscription[] = [];
 
   // AD person search state — visit requester
-  adRequesterSuggestions: AdPersonSuggestion[] = [];
+  adRequesterSuggestions: SystemUserSuggestion[] = [];
   adRequesterLoading = false;
   adRequesterVisible = false;
   adRequesterNoResults = false;
@@ -1025,7 +1044,7 @@ export class VisitDialogComponent implements OnDestroy {
   private adRequesterSub?: Subscription;
 
   // AD person search state — escorts (keyed by escort index)
-  adEscortSuggestions = new Map<number, AdPersonSuggestion[]>();
+  adEscortSuggestions = new Map<number, SystemUserSuggestion[]>();
   adEscortLoading = new Map<number, boolean>();
   adEscortVisible = new Map<number, boolean>();
   adEscortNoResults = new Map<number, boolean>();
@@ -1036,6 +1055,7 @@ export class VisitDialogComponent implements OnDestroy {
 
   open(visit?: Visit): void {
     this.buildVehicleTypeOptions();
+    this.loadEscortSectorOptions();
     this.resetDialogState();
     this.canRequestParking = this.permissionService.hasPermission('parking.request');
     this.requesterLockedToOnBehalf = this.permissionService.hasAnyRole(VisitDialogComponent.ON_BEHALF_ONLY_ROLES);
@@ -1277,7 +1297,7 @@ export class VisitDialogComponent implements OnDestroy {
   }
 
   addInlineEscort(): void {
-    this.inlineEscorts.push({ firstName: '', lastName: '', phone: '', email: '' });
+    this.inlineEscorts.push({ firstName: '', lastName: '', phone: '', email: '', sector: '' });
   }
 
   removeInlineEscort(index: number): void {
@@ -1349,6 +1369,7 @@ export class VisitDialogComponent implements OnDestroy {
           lastName: e.lastName,
           phone: e.phone,
           email: e.email,
+          sector: e.sector || undefined,
         })),
       };
       this.visitsApi.createVisit(body).subscribe({
@@ -1519,11 +1540,11 @@ export class VisitDialogComponent implements OnDestroy {
           if (q.length < 2) { this.adRequesterSuggestions = []; return EMPTY; }
           this.adRequesterLoading = true;
           this.adRequesterError = '';
-          return this.adSearch.searchPeople(q).pipe(
+          return this.systemUserSearch.searchUsers(q).pipe(
             catchError(err => {
               this.adRequesterSuggestions = [];
               this.adRequesterNoResults = false;
-              this.adRequesterError = this.getAdErrorKey(err);
+              this.adRequesterError = this.getRequesterSearchErrorKey(err);
               this.adRequesterVisible = true;
               return EMPTY;
             }),
@@ -1550,7 +1571,7 @@ export class VisitDialogComponent implements OnDestroy {
     setTimeout(() => this.adRequesterVisible = false, 200);
   }
 
-  selectRequesterSuggestion(person: AdPersonSuggestion): void {
+  selectRequesterSuggestion(person: SystemUserSuggestion): void {
     this.visitRequester.firstName = person.firstName;
     this.visitRequester.lastName = person.lastName;
     this.visitRequester.email = person.email ?? '';
@@ -1577,15 +1598,20 @@ export class VisitDialogComponent implements OnDestroy {
       const sub = subj.pipe(
         debounceTime(400),
         distinctUntilChanged(),
-        switchMap(q => {
-          if (q.length < 2) { this.adEscortSuggestions.delete(index); return EMPTY; }
+        switchMap((q) => {
+          if (q.length < 2) {
+            this.adEscortSuggestions.delete(index);
+            return EMPTY;
+          }
+
           this.adEscortLoading.set(index, true);
           this.adEscortError.delete(index);
-          return this.adSearch.searchPeople(q).pipe(
-            catchError(err => {
+
+          return this.systemUserSearch.searchUsers(q).pipe(
+            catchError(() => {
               this.adEscortSuggestions.delete(index);
               this.adEscortNoResults.delete(index);
-              this.adEscortError.set(index, this.getAdErrorKey(err));
+              this.adEscortError.set(index, 'AD_SEARCH.ERROR_SEARCH_FAILED');
               this.adEscortVisible.set(index, true);
               return EMPTY;
             }),
@@ -1618,13 +1644,14 @@ export class VisitDialogComponent implements OnDestroy {
     setTimeout(() => this.adEscortVisible.delete(index), 200);
   }
 
-  selectEscortSuggestion(index: number, person: AdPersonSuggestion): void {
+  selectEscortSuggestion(index: number, person: SystemUserSuggestion): void {
     const e = this.inlineEscorts[index];
     if (!e) return;
     e.firstName = person.firstName;
     e.lastName = person.lastName;
     e.email = person.email ?? '';
     e.phone = person.phone ?? '';
+    e.sector = person.sectorName ?? '';
     this.adEscortSuggestions.delete(index);
     this.adEscortVisible.delete(index);
     this.adEscortNoResults.delete(index);
@@ -1632,9 +1659,7 @@ export class VisitDialogComponent implements OnDestroy {
     this.adEscortActiveField.delete(index);
   }
 
-  private getAdErrorKey(err: any): string {
-    const code = err?.error?.code;
-    if (code === 'AD_NO_CONFIG') return 'AD_SEARCH.ERROR_NO_CONFIG';
+  private getRequesterSearchErrorKey(_err: any): string {
     return 'AD_SEARCH.ERROR_SEARCH_FAILED';
   }
 
@@ -1662,5 +1687,12 @@ export class VisitDialogComponent implements OnDestroy {
   ngOnDestroy(): void {
     this.clearBlacklistState();
     this.clearAdSearchState();
+  }
+
+  private loadEscortSectorOptions(): void {
+    this.sectorsLookup.getActiveSectors().subscribe({
+      next: (items) => { this.escortSectorOptions = items; },
+      error: () => { this.escortSectorOptions = []; },
+    });
   }
 }

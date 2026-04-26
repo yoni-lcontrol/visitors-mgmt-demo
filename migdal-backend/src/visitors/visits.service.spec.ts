@@ -17,6 +17,7 @@ import { EmailNotificationService } from '../settings/email-notification.service
 import { AuditService } from '../audit/audit.service';
 import { VisitParticipantService } from './visit-participant.service';
 import { VisitCheckInCodeService } from './visit-check-in-code.service';
+import { VisitorPersistenceService } from './visitor-persistence.service';
 import {
     createMockRepository,
     createMockQueryBuilder,
@@ -37,6 +38,7 @@ describe('VisitsService', () => {
     let mockWs: ReturnType<typeof createMockWsGateway>;
     let mockAuditService: ReturnType<typeof createMockAuditService>;
     let mockParticipantService: { validateVisitorsNotBlacklisted: jest.Mock };
+    let mockVisitorPersistence: { upsertByPersonId: jest.Mock };
 
     beforeEach(async () => {
         mockVisitRepo = createMockRepository();
@@ -49,6 +51,12 @@ describe('VisitsService', () => {
         mockWs = createMockWsGateway();
         mockAuditService = createMockAuditService();
         mockParticipantService = { validateVisitorsNotBlacklisted: jest.fn() };
+        mockVisitorPersistence = {
+            upsertByPersonId: jest.fn().mockResolvedValue({
+                action: 'created',
+                visitor: { id: 'visitor-1' },
+            }),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -64,6 +72,7 @@ describe('VisitsService', () => {
                 { provide: SmsNotificationService, useValue: { triggerSms: jest.fn().mockResolvedValue(undefined) } },
                 { provide: EmailNotificationService, useValue: { triggerEmail: jest.fn().mockResolvedValue(undefined) } },
                 { provide: AuditService, useValue: mockAuditService },
+                { provide: VisitorPersistenceService, useValue: mockVisitorPersistence },
                 { provide: VisitParticipantService, useValue: mockParticipantService },
                 { provide: VisitCheckInCodeService, useValue: { generateCodesForVisit: jest.fn().mockResolvedValue([]), sendCodeNotifications: jest.fn().mockResolvedValue({}) } },
             ],
@@ -429,6 +438,8 @@ describe('VisitsService', () => {
                 id: 'user-1',
                 firstName: 'Current',
                 lastName: 'User',
+                phone: '+972501112233',
+                email: 'current.user@example.com',
                 sectorId: 'sector-1',
                 sector: { id: 'sector-1', name: 'Operations' },
             });
@@ -511,6 +522,81 @@ describe('VisitsService', () => {
             );
         });
 
+        it('should auto-assign current user as escort when no escort was selected', async () => {
+            const dtoWithoutRequesterAndEscort = {
+                ...validDto,
+                visitRequester: undefined,
+                escorts: [],
+            };
+
+            await service.createVisit(dtoWithoutRequesterAndEscort as any, 'user-1');
+
+            expect(mockDs._qrManager.create).toHaveBeenCalledWith(
+                VisitEscort,
+                expect.objectContaining({
+                    firstName: 'Current',
+                    lastName: 'User',
+                    phone: '+972501112233',
+                    email: 'current.user@example.com',
+                    sector: 'Operations',
+                }),
+            );
+        });
+
+        it('should auto-assign visit requester as escort when no escort was selected on behalf flow', async () => {
+            const dtoWithoutEscort = {
+                ...validDto,
+                escorts: [],
+            };
+
+            await service.createVisit(dtoWithoutEscort as any, 'user-1');
+
+            expect(mockDs._qrManager.create).toHaveBeenCalledWith(
+                VisitEscort,
+                expect.objectContaining({
+                    firstName: 'John',
+                    lastName: 'Doe',
+                    phone: '123',
+                    email: 'j@d.com',
+                }),
+            );
+        });
+
+        it('should not override explicitly provided escorts on create', async () => {
+            await service.createVisit(validDto as any, 'user-1');
+
+            expect(mockDs._qrManager.create).toHaveBeenCalledWith(
+                VisitEscort,
+                expect.objectContaining({
+                    firstName: 'Bob',
+                    lastName: 'Guard',
+                    phone: '555',
+                    email: 'b@g.com',
+                }),
+            );
+        });
+
+        it('should validate auto-assigned current user escort contact fields', async () => {
+            mockUserRepo.findOne.mockResolvedValue({
+                id: 'user-1',
+                firstName: 'Current',
+                lastName: 'User',
+                phone: null,
+                email: null,
+                sectorId: 'sector-1',
+                sector: { id: 'sector-1', name: 'Operations' },
+            });
+
+            const dtoWithoutRequesterAndEscort = {
+                ...validDto,
+                visitRequester: undefined,
+                escorts: [],
+            };
+
+            await expect(service.createVisit(dtoWithoutRequesterAndEscort as any, 'user-1'))
+                .rejects.toThrow(new BadRequestException('Cannot auto-assign escort from current user: firstName, lastName, phone and email are required'));
+        });
+
         it('should throw if visitRequester not provided and no currentUserId', async () => {
             const dtoWithoutRequester = { ...validDto, visitRequester: undefined };
             await expect(service.createVisit(dtoWithoutRequester as any))
@@ -579,9 +665,10 @@ describe('VisitsService', () => {
 
             await service.createVisit(dtoWithVehicle as any, 'user-1');
 
-            expect(mockDs._qrManager.create).toHaveBeenCalledWith(
-                Visitor,
+            expect(mockVisitorPersistence.upsertByPersonId).toHaveBeenCalledWith(
                 expect.objectContaining({ carNumber: 'ABC123', vehicleType: 'private' }),
+                'user-1',
+                mockDs._qrManager,
             );
         });
 
@@ -596,15 +683,20 @@ describe('VisitsService', () => {
 
             await service.createVisit(dtoNoVehicle as any, 'user-1');
 
-            expect(mockDs._qrManager.create).toHaveBeenCalledWith(
-                Visitor,
+            expect(mockVisitorPersistence.upsertByPersonId).toHaveBeenCalledWith(
                 expect.objectContaining({ carNumber: null, vehicleType: null }),
+                'user-1',
+                mockDs._qrManager,
             );
         });
 
     });
 
     describe('updateVisit', () => {
+        beforeEach(() => {
+            mockEscortRepo.count.mockResolvedValue(1);
+        });
+
         it('should update visit fields', async () => {
             const existing = {
                 id: 'v1', title: 'Old', plannedStartTimeUtc: new Date('2025-01-15T09:00:00Z'),
@@ -669,6 +761,136 @@ describe('VisitsService', () => {
                 visitRequesterPhone: null,
                 visitRequesterEmail: null,
             }));
+        });
+
+        it('should auto-assign requester user as escort on update when no escort exists', async () => {
+            const existing = {
+                id: 'v1',
+                title: 'Visit',
+                isActive: true,
+                plannedStartTimeUtc: new Date('2025-01-15T09:00:00Z'),
+                plannedEndTimeUtc: new Date('2025-01-15T17:00:00Z'),
+                visitRequesterUserId: 'requester-1',
+                visitRequesterUser: null,
+                visitRequesterFirstName: null,
+                visitRequesterLastName: null,
+                visitRequesterPhone: null,
+                visitRequesterEmail: null,
+            };
+            mockVisitRepo.findOne.mockResolvedValue(existing);
+            mockVisitRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+            mockEscortRepo.count.mockResolvedValue(0);
+            mockUserRepo.findOne.mockResolvedValue({
+                id: 'requester-1',
+                firstName: 'Req',
+                lastName: 'User',
+                phone: '+972500000001',
+                email: 'req.user@example.com',
+                sector: { id: 'sector-1', name: 'Operations' },
+            });
+            const statusQb = createMockQueryBuilder([]);
+            mockStatusRepo.createQueryBuilder.mockReturnValue(statusQb);
+
+            await service.updateVisit('v1', { title: 'Updated' } as any, 'editor-1');
+
+            expect(mockEscortRepo.create).toHaveBeenCalledWith(expect.objectContaining({
+                visitId: 'v1',
+                firstName: 'Req',
+                lastName: 'User',
+                phone: '+972500000001',
+                email: 'req.user@example.com',
+                sector: 'Operations',
+            }));
+            expect(mockEscortRepo.save).toHaveBeenCalled();
+        });
+
+        it('should auto-assign current user as escort on update when switching requester to self and no escort exists', async () => {
+            const existing = {
+                id: 'v1',
+                title: 'Visit',
+                isActive: true,
+                plannedStartTimeUtc: new Date('2025-01-15T09:00:00Z'),
+                plannedEndTimeUtc: new Date('2025-01-15T17:00:00Z'),
+                visitRequesterUserId: null,
+                visitRequesterUser: null,
+                visitRequesterFirstName: 'Manual',
+                visitRequesterLastName: 'Requester',
+                visitRequesterPhone: '+972500000002',
+                visitRequesterEmail: 'manual@example.com',
+            };
+            mockVisitRepo.findOne.mockResolvedValue(existing);
+            mockVisitRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+            mockEscortRepo.count.mockResolvedValue(0);
+            mockUserRepo.findOne.mockResolvedValue({
+                id: 'user-1',
+                firstName: 'Current',
+                lastName: 'User',
+                phone: '+972500000003',
+                email: 'current.user@example.com',
+                sector: { id: 'sector-2', name: 'Security' },
+            });
+            const statusQb = createMockQueryBuilder([]);
+            mockStatusRepo.createQueryBuilder.mockReturnValue(statusQb);
+
+            await service.updateVisit('v1', { visitRequester: null } as any, 'user-1');
+
+            expect(mockEscortRepo.create).toHaveBeenCalledWith(expect.objectContaining({
+                visitId: 'v1',
+                firstName: 'Current',
+                lastName: 'User',
+                phone: '+972500000003',
+                email: 'current.user@example.com',
+                sector: 'Security',
+            }));
+            expect(mockEscortRepo.save).toHaveBeenCalled();
+        });
+
+        it('should not override existing escort on update', async () => {
+            const existing = {
+                id: 'v1',
+                title: 'Visit',
+                isActive: true,
+                plannedStartTimeUtc: new Date('2025-01-15T09:00:00Z'),
+                plannedEndTimeUtc: new Date('2025-01-15T17:00:00Z'),
+                visitRequesterUserId: null,
+                visitRequesterUser: null,
+                visitRequesterFirstName: 'Manual',
+                visitRequesterLastName: 'Requester',
+                visitRequesterPhone: '+972500000002',
+                visitRequesterEmail: 'manual@example.com',
+            };
+            mockVisitRepo.findOne.mockResolvedValue(existing);
+            mockVisitRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+            mockEscortRepo.count.mockResolvedValue(2);
+            const statusQb = createMockQueryBuilder([]);
+            mockStatusRepo.createQueryBuilder.mockReturnValue(statusQb);
+
+            await service.updateVisit('v1', { title: 'Updated' } as any, 'user-1');
+
+            expect(mockEscortRepo.create).not.toHaveBeenCalled();
+            expect(mockEscortRepo.save).not.toHaveBeenCalled();
+        });
+
+        it('should validate auto-assigned escort data on update when no escort exists', async () => {
+            const existing = {
+                id: 'v1',
+                title: 'Visit',
+                isActive: true,
+                plannedStartTimeUtc: new Date('2025-01-15T09:00:00Z'),
+                plannedEndTimeUtc: new Date('2025-01-15T17:00:00Z'),
+                visitRequesterUserId: null,
+                visitRequesterUser: null,
+                visitRequesterFirstName: null,
+                visitRequesterLastName: null,
+                visitRequesterPhone: null,
+                visitRequesterEmail: null,
+            };
+            mockVisitRepo.findOne.mockResolvedValue(existing);
+            mockVisitRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+            mockEscortRepo.count.mockResolvedValue(0);
+
+            await expect(service.updateVisit('v1', { title: 'Updated' } as any, 'user-1'))
+                .rejects.toThrow(new BadRequestException('Cannot auto-assign escort from visit requester: firstName, lastName, phone and email are required'));
         });
     });
 

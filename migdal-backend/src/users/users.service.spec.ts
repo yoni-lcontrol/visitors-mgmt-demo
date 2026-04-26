@@ -49,6 +49,8 @@ describe('UsersService', () => {
             expect(result.total).toBe(1);
             expect(result.page).toBe(1);
             expect((result.items[0] as any).passwordHash).toBeUndefined();
+            expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('user.role', 'role');
+            expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('user.sector', 'sector');
         });
     });
 

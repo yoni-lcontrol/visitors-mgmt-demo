@@ -71,4 +71,13 @@ export const SETTINGS_ROUTES: Routes = [
                 (m) => m.BuildingListComponent,
             ),
     },
+    {
+        path: 'permanent-escorts',
+        canActivate: [permissionGuard],
+        data: { permission: 'settings.permanent-escorts.read' },
+        loadComponent: () =>
+            import('./permanent-escorts/permanent-escorts-management.component').then(
+                (m) => m.PermanentEscortsManagementComponent,
+            ),
+    },
 ];

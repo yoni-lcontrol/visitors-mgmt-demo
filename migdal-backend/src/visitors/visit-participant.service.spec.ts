@@ -13,6 +13,7 @@ import { VisitorStatus } from './enums/visitor-status.enum';
 import { BlacklistService } from './blacklist.service';
 import { VisitCheckInCodeService } from './visit-check-in-code.service';
 import { AuditService } from '../audit/audit.service';
+import { VisitorPersistenceService } from './visitor-persistence.service';
 import {
     createMockRepository,
     createMockQueryBuilder,
@@ -32,6 +33,7 @@ describe('VisitParticipantService', () => {
     let mockDs: ReturnType<typeof createMockDataSource>;
     let mockBl: ReturnType<typeof createMockBlacklistService>;
     let mockAuditService: ReturnType<typeof createMockAuditService>;
+    let mockVisitorPersistence: { upsertByPersonId: jest.Mock; normalizePersonId: jest.Mock; findByPersonId: jest.Mock };
 
     beforeEach(async () => {
         mockVisitRepo = createMockRepository();
@@ -43,6 +45,11 @@ describe('VisitParticipantService', () => {
         mockDs = createMockDataSource();
         mockBl = createMockBlacklistService();
         mockAuditService = createMockAuditService();
+        mockVisitorPersistence = {
+            upsertByPersonId: jest.fn(),
+            normalizePersonId: jest.fn((personId: string) => personId.trim()),
+            findByPersonId: jest.fn(),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -57,6 +64,7 @@ describe('VisitParticipantService', () => {
                 { provide: BlacklistService, useValue: mockBl },
                 { provide: VisitCheckInCodeService, useValue: { generateCodesForVisit: jest.fn().mockResolvedValue([]), sendCodeNotifications: jest.fn().mockResolvedValue({}) } },
                 { provide: AuditService, useValue: mockAuditService },
+                { provide: VisitorPersistenceService, useValue: mockVisitorPersistence },
             ],
         }).compile();
 
@@ -107,6 +115,7 @@ describe('VisitParticipantService', () => {
 
     describe('updateVisitVisitor', () => {
         it('should update visitor and visit-visitor fields', async () => {
+            mockVisitorPersistence.findByPersonId.mockResolvedValue(null);
             mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true });
             mockVisitorRepo.findOne.mockResolvedValue({ id: 'vis1', firstName: 'Jane', lastName: 'Smith', isActive: true });
             mockVisitorRepo.save.mockImplementation((e: any) => Promise.resolve(e));
@@ -136,6 +145,7 @@ describe('VisitParticipantService', () => {
         });
 
         it('should clear carNumber and vehicleType when hasVehicle is false', async () => {
+            mockVisitorPersistence.findByPersonId.mockResolvedValue(null);
             mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true });
             mockVisitorRepo.findOne.mockResolvedValue({ id: 'vis1', firstName: 'Jane', lastName: 'Smith', isActive: true, carNumber: 'ABC', vehicleType: 'private' });
             mockVisitorRepo.save.mockImplementation((e: any) => Promise.resolve(e));
@@ -149,6 +159,7 @@ describe('VisitParticipantService', () => {
         });
 
         it('should set vehicleType when provided', async () => {
+            mockVisitorPersistence.findByPersonId.mockResolvedValue(null);
             mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true });
             mockVisitorRepo.findOne.mockResolvedValue({ id: 'vis1', firstName: 'Jane', lastName: 'Smith', isActive: true, carNumber: null, vehicleType: null });
             mockVisitorRepo.save.mockImplementation((e: any) => Promise.resolve(e));
@@ -159,6 +170,37 @@ describe('VisitParticipantService', () => {
             await service.updateVisitVisitor('v1', 'vv1', { vehicleType: 'truck' } as any, 'user-1');
 
             expect(mockVisitorRepo.save).toHaveBeenCalledWith(expect.objectContaining({ vehicleType: 'truck' }));
+        });
+
+        it('should throw when updated personId belongs to another visitor', async () => {
+            mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true });
+            mockVisitorRepo.findOne.mockResolvedValue({ id: 'vis1', firstName: 'Jane', lastName: 'Smith', personId: '123', isActive: true });
+            mockVisitorPersistence.findByPersonId.mockResolvedValue({ id: 'vis2', personId: '999' });
+
+            await expect(service.updateVisitVisitor('v1', 'vv1', { personId: '999' } as any, 'user-1'))
+                .rejects.toThrow('Visitor personId already exists');
+        });
+    });
+
+    describe('addVisitVisitors', () => {
+        it('should upsert visitors by personId before linking them to the visit', async () => {
+            mockVisitRepo.findOne.mockResolvedValue({ id: 'v1', isActive: true });
+            mockVisitorPersistence.upsertByPersonId.mockResolvedValue({
+                action: 'updated',
+                visitor: { id: 'visitor-1' },
+            });
+            mockDs._qrManager.save
+                .mockResolvedValueOnce({ id: 'vv-1' })
+                .mockResolvedValueOnce({ visitVisitorId: 'vv-1' });
+            jest.spyOn(service, 'getVisitVisitors').mockResolvedValue([]);
+
+            await service.addVisitVisitors('v1', {
+                visitors: [{ firstName: 'Jane', lastName: 'Smith', phone: '0501234567', personId: '123456789' }],
+            } as any, 'user-1');
+
+            expect(mockVisitorPersistence.upsertByPersonId).toHaveBeenCalledWith(expect.objectContaining({
+                personId: '123456789',
+            }), 'user-1', mockDs._qrManager);
         });
     });
 
@@ -210,11 +252,40 @@ describe('VisitParticipantService', () => {
             mockEscortRepo.find.mockResolvedValue([]);
 
             await service.addVisitEscorts('v1', {
-                escorts: [{ firstName: 'Bob', lastName: 'Guard', phone: '555', email: 'b@g.com' }],
+                escorts: [{ firstName: 'Bob', lastName: 'Guard', phone: '555', email: 'b@g.com', sector: 'Security' }],
             } as any, 'user-1');
 
-            expect(mockEscortRepo.create).toHaveBeenCalled();
+            expect(mockEscortRepo.create).toHaveBeenCalledWith(expect.objectContaining({
+                visitId: 'v1',
+                firstName: 'Bob',
+                lastName: 'Guard',
+                phone: '555',
+                email: 'b@g.com',
+                sector: 'Security',
+            }));
             expect(mockEscortRepo.save).toHaveBeenCalled();
+        });
+    });
+
+    describe('updateVisitEscort', () => {
+        it('should update escort sector when provided', async () => {
+            mockEscortRepo.findOne.mockResolvedValue({
+                id: 'e1',
+                visitId: 'v1',
+                firstName: 'Bob',
+                lastName: 'Guard',
+                phone: '555',
+                email: 'b@g.com',
+                sector: null,
+                isActive: true,
+            });
+            mockEscortRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+            mockVisitRepo.findOne.mockResolvedValue({ id: 'v1', isActive: true });
+            mockEscortRepo.find.mockResolvedValue([]);
+
+            await service.updateVisitEscort('v1', 'e1', { sector: 'Security' } as any, 'user-1');
+
+            expect(mockEscortRepo.save).toHaveBeenCalledWith(expect.objectContaining({ sector: 'Security' }));
         });
     });
 

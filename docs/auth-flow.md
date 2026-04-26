@@ -238,8 +238,8 @@ The application supports authentication via Microsoft Entra ID (Azure AD) in add
 
 ### Architecture
 
-- **Frontend**: Uses MSAL.js (`@azure/msal-browser`) with Authorization Code Flow + PKCE
-- **Backend**: Validates Microsoft-issued ID tokens via JWKS, resolves/provisions local users, issues app JWTs
+- **Frontend**: Uses MSAL Angular (`@azure/msal-angular`) + MSAL Browser with Authorization Code Flow + PKCE
+- **Backend**: Validates Microsoft-issued access tokens via JWKS, resolves internal users, then issues app JWTs
 - **Protocol**: OpenID Connect (OIDC)
 
 ### Entra Login Flow
@@ -258,28 +258,28 @@ The application supports authentication via Microsoft Entra ID (Azure AD) in add
      │  with Microsoft         │                        │                   │
      │                         │                        │                   │
      │ <────────────────────────                        │                   │
-     │ ID token + auth result  │                        │                   │
+    │ Access token + auth result                      │                   │
      │                         │                        │                   │
      │ POST /api/auth/entra-login                       │                   │
-     │ { idToken }             │                        │                   │
+    │ { accessToken }         │                        │                   │
      │ ─────────────────────────────────────────────────>                   │
      │                         │                        │                   │
      │                         │  Fetch JWKS keys       │                   │
      │                         │ <──────────────────────                    │
      │                         │ ──────────────────────>                    │
      │                         │                        │                   │
-     │                         │  Verify signature,     │                   │
-     │                         │  issuer, audience,     │                   │
-     │                         │  expiry                │                   │
+    │                         │  Verify signature,     │                   │
+    │                         │  issuer, audience,     │                   │
+    │                         │  tenant, expiry        │                   │
      │                         │                        │                   │
-     │                         │                        │ Find user by      │
-     │                         │                        │ externalAuthId    │
+    │                         │                        │ Find user by      │
+    │                         │                        │ externalAuthId+tid│
      │                         │                        │ ──────────────────>
      │                         │                        │ <──────────────────
      │                         │                        │                   │
-     │                         │                        │ (or by email,     │
-     │                         │                        │  or auto-provision│
-     │                         │                        │  if enabled)      │
+    │                         │                        │ (or by email,     │
+    │                         │                        │  then link account│
+    │                         │                        │  with tenant)     │
      │                         │                        │                   │
      │                         │                        │ Load roles +      │
      │                         │                        │ permissions       │
@@ -303,9 +303,59 @@ The application supports authentication via Microsoft Entra ID (Azure AD) in add
 
 When a user authenticates via Entra ID, the backend resolves the local user in this order:
 
-1. **By `externalAuthId`**: Matches the Entra `oid` claim (unique per user per tenant). Used for returning users.
-2. **By email/UPN**: If no `externalAuthId` match, falls back to matching by email or UPN. On first match, links the external identity to the local user.
-3. **Auto-provision** (optional): If `ENTRA_AUTO_PROVISION=true` and no local user is found, creates a new user with the configured default role.
+1. **By external identity (`externalAuthId` + `externalTenantId`)**: Matches Entra `oid` + `tid`.
+2. **By email/UPN fallback**: If no external identity match exists, resolves by email/UPN and links provider + tenant to the local user.
+3. **Unknown-user policy (`ENTRA_UNKNOWN_USER_MODE`)**:
+  - `deny`: reject login.
+  - `pending`: create/update a disabled pending user record and reject login.
+  - `autoProvision`: create a local user with a configured default role.
+
+### AD Group to Role Mapping (for AD import)
+
+The system maintains a dedicated table `AdGroupRoleMappings` to map AD groups to local roles.
+
+Each mapping can include:
+
+- `adSourceId` (optional): scopes the mapping to a specific AD configuration/source.
+- `groupExternalId` (optional): stable external group identifier (e.g., objectSid/tokenGroups-derived ID).
+- `groupName`: human-readable group name fallback.
+- `roleId`: local role target.
+
+Implemented AD import behavior:
+
+1. Resolve target AD groups for each active AD configuration from:
+  - `AdConfigurations.targetGroupsJson` (highest priority)
+  - `AD_SYNC_TARGET_GROUPS` environment variable (JSON array or CSV)
+  - `AdGroupRoleMappings.groupName` as fallback
+2. If target groups are configured, query AD users only from those groups.
+3. If no target groups are configured from any source, preserve legacy behavior and query all AD users.
+4. Deduplicate users by AD external ID to handle users that belong to multiple groups.
+5. Read group memberships from each AD user entry:
+  - `tokenGroups` / external IDs when available
+  - `memberOf` / group names as fallback
+6. Resolve mappings with precedence per AD source:
+  - first by `groupExternalId`
+  - then by normalized `groupName`
+  - source-specific mappings are preferred; global mappings remain fallback.
+7. Resolve matching local roles.
+8. Assign the union of matched roles to the imported user.
+
+Error handling in group-scoped mode:
+
+- Missing groups are logged as warnings.
+- If all configured groups are missing, that AD configuration run fails with `AD_GROUP_NOT_FOUND` and the sync continues with other configurations.
+- LDAP connection/auth/timeouts are reported per configuration and do not stop the whole sync run.
+
+Missing attribute handling:
+
+- Entries missing key identity attributes (`sAMAccountName`) are skipped.
+- Optional attributes (`mail`, `phone`, `idNumber`, etc.) are treated as nullable and do not fail the sync.
+
+Why this structure is correct:
+
+- Keeps AD naming concerns outside the `Users` table.
+- Supports many-to-many behavior naturally (one role mapped from many AD groups; one user with many AD groups).
+- Allows future extensions (priority, environment/site scoping, sync metadata) without changing core user-role schema.
 
 ### User Entity Fields
 
@@ -313,6 +363,8 @@ When a user authenticates via Entra ID, the backend resolves the local user in t
 |---|---|---|
 | `externalAuthProvider` | nvarchar(50) | Identity provider name (e.g., `entra`) |
 | `externalAuthId` | nvarchar(255) | External identity ID (Entra `oid` claim) |
+| `externalTenantId` | nvarchar(100) | Entra tenant ID (`tid`) |
+| `displayName` | nvarchar(200) | Last display name from Entra claims |
 | `lastExternalLoginAt` | datetime2 | Timestamp of last external login |
 
 ### Configuration
@@ -323,7 +375,12 @@ Environment variables (backend `.env`):
 |---|---|---|
 | `ENTRA_TENANT_ID` | Microsoft Entra tenant ID | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
 | `ENTRA_CLIENT_ID` | Application (client) ID registered in Entra | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
+| `ENTRA_AUTHORITY` | Entra authority base URL | `https://login.microsoftonline.com/<tenant-id>` |
 | `ENTRA_REDIRECT_URI` | Frontend redirect URI | `http://localhost:4200` |
+| `ENTRA_POST_LOGOUT_REDIRECT_URI` | Frontend post-logout redirect URI | `http://localhost:4200` |
+| `ENTRA_API_AUDIENCE` | Expected audience/App ID URI for backend access tokens | `api://xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
+| `APP_ID_URI` | Optional alias for API audience | `api://xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
+| `ENTRA_UNKNOWN_USER_MODE` | Unknown-user handling mode (`deny`/`pending`/`autoProvision`) | `deny` |
 | `ENTRA_AUTO_PROVISION` | Auto-create users on first Entra login | `false` |
 | `ENTRA_DEFAULT_ROLE` | Role assigned to auto-provisioned users | `Viewer` |
 
@@ -333,7 +390,10 @@ Frontend environment (`environment.ts`):
 entra: {
     clientId: '',      // Same as ENTRA_CLIENT_ID
     tenantId: '',      // Same as ENTRA_TENANT_ID
+  authority: '',     // Same as ENTRA_AUTHORITY
     redirectUri: 'http://localhost:4200',
+  postLogoutRedirectUri: 'http://localhost:4200',
+  apiAudience: '',   // Same as ENTRA_API_AUDIENCE / APP_ID_URI
 }
 ```
 
@@ -341,7 +401,7 @@ entra: {
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/auth/entra-login` | Public | Exchange Entra ID token for local JWT |
+| `POST` | `/api/auth/entra-login` | Public | Exchange Entra access token for local JWT |
 | `GET` | `/api/auth/entra-config` | Public | Get Entra client configuration (enabled, clientId, tenantId) |
 
 ### Post-Entra Login Behavior

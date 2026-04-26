@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import { Client } from 'ldapts';
 import { User } from './entities/user.entity';
 import { AdConfiguration } from '../settings/entities/ad-configuration.entity';
-import { hashPassword } from '../common/utils/hash.util';
+import { SectorsService } from '../sectors/sectors.service';
 
 export interface AdImportResult {
     imported: number;
@@ -20,6 +20,8 @@ interface AdUserEntry {
     email: string | null;
     phone: string | null;
     idNumber: string | null;
+    company: string | null;
+    isDisabled: boolean;
 }
 
 @Injectable()
@@ -31,6 +33,7 @@ export class AdImportService {
         private readonly userRepo: Repository<User>,
         @InjectRepository(AdConfiguration)
         private readonly adConfigRepo: Repository<AdConfiguration>,
+        private readonly sectorsService: SectorsService,
     ) { }
 
     async importFromAllAds(currentUserId?: string): Promise<AdImportResult> {
@@ -81,12 +84,12 @@ export class AdImportService {
             await client.bind(bindDn, config.password);
 
             const baseDn = config.baseDn ?? `DC=${config.domain.split('.').join(',DC=')}`;
-            const filter = '(&(objectClass=user)(objectCategory=person)(!(userAccountControl:1.2.840.113556.1.4.803:=2)))';
+            const filter = '(&(objectClass=user)(objectCategory=person))';
 
             const { searchEntries } = await client.search(baseDn, {
                 scope: 'sub',
                 filter,
-                attributes: ['sAMAccountName', 'userPrincipalName', 'givenName', 'sn', 'mail', 'telephoneNumber', 'mobile', 'employeeID'],
+                attributes: ['sAMAccountName', 'userPrincipalName', 'givenName', 'sn', 'mail', 'telephoneNumber', 'mobile', 'employeeID', 'company', 'userAccountControl'],
                 paged: { pageSize: 500 },
                 timeLimit: 60,
             });
@@ -100,6 +103,8 @@ export class AdImportService {
                     email: this.getAttr(entry, 'mail') || null,
                     phone: this.getAttr(entry, 'telephoneNumber') || this.getAttr(entry, 'mobile') || null,
                     idNumber: this.getAttr(entry, 'employeeID') || null,
+                    company: this.getAttr(entry, 'company') || null,
+                    isDisabled: this.isAccountDisabled(entry),
                 }));
         } finally {
             try { await client.unbind(); } catch { /* ignore */ }
@@ -114,10 +119,25 @@ export class AdImportService {
         let updated = 0;
         let skipped = 0;
 
+        // Build sector lookup: company name → sector id
+        const sectorCache = new Map<string, string>();
+
         for (const adUser of adUsers) {
             if (!adUser.username) {
                 skipped++;
                 continue;
+            }
+
+            // Resolve sector from AD company field
+            let sectorId: string | null = null;
+            if (adUser.company) {
+                if (sectorCache.has(adUser.company)) {
+                    sectorId = sectorCache.get(adUser.company)!;
+                } else {
+                    const sector = await this.sectorsService.findOrCreateByName(adUser.company);
+                    sectorId = sector.id;
+                    sectorCache.set(adUser.company, sectorId);
+                }
             }
 
             const existing = await this.userRepo.findOne({
@@ -132,8 +152,13 @@ export class AdImportService {
                 if (adUser.phone && existing.phone !== adUser.phone) { existing.phone = adUser.phone; changed = true; }
                 if (adUser.idNumber && existing.idNumber !== adUser.idNumber) { existing.idNumber = adUser.idNumber; changed = true; }
 
-                if (!existing.isActive) {
-                    existing.isActive = true;
+                // Sync sector (company → תחום)
+                if (existing.sectorId !== sectorId) { existing.sectorId = sectorId; changed = true; }
+
+                // Sync active status from AD disabled flag
+                const shouldBeActive = !adUser.isDisabled;
+                if (existing.isActive !== shouldBeActive) {
+                    existing.isActive = shouldBeActive;
                     changed = true;
                 }
 
@@ -145,18 +170,16 @@ export class AdImportService {
                     skipped++;
                 }
             } else {
-                const placeholder = await hashPassword(
-                    `AD_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`,
-                );
-
                 const user = this.userRepo.create({
                     username: adUser.username,
-                    passwordHash: placeholder,
+                    passwordHash: null,
                     firstName: adUser.firstName,
                     lastName: adUser.lastName || '-',
                     email: adUser.email,
                     phone: adUser.phone,
                     idNumber: adUser.idNumber,
+                    sectorId,
+                    isActive: !adUser.isDisabled,
                     createdBy: currentUserId ?? null,
                     updatedBy: currentUserId ?? null,
                 });
@@ -173,5 +196,15 @@ export class AdImportService {
         if (!val) return '';
         if (Array.isArray(val)) return String(val[0] ?? '');
         return String(val);
+    }
+
+    /**
+     * Checks if the AD account is disabled via the userAccountControl bitmask.
+     * Bit 0x2 (ACCOUNTDISABLE) indicates a disabled account.
+     */
+    private isAccountDisabled(entry: Record<string, unknown>): boolean {
+        const uac = parseInt(this.getAttr(entry, 'userAccountControl'), 10);
+        if (isNaN(uac)) return false;
+        return (uac & 0x2) !== 0;
     }
 }

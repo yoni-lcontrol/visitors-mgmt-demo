@@ -14,6 +14,8 @@ import { authInterceptor } from './core/auth/auth.interceptor';
 import { apiUnwrapInterceptor } from './core/auth/api-unwrap.interceptor';
 import { AuthService } from './core/auth/auth.service';
 import { firstValueFrom } from 'rxjs';
+import { MSAL_INSTANCE, MsalBroadcastService, MsalService } from '@azure/msal-angular';
+import { createMsalInstance } from './core/auth/msal.config';
 
 function initializeAuth(authService: AuthService) {
     return () => firstValueFrom(authService.tryRestoreSession());
@@ -27,6 +29,12 @@ export const appConfig: ApplicationConfig = {
         provideAnimations(),
         MessageService,
         ConfirmationService,
+        {
+            provide: MSAL_INSTANCE,
+            useFactory: createMsalInstance,
+        },
+        MsalService,
+        MsalBroadcastService,
         ...TranslateModule.forRoot({
             defaultLanguage: 'en',
         }).providers!,

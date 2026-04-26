@@ -38,6 +38,10 @@ public sealed class BackendAmadeusEventDto
 
     public string? CardholderUid { get; set; }
 
+    public string? CardholderFirstName { get; set; }
+
+    public string? CardholderLastName { get; set; }
+
     public string? CardCode { get; set; }
 
     public string? CarRegistrationNum { get; set; }

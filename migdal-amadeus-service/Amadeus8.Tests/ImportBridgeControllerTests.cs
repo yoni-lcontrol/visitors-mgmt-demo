@@ -27,6 +27,7 @@ public class ImportBridgeControllerTests
         var payload = Assert.IsType<ImportCallbackPayload>(ok.Value);
         Assert.Single(payload.Controllers);
         Assert.Equal("Stub Controller", payload.Controllers[0].Name);
+        Assert.True(payload.Controllers[0].Active);
     }
 
     [Fact]
@@ -40,12 +41,40 @@ public class ImportBridgeControllerTests
         Assert.Equal("Stub Level", payload.AccessLevels[0].Name);
     }
 
+    [Fact]
+    public async Task ImportDevices_WhenServiceThrows_ReturnsOkWithEmptyPayload()
+    {
+        var controller = new ImportBridgeController(
+            new ThrowingImportBridgeService(),
+            NullLogger<ImportBridgeController>.Instance);
+
+        var result = await controller.ImportDevices(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var payload = Assert.IsType<ImportCallbackPayload>(ok.Value);
+        Assert.Empty(payload.Controllers);
+    }
+
+    [Fact]
+    public async Task ImportAccessLevels_WhenServiceThrows_ReturnsOkWithEmptyPayload()
+    {
+        var controller = new ImportBridgeController(
+            new ThrowingImportBridgeService(),
+            NullLogger<ImportBridgeController>.Instance);
+
+        var result = await controller.ImportAccessLevels(CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var payload = Assert.IsType<AccessLevelCallbackPayload>(ok.Value);
+        Assert.Empty(payload.AccessLevels);
+    }
+
     private class StubImportBridgeService : IImportBridgeService
     {
         public Task<ImportCallbackPayload> ImportDevicesAsync(CancellationToken cancellationToken)
             => Task.FromResult(new ImportCallbackPayload
             {
-                Controllers = [new CallbackController { Name = "Stub Controller", ExternalId = "c1" }]
+                Controllers = [new CallbackController { Name = "Stub Controller", ExternalId = "c1", Active = true }]
             });
 
         public Task<AccessLevelCallbackPayload> ImportAccessLevelsAsync(CancellationToken cancellationToken)
@@ -53,5 +82,14 @@ public class ImportBridgeControllerTests
             {
                 AccessLevels = [new CallbackAccessLevel { Name = "Stub Level", Active = true }]
             });
+    }
+
+    private class ThrowingImportBridgeService : IImportBridgeService
+    {
+        public Task<ImportCallbackPayload> ImportDevicesAsync(CancellationToken cancellationToken)
+            => throw new InvalidOperationException("simulated failure");
+
+        public Task<AccessLevelCallbackPayload> ImportAccessLevelsAsync(CancellationToken cancellationToken)
+            => throw new InvalidOperationException("simulated failure");
     }
 }

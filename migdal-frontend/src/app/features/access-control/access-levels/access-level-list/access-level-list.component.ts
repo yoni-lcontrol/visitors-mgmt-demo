@@ -1,20 +1,24 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { FormsModule } from '@angular/forms';
 import { TableModule } from 'primeng/table';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
-import { AccessControlApiService } from '../../services/access-control-api.service';
+import { ProgressBarModule } from 'primeng/progressbar';
+import { AccessControlApiService, AccessLevelImportResult } from '../../services/access-control-api.service';
 import { HasPermissionDirective } from '@core/permissions/has-permission.directive';
 import { NotificationService } from '@core/notifications/notification.service';
 import { ConfirmService } from '@core/services/confirm.service';
+import { UserWebSocketService } from '@core/websocket/user-websocket.service';
+import { WsEvent } from '@core/websocket/ws-events.enum';
 import { AccessLevel } from '@core/models/entities.model';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-access-level-list',
   standalone: true,
-  imports: [TranslateModule, FormsModule, HasPermissionDirective, TableModule, InputTextModule, DialogModule],
+  imports: [TranslateModule, FormsModule, HasPermissionDirective, TableModule, InputTextModule, DialogModule, ProgressBarModule],
   template: `
     <div class="page-header">
       <h1>{{ 'ACCESS_CONTROL.ACCESS_LEVELS' | translate }}</h1>
@@ -28,6 +32,12 @@ import { AccessLevel } from '@core/models/entities.model';
         </button>
       </div>
     </div>
+    @if (importing) {
+      <div class="import-progress-container">
+        <p-progressBar [value]="importProgress" [showValue]="true"></p-progressBar>
+        <span class="import-progress-text">{{ importProgressMessage }}</span>
+      </div>
+    }
     <div class="card table-card">
       <p-table
         #dt
@@ -134,6 +144,50 @@ import { AccessLevel } from '@core/models/entities.model';
         <button class="btn btn-primary" (click)="save()" [disabled]="!form.name || saving">{{ 'COMMON.SAVE' | translate }}</button>
       </ng-template>
     </p-dialog>
+
+    <!-- Import Results Dialog -->
+    <p-dialog [header]="'ACCESS_CONTROL.IMPORT_RESULTS' | translate"
+      [(visible)]="showImportResults" [modal]="true" [style]="{width: '680px'}" [draggable]="false">
+      @if (showImportResults && importResult) {
+        <div class="import-summary">
+          <span class="import-stat success"><i class="pi pi-plus-circle"></i> {{ 'ACCESS_CONTROL.CREATED' | translate }}: {{ importResult.created }}</span>
+          <span class="import-stat info"><i class="pi pi-refresh"></i> {{ 'ACCESS_CONTROL.UPDATED' | translate }}: {{ importResult.updated }}</span>
+          <span class="import-stat warn"><i class="pi pi-exclamation-circle"></i> {{ 'ACCESS_CONTROL.SKIPPED' | translate }}: {{ importResult.skipped }}</span>
+        </div>
+        @if (importResult.items.length > 0) {
+          <p-table [value]="importResult.items" [paginator]="importResult.items.length > 10" [rows]="10"
+            styleClass="p-datatable-sm p-datatable-striped" [scrollable]="true" scrollHeight="350px">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>{{ 'ACCESS_CONTROL.ACCESS_LEVEL_NAME' | translate }}</th>
+                <th>{{ 'COMMON.ACTIVE' | translate }}</th>
+                <th>{{ 'ACCESS_CONTROL.VISITOR_ACCESS' | translate }}</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-item>
+              <tr>
+                <td>{{ item.name }}</td>
+                <td>
+                  <span class="status-badge" [class.active]="item.active" [class.inactive]="!item.active">
+                    <i class="pi" [class.pi-check-circle]="item.active" [class.pi-times-circle]="!item.active"></i>
+                    {{ (item.active ? 'COMMON.YES' : 'COMMON.NO') | translate }}
+                  </span>
+                </td>
+                <td>
+                  <span class="status-badge" [class.active]="item.visitorAccess" [class.inactive]="!item.visitorAccess">
+                    <i class="pi" [class.pi-check-circle]="item.visitorAccess" [class.pi-times-circle]="!item.visitorAccess"></i>
+                    {{ (item.visitorAccess ? 'COMMON.YES' : 'COMMON.NO') | translate }}
+                  </span>
+                </td>
+              </tr>
+            </ng-template>
+          </p-table>
+        }
+      }
+      <ng-template pTemplate="footer">
+        <button class="btn btn-primary" (click)="showImportResults = false">{{ 'COMMON.CLOSE' | translate }}</button>
+      </ng-template>
+    </p-dialog>
   `,
   styles: [`
     :host { display: block; }
@@ -160,12 +214,21 @@ import { AccessLevel } from '@core/models/entities.model';
     .toggle-btn.active { background: rgba(34,197,94,0.12); color: #16a34a; border-color: #16a34a; }
     .toggle-btn.inactive { background: rgba(239,68,68,0.10); color: #dc2626; border-color: #dc2626; }
     .toggle-btn i { font-size: 0.9rem; }
+    .import-progress-container { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+    .import-progress-text { font-size: 0.85rem; color: var(--color-text-secondary, #6b7280); }
+    .import-summary { display: flex; gap: 1.5rem; margin-bottom: 1rem; }
+    .import-stat { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; font-weight: 500; }
+    .import-stat.success { color: #16a34a; }
+    .import-stat.info { color: #2563eb; }
+    .import-stat.warn { color: #d97706; }
+    .import-stat i { font-size: 1rem; }
   `],
 })
-export class AccessLevelListComponent implements OnInit {
+export class AccessLevelListComponent implements OnInit, OnDestroy {
   private acApi = inject(AccessControlApiService);
   private notify = inject(NotificationService);
   private confirmService = inject(ConfirmService);
+  private userWs = inject(UserWebSocketService);
   router = inject(Router);
 
   items: AccessLevel[] = [];
@@ -179,6 +242,13 @@ export class AccessLevelListComponent implements OnInit {
   saving = false;
   private lastLazyEvent: any = { first: 0, rows: 20, sortField: 'name', sortOrder: 1, filters: {} };
 
+  // Import progress
+  importProgress = 0;
+  importProgressMessage = '';
+  importResult: AccessLevelImportResult | null = null;
+  showImportResults = false;
+  private wsSubs: Subscription[] = [];
+
   // Dialog
   showDialog = false;
   editing: AccessLevel | null = null;
@@ -186,6 +256,23 @@ export class AccessLevelListComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadData();
+    this.subscribeToImportEvents();
+  }
+
+  ngOnDestroy(): void {
+    this.wsSubs.forEach((s) => s.unsubscribe());
+    this.wsSubs = [];
+  }
+
+  private subscribeToImportEvents(): void {
+    this.wsSubs.push(
+      this.userWs.on<{ phase: string; message: string; current: number; total: number }>(
+        WsEvent.AccessControlAccessLevelsImportProgress,
+      ).subscribe((data) => {
+        this.importProgressMessage = data.message;
+        this.importProgress = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
+      }),
+    );
   }
 
   loadData(event: any = this.lastLazyEvent): void {
@@ -249,13 +336,22 @@ export class AccessLevelListComponent implements OnInit {
 
   doImport(): void {
     this.importing = true;
+    this.importProgress = 0;
+    this.importProgressMessage = '';
+    this.importResult = null;
     this.acApi.importAccessLevels().subscribe({
-      next: () => {
+      next: (result) => {
         this.importing = false;
+        this.importProgress = 100;
+        this.importResult = result;
+        this.showImportResults = true;
         this.notify.success('ACCESS_CONTROL.IMPORT_TRIGGERED');
+        this.loadData();
       },
       error: (err) => {
         this.importing = false;
+        this.importProgress = 0;
+        this.importProgressMessage = '';
         this.notify.error(err);
       },
     });

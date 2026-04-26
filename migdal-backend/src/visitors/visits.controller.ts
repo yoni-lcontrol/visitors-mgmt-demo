@@ -55,15 +55,20 @@ export class VisitsController {
         @Body() dto: CreateVisitDto,
         @CurrentUser('sub') currentUserId: string,
         @CurrentUser('permissions') permissions: string[],
+        @CurrentUser('roles') roles: string[],
     ) {
-        return this.visitsService.createVisit(dto, currentUserId, permissions);
+        return this.visitsService.createVisit(dto, currentUserId, permissions, roles);
     }
 
     @Get()
     @RequirePermissions(PermissionKey.VisitsRead)
     @ApiOperation({ summary: 'List visits (paginated, with optional time filter)' })
-    findAll(@Query() query: VisitsQueryDto) {
-        return this.visitsService.findAllVisits(query);
+    findAll(
+        @Query() query: VisitsQueryDto,
+        @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
+    ) {
+        return this.visitsService.findAllVisits(query, currentUserId, roles);
     }
 
     @Get('export')
@@ -71,9 +76,11 @@ export class VisitsController {
     @ApiOperation({ summary: 'Export visits as Excel' })
     async export(
         @Query() query: VisitsQueryDto,
+        @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
         @Res() res: Response,
     ) {
-        const file = await this.visitsService.exportVisitsToExcel(query);
+        const file = await this.visitsService.exportVisitsToExcel(query, currentUserId, roles);
         sendExcelResponse(res, file, 'visits.xlsx');
     }
 
@@ -84,8 +91,10 @@ export class VisitsController {
         @Query('start') start: string,
         @Query('end') end: string,
         @Query('search') search?: string,
+        @CurrentUser('sub') currentUserId?: string,
+        @CurrentUser('roles') roles?: string[],
     ) {
-        return this.visitsService.findVisitsByDateRange(start, end, search);
+        return this.visitsService.findVisitsByDateRange(start, end, search, currentUserId, roles);
     }
 
     @Get('on-site')
@@ -98,15 +107,22 @@ export class VisitsController {
     @Get('today-summary')
     @RequirePermissions(PermissionKey.VisitsRead)
     @ApiOperation({ summary: 'Get today\'s visit summary counts' })
-    getTodaySummary() {
-        return this.visitsService.getTodaySummary();
+    getTodaySummary(
+        @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
+    ) {
+        return this.visitsService.getTodaySummary(currentUserId, roles);
     }
 
     @Get(':visitId')
     @RequirePermissions(PermissionKey.VisitsRead)
     @ApiOperation({ summary: 'Get visit by ID' })
-    findOne(@Param('visitId', ParseUUIDPipe) visitId: string) {
-        return this.visitsService.findVisitById(visitId);
+    findOne(
+        @Param('visitId', ParseUUIDPipe) visitId: string,
+        @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
+    ) {
+        return this.visitsService.findVisitById(visitId, currentUserId, roles);
     }
 
     @Put(':visitId')
@@ -127,8 +143,9 @@ export class VisitsController {
     remove(
         @Param('visitId', ParseUUIDPipe) visitId: string,
         @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
     ) {
-        return this.visitsService.removeVisit(visitId, currentUserId);
+        return this.visitsService.removeVisit(visitId, currentUserId, roles);
     }
 
     // -- Visit Visitors --
@@ -148,7 +165,12 @@ export class VisitsController {
     @Get(':visitId/visitors')
     @RequirePermissions(PermissionKey.VisitsRead)
     @ApiOperation({ summary: 'Get visitors in a visit' })
-    getVisitors(@Param('visitId', ParseUUIDPipe) visitId: string) {
+    async getVisitors(
+        @Param('visitId', ParseUUIDPipe) visitId: string,
+        @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
+    ) {
+        await this.visitsService.findVisitById(visitId, currentUserId, roles);
         return this.participantService.getVisitVisitors(visitId);
     }
 
@@ -193,7 +215,12 @@ export class VisitsController {
     @Get(':visitId/escorts')
     @RequirePermissions(PermissionKey.VisitsRead)
     @ApiOperation({ summary: 'Get escorts in a visit' })
-    getEscorts(@Param('visitId', ParseUUIDPipe) visitId: string) {
+    async getEscorts(
+        @Param('visitId', ParseUUIDPipe) visitId: string,
+        @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
+    ) {
+        await this.visitsService.findVisitById(visitId, currentUserId, roles);
         return this.participantService.getVisitEscorts(visitId);
     }
 
@@ -226,14 +253,24 @@ export class VisitsController {
     @Get(':visitId/visitor-statuses')
     @RequirePermissions(PermissionKey.VisitsRead)
     @ApiOperation({ summary: 'Get current visitor statuses for a visit' })
-    getStatuses(@Param('visitId', ParseUUIDPipe) visitId: string) {
+    async getStatuses(
+        @Param('visitId', ParseUUIDPipe) visitId: string,
+        @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
+    ) {
+        await this.visitsService.findVisitById(visitId, currentUserId, roles);
         return this.statusService.getVisitorStatuses(visitId);
     }
 
     @Get(':visitId/visitor-history')
     @RequirePermissions(PermissionKey.VisitsRead)
     @ApiOperation({ summary: 'Get all access log history for a visit' })
-    getHistory(@Param('visitId', ParseUUIDPipe) visitId: string) {
+    async getHistory(
+        @Param('visitId', ParseUUIDPipe) visitId: string,
+        @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
+    ) {
+        await this.visitsService.findVisitById(visitId, currentUserId, roles);
         return this.statusService.getVisitHistory(visitId);
     }
 
@@ -254,7 +291,12 @@ export class VisitsController {
     @Get(':visitId/check-in-codes')
     @RequirePermissions(PermissionKey.VisitsRead)
     @ApiOperation({ summary: 'Get check-in codes for a visit' })
-    getCheckInCodes(@Param('visitId', ParseUUIDPipe) visitId: string) {
+    async getCheckInCodes(
+        @Param('visitId', ParseUUIDPipe) visitId: string,
+        @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('roles') roles: string[],
+    ) {
+        await this.visitsService.findVisitById(visitId, currentUserId, roles);
         return this.checkInCodeService.getCodesForVisit(visitId);
     }
 

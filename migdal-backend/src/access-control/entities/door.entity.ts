@@ -17,7 +17,7 @@ export class Door extends BaseEntity {
     @Column({ type: 'int', default: 0 })
     entryType!: number;
 
-    @Column({ type: 'nvarchar', length: 200, nullable: true })
+    @Column({ type: 'nvarchar', length: 200, nullable: true, unique: true })
     externalId!: string | null;
 
     @Column({ type: 'uniqueidentifier', nullable: true })

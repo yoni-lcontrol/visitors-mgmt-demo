@@ -5,7 +5,7 @@ import {
     BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -24,6 +24,8 @@ export class UsersService {
     constructor(
         @InjectRepository(User)
         private readonly userRepo: Repository<User>,
+        @InjectRepository(Role)
+        private readonly roleRepo: Repository<Role>,
         private readonly wsGateway: UsersGateway,
         private readonly auditService: AuditService,
     ) { }
@@ -43,7 +45,7 @@ export class UsersService {
             username: u.username,
             idNumber: u.idNumber || '',
             status: u.isActive ? 'Active' : 'Inactive',
-            roles: (u.roles ?? []).map((r) => r.name).join(', '),
+            role: u.role?.name ?? '',
             createdAt: u.createdAt,
         }));
         return toExcelBuffer(rows, 'Users');
@@ -53,7 +55,7 @@ export class UsersService {
         const { search, sortBy, sortOrder, filters } = query;
         const qb = this.userRepo
             .createQueryBuilder('user')
-            .leftJoinAndSelect('user.roles', 'role');
+            .leftJoinAndSelect('user.role', 'role');
 
         if (search) {
             qb.andWhere(
@@ -90,7 +92,7 @@ export class UsersService {
     async findById(id: string): Promise<User> {
         const user = await this.userRepo.findOne({
             where: { id, isActive: true },
-            relations: ['roles', 'roles.permissions'],
+            relations: ['sector', 'role', 'role.permissions', 'roles', 'roles.permissions'],
         });
         if (!user) {
             throw new NotFoundException('User not found');
@@ -106,22 +108,36 @@ export class UsersService {
     async findByUsername(username: string): Promise<User | null> {
         return this.userRepo.findOne({
             where: { username },
-            relations: ['roles', 'roles.permissions'],
+            relations: ['sector', 'role', 'role.permissions', 'roles', 'roles.permissions'],
         });
     }
 
     async findByEmail(email: string): Promise<User | null> {
         return this.userRepo.findOne({
             where: { email },
-            relations: ['roles', 'roles.permissions'],
+            relations: ['sector', 'role', 'role.permissions', 'roles', 'roles.permissions'],
         });
     }
 
-    async findByExternalAuthId(externalAuthId: string): Promise<User | null> {
-        return this.userRepo.findOne({
-            where: { externalAuthId },
-            relations: ['roles', 'roles.permissions'],
-        });
+    async findByExternalIdentity(externalAuthId: string, externalTenantId: string): Promise<User | null> {
+        const qb = this.userRepo
+            .createQueryBuilder('user')
+            .leftJoinAndSelect('user.sector', 'sector')
+            .leftJoinAndSelect('user.role', 'role')
+            .leftJoinAndSelect('role.permissions', 'rolePermissions')
+            .leftJoinAndSelect('user.roles', 'roles')
+            .leftJoinAndSelect('roles.permissions', 'rolesPermissions')
+            .where('user.externalAuthId = :externalAuthId', { externalAuthId })
+            .andWhere('(user.externalAuthProvider = :provider OR user.externalAuthProvider IS NULL)', {
+                provider: 'entra',
+            })
+            .andWhere('(user.externalTenantId = :externalTenantId OR user.externalTenantId IS NULL)', {
+                externalTenantId,
+            })
+            .orderBy('CASE WHEN user.externalTenantId = :externalTenantId THEN 0 ELSE 1 END', 'ASC')
+            .setParameter('externalTenantId', externalTenantId);
+
+        return qb.getOne();
     }
 
     async create(dto: CreateUserDto, currentUserId?: string): Promise<User> {
@@ -148,8 +164,11 @@ export class UsersService {
             updatedBy: currentUserId ?? null,
         });
 
-        if (dto.roleIds?.length) {
-            user.roles = dto.roleIds.map((id) => ({ id }) as Role);
+        const requestedRoleIds = dto.roleIds ?? (dto.roleId ? [dto.roleId] : []);
+        if (requestedRoleIds.length > 0) {
+            const roles = await this.resolveRoles(requestedRoleIds);
+            user.roles = roles;
+            user.roleId = roles[0]?.id ?? null;
         }
 
         const saved = await this.userRepo.save(user);
@@ -162,7 +181,13 @@ export class UsersService {
             entity: 'User',
             entityId: saved.id,
             description: `Created user ${dto.username}`,
-            newValue: { username: dto.username, firstName: dto.firstName, lastName: dto.lastName, roleIds: dto.roleIds },
+            newValue: {
+                username: dto.username,
+                firstName: dto.firstName,
+                lastName: dto.lastName,
+                roleId: result.roleId,
+                roleIds: result.roles?.map((r) => r.id) ?? (result.roleId ? [result.roleId] : []),
+            },
         }).catch(() => { });
         return result;
     }
@@ -172,28 +197,36 @@ export class UsersService {
         dto: UpdateUserDto,
         currentUserId?: string,
     ): Promise<User> {
-        const hasIsActiveChange = dto.isActive !== undefined;
-
-        // When toggling isActive, find user regardless of current active status
-        let user: User;
-        if (hasIsActiveChange) {
-            const found = await this.userRepo.findOne({
-                where: { id },
-                relations: ['roles', 'roles.permissions'],
-            });
-            if (!found) {
-                throw new NotFoundException('User not found');
-            }
-            user = this.stripSensitive(found);
-
-            if (dto.isActive !== found.isActive && currentUserId && currentUserId === id) {
-                throw new BadRequestException('Cannot change your own active status');
-            }
-        } else {
-            user = await this.findById(id);
+        const user = await this.userRepo.findOne({
+            where: { id },
+            relations: ['role', 'role.permissions', 'roles', 'roles.permissions'],
+        });
+        if (!user) {
+            throw new NotFoundException('User not found');
         }
 
-        const oldValue = { username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, phone: user.phone, isActive: user.isActive };
+        if (this.isAdImportedUser(user)) {
+            throw new BadRequestException('AD imported users cannot be edited directly. Use role assignment only.');
+        }
+
+        if (!user.isActive && dto.isActive === undefined) {
+            throw new NotFoundException('User not found');
+        }
+
+        if (dto.isActive !== undefined && dto.isActive !== user.isActive && currentUserId && currentUserId === id) {
+            throw new BadRequestException('Cannot change your own active status');
+        }
+
+        const oldValue = {
+            username: user.username,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            phone: user.phone,
+            isActive: user.isActive,
+            roleId: user.roleId,
+            roleIds: user.roles?.map((r) => r.id) ?? (user.roleId ? [user.roleId] : []),
+        };
 
         if (dto.username && dto.username !== user.username) {
             const dup = await this.userRepo.findOne({ where: { username: dto.username } });
@@ -202,13 +235,21 @@ export class UsersService {
             }
         }
 
-        const { password, ...rest } = dto;
+        const { password, roleId, roleIds, ...rest } = dto;
         Object.assign(user, rest, { updatedBy: currentUserId ?? null });
+
+        const requestedRoleIds = roleIds ?? (roleId !== undefined ? (roleId ? [roleId] : []) : undefined);
+        if (requestedRoleIds !== undefined) {
+            const roles = await this.resolveRoles(requestedRoleIds);
+            user.roles = roles;
+            user.roleId = roles[0]?.id ?? null;
+        }
+
         if (password) {
             user.passwordHash = await hashPassword(password);
         }
         await this.userRepo.save(user);
-        const result = hasIsActiveChange ? this.stripSensitive(user) : await this.findById(id);
+        const result = dto.isActive !== undefined ? this.stripSensitive(user) : await this.findById(id);
         this.wsGateway.broadcastToAll('users:user:updated', { id: result.id, username: result.username, firstName: result.firstName, lastName: result.lastName });
         this.auditService.log({
             userId: currentUserId,
@@ -223,26 +264,38 @@ export class UsersService {
         return result;
     }
 
+    async assignRole(
+        id: string,
+        roleId: string | null,
+        currentUserId?: string,
+    ): Promise<User> {
+        return this.assignRoles(id, roleId ? [roleId] : [], currentUserId);
+    }
+
     async assignRoles(
         id: string,
         roleIds: string[],
         currentUserId?: string,
     ): Promise<User> {
         const user = await this.findById(id);
-        const oldRoleIds = (user.roles ?? []).map(r => r.id);
-        user.roles = roleIds.map((rid) => ({ id: rid }) as Role);
+        const oldRoleIds = user.roles?.map((r) => r.id) ?? (user.roleId ? [user.roleId] : []);
+        const roles = await this.resolveRoles(roleIds);
+
+        user.roles = roles;
+        user.roleId = roles[0]?.id ?? null;
+        user.role = roles[0] ?? null;
         user.updatedBy = currentUserId ?? null;
         await this.userRepo.save(user);
 
         this.auditService.log({
             userId: currentUserId,
             module: 'users',
-            action: 'ASSIGN_ROLES',
+            action: 'ASSIGN_ROLE',
             entity: 'User',
             entityId: id,
-            description: `Assigned roles to user ${user.username}`,
+            description: `Assigned role to user ${user.username}`,
             oldValue: { roleIds: oldRoleIds },
-            newValue: { roleIds },
+            newValue: { roleIds: roles.map((r) => r.id) },
         }).catch(() => { });
 
         return this.findById(id);
@@ -252,14 +305,24 @@ export class UsersService {
         await this.userRepo.update(id, { lastLoginAt: new Date() });
     }
 
-    async linkExternalAuth(
-        userId: string,
-        provider: string,
-        externalId: string,
-    ): Promise<void> {
+    async linkExternalAuth(userId: string, params: {
+        provider: string;
+        externalId: string;
+        tenantId: string;
+        displayName?: string;
+        email?: string | null;
+    }): Promise<void> {
+        const user = await this.userRepo.findOne({ where: { id: userId } });
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
         await this.userRepo.update(userId, {
-            externalAuthProvider: provider,
-            externalAuthId: externalId,
+            externalAuthProvider: params.provider,
+            externalAuthId: params.externalId,
+            externalTenantId: params.tenantId,
+            displayName: params.displayName ?? user.displayName,
+            email: params.email ?? user.email,
             lastExternalLoginAt: new Date(),
         });
 
@@ -269,41 +332,58 @@ export class UsersService {
             action: 'LINK_EXTERNAL_AUTH',
             entity: 'User',
             entityId: userId,
-            description: `Linked external auth provider ${provider}`,
-            newValue: { provider },
+            description: `Linked external auth provider ${params.provider}`,
+            newValue: { provider: params.provider, externalId: params.externalId, tenantId: params.tenantId },
         }).catch(() => { });
     }
 
-    async updateLastExternalLogin(userId: string): Promise<void> {
-        await this.userRepo.update(userId, {
+    async updateLastExternalLogin(userId: string, profile?: { displayName?: string; email?: string | null }): Promise<void> {
+        const patch: Partial<User> = {
             lastExternalLoginAt: new Date(),
             lastLoginAt: new Date(),
-        });
+        };
+
+        if (profile?.displayName) {
+            patch.displayName = profile.displayName;
+        }
+
+        if (profile?.email) {
+            patch.email = profile.email;
+        }
+
+        await this.userRepo.update(userId, patch);
     }
 
     async createExternalUser(params: {
         username: string;
         firstName: string;
         lastName: string;
+        displayName: string;
         email: string | null;
         externalAuthProvider: string;
         externalAuthId: string;
+        externalTenantId: string;
         roleNames: string[];
     }): Promise<User> {
-        const roles = await this.userRepo.manager
-            .getRepository(Role)
-            .find({ where: params.roleNames.map((name) => ({ name })) });
+        const roles = params.roleNames.length
+            ? await this.userRepo.manager
+                .getRepository(Role)
+                .find({ where: { name: In(params.roleNames) } })
+            : [];
 
         const user = this.userRepo.create({
             username: params.username,
             passwordHash: 'EXTERNAL_AUTH_NO_PASSWORD',
             firstName: params.firstName,
             lastName: params.lastName,
+            displayName: params.displayName,
             email: params.email,
             externalAuthProvider: params.externalAuthProvider,
             externalAuthId: params.externalAuthId,
+            externalTenantId: params.externalTenantId,
             lastExternalLoginAt: new Date(),
             syncSource: 'entra',
+            roleId: roles[0]?.id ?? null,
             roles,
         });
 
@@ -321,5 +401,102 @@ export class UsersService {
         this.wsGateway.broadcastToAll('user:changed', { action: 'created', userId: saved.id });
 
         return this.findById(saved.id);
+    }
+
+    async createPendingExternalUser(params: {
+        oid: string;
+        tid: string;
+        preferredUsername: string | null;
+        email: string | null;
+        displayName: string | null;
+    }): Promise<User> {
+        const existing = await this.findByExternalIdentity(params.oid, params.tid);
+        if (existing) {
+            await this.userRepo.update(existing.id, {
+                email: params.email ?? existing.email,
+                displayName: params.displayName ?? existing.displayName,
+                lastExternalLoginAt: new Date(),
+            });
+            const updated = await this.userRepo.findOne({ where: { id: existing.id } });
+            return this.stripSensitive((updated ?? existing) as User);
+        }
+
+        const usernameBase = params.preferredUsername
+            ?? params.email?.split('@')[0]
+            ?? `entra_${params.oid.slice(0, 8)}`;
+        const username = await this.generateUniqueUsername(usernameBase);
+
+        const fullName = (params.displayName ?? '').trim();
+        const [firstName = 'Pending', ...rest] = fullName.split(' ');
+        const lastName = rest.join(' ') || 'User';
+
+        const pending = this.userRepo.create({
+            username,
+            passwordHash: null,
+            firstName,
+            lastName,
+            displayName: params.displayName,
+            email: params.email,
+            externalAuthProvider: 'entra',
+            externalAuthId: params.oid,
+            externalTenantId: params.tid,
+            syncSource: 'entra-pending',
+            isActive: false,
+            lastExternalLoginAt: new Date(),
+            lastLoginAt: null,
+            roleId: null,
+            roles: [],
+        });
+
+        const saved = await this.userRepo.save(pending);
+
+        this.auditService.log({
+            userId: null,
+            module: 'users',
+            action: 'ENTRA_PENDING_CREATED',
+            entity: 'User',
+            entityId: saved.id,
+            description: `Created pending Entra user ${saved.username}`,
+            newValue: {
+                externalAuthId: params.oid,
+                externalTenantId: params.tid,
+                email: params.email,
+            },
+        }).catch(() => { });
+
+        return this.stripSensitive(saved);
+    }
+
+    private async resolveRoles(roleIds: string[]): Promise<Role[]> {
+        if (roleIds.length === 0) {
+            return [];
+        }
+
+        const uniqueRoleIds = [...new Set(roleIds)];
+        const roles = await this.roleRepo.find({ where: { id: In(uniqueRoleIds) } });
+
+        if (roles.length !== uniqueRoleIds.length) {
+            throw new BadRequestException('One or more role IDs are invalid');
+        }
+
+        const roleMap = new Map(roles.map((r) => [r.id, r]));
+        return uniqueRoleIds.map((id) => roleMap.get(id)!).filter(Boolean);
+    }
+
+    private isAdImportedUser(user: User): boolean {
+        return user.syncSource === 'ad';
+    }
+
+    private async generateUniqueUsername(rawBase: string): Promise<string> {
+        const normalized = rawBase.trim().toLowerCase().replace(/[^a-z0-9._-]/g, '-') || 'pending-user';
+
+        let attempt = normalized;
+        let suffix = 1;
+        while (await this.userRepo.exist({ where: { username: attempt } })) {
+            suffix += 1;
+            attempt = `${normalized}-${suffix}`;
+        }
+
+        return attempt;
     }
 }

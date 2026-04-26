@@ -6309,11 +6309,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\development\\Migdal-new\\migdal-app\\amadeus-service\\Amadeus8.csproj",
+      "projectUniqueName": "C:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\Amadeus8.csproj",
       "projectName": "Amadeus8",
-      "projectPath": "C:\\development\\Migdal-new\\migdal-app\\amadeus-service\\Amadeus8.csproj",
+      "projectPath": "C:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\Amadeus8.csproj",
       "packagesPath": "C:\\Users\\sarit.b\\.nuget\\packages\\",
-      "outputPath": "C:\\development\\Migdal-new\\migdal-app\\amadeus-service\\obj\\",
+      "outputPath": "C:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\obj\\",
       "projectStyle": "PackageReference",
       "fallbackFolders": [
         "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

@@ -14,6 +14,7 @@ import { UsersGateway } from '../websocket/gateways/users.gateway';
 import { BlacklistService } from './blacklist.service';
 import { SmsNotificationService } from '../settings/sms-notification.service';
 import { EmailNotificationService } from '../settings/email-notification.service';
+import { NotificationEvent } from '../settings/enums/notification-event.enum';
 import { AuditService } from '../audit/audit.service';
 import {
     createMockRepository,
@@ -35,6 +36,8 @@ describe('VisitStatusService', () => {
     let mockWs: ReturnType<typeof createMockWsGateway>;
     let mockBl: ReturnType<typeof createMockBlacklistService>;
     let mockAuditService: ReturnType<typeof createMockAuditService>;
+    let mockSmsNotification: { triggerSms: jest.Mock };
+    let mockEmailNotification: { triggerEmail: jest.Mock };
 
     beforeEach(async () => {
         mockVisitRepo = createMockRepository();
@@ -46,6 +49,8 @@ describe('VisitStatusService', () => {
         mockWs = createMockWsGateway();
         mockBl = createMockBlacklistService();
         mockAuditService = createMockAuditService();
+        mockSmsNotification = { triggerSms: jest.fn().mockResolvedValue(undefined) };
+        mockEmailNotification = { triggerEmail: jest.fn().mockResolvedValue(undefined) };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -58,8 +63,8 @@ describe('VisitStatusService', () => {
                 { provide: DataSource, useValue: mockDs },
                 { provide: UsersGateway, useValue: mockWs },
                 { provide: BlacklistService, useValue: mockBl },
-                { provide: SmsNotificationService, useValue: { triggerSms: jest.fn().mockResolvedValue(undefined) } },
-                { provide: EmailNotificationService, useValue: { triggerEmail: jest.fn().mockResolvedValue(undefined) } },
+                { provide: SmsNotificationService, useValue: mockSmsNotification },
+                { provide: EmailNotificationService, useValue: mockEmailNotification },
                 { provide: AuditService, useValue: mockAuditService },
             ],
         }).compile();
@@ -106,6 +111,8 @@ describe('VisitStatusService', () => {
             mockDs._qrManager.findOne.mockResolvedValue({
                 visitVisitorId: 'vv1', currentStatus: VisitorStatus.CheckedIn,
             });
+            mockVisitRepo.findOne.mockResolvedValue({ id: 'v1' });
+            mockVisitorRepo.findOne.mockResolvedValue({ id: 'vis1', firstName: 'Dana', lastName: 'Levi' });
 
             await service.createAccessLog({
                 visitVisitorId: 'vv1',
@@ -113,6 +120,14 @@ describe('VisitStatusService', () => {
             } as any);
 
             expect(mockWs.broadcastToAll).toHaveBeenCalledWith('visits:visitor:checked-out', expect.any(Object));
+            expect(mockSmsNotification.triggerSms).toHaveBeenCalledWith(
+                NotificationEvent.VisitorCheckedOut,
+                expect.any(Object),
+            );
+            expect(mockEmailNotification.triggerEmail).toHaveBeenCalledWith(
+                NotificationEvent.VisitorCheckedOut,
+                expect.any(Object),
+            );
         });
 
         it('should create status if none exists', async () => {

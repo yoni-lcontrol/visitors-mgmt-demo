@@ -65,6 +65,12 @@ import { TranslateModule } from '@ngx-translate/core';
                 <span>{{ 'NAV.ACCESS_LEVELS' | translate }}</span>
               </a>
             </li>
+            <li>
+              <a routerLink="/access-control/events" routerLinkActive="active" (click)="menuItemClicked.emit()">
+                <i class="pi pi-bell"></i>
+                <span>{{ 'NAV.EVENTS' | translate }}</span>
+              </a>
+            </li>
           </ul>
         </li>
         <li *hasPermission="'visits.read'" class="has-submenu">
@@ -135,6 +141,12 @@ import { TranslateModule } from '@ngx-translate/core';
               <a routerLink="/settings/active-directory" routerLinkActive="active" (click)="menuItemClicked.emit()">
                 <i class="pi pi-sitemap"></i>
                 <span>{{ 'NAV.AD_SETTINGS' | translate }}</span>
+              </a>
+            </li>
+            <li>
+              <a routerLink="/settings/ad-group-role-mappings" routerLinkActive="active" (click)="menuItemClicked.emit()">
+                <i class="pi pi-users"></i>
+                <span>{{ 'NAV.AD_GROUP_ROLE_MAPPINGS' | translate }}</span>
               </a>
             </li>
             <li *hasPermission="'settings.card-templates.read'">

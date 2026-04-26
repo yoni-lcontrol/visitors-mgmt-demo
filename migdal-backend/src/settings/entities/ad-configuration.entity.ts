@@ -29,4 +29,7 @@ export class AdConfiguration extends BaseEntity {
 
     @Column({ type: 'nvarchar', length: 500, nullable: true })
     description!: string | null;
+
+    @Column({ type: 'nvarchar', length: 'MAX', nullable: true })
+    targetGroupsJson!: string | null;
 }

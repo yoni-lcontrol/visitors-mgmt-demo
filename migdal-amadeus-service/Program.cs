@@ -93,7 +93,11 @@ if (!enableHostedServices)
     app.Logger.LogWarning("Amadeus hosted services are disabled by configuration");
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseAuthorization();
 app.MapControllers();
 

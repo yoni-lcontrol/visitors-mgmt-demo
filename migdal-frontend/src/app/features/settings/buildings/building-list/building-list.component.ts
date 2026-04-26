@@ -3,14 +3,16 @@ import { FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
 import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
+import { MultiSelectModule } from 'primeng/multiselect';
 import { HasPermissionDirective } from '@core/permissions/has-permission.directive';
 import { NotificationService } from '@core/notifications/notification.service';
 import { BuildingsApiService, Building } from '../../services/buildings-api.service';
+import { AccessLevel } from '@core/models/entities.model';
 
 @Component({
     selector: 'app-building-list',
     standalone: true,
-    imports: [FormsModule, TranslateModule, TableModule, DialogModule, HasPermissionDirective],
+    imports: [FormsModule, TranslateModule, TableModule, DialogModule, MultiSelectModule, HasPermissionDirective],
     template: `
         <div class="page-header">
             <div class="header-info">
@@ -35,6 +37,7 @@ import { BuildingsApiService, Building } from '../../services/buildings-api.serv
                     <tr>
                         <th>{{ 'BUILDINGS.NAME' | translate }}</th>
                         <th>{{ 'BUILDINGS.ADDRESS' | translate }}</th>
+                        <th>{{ 'BUILDINGS.ACCESS_LEVELS' | translate }}</th>
                         <th>{{ 'COMMON.STATUS' | translate }}</th>
                         <th style="width: 120px">{{ 'COMMON.ACTIONS' | translate }}</th>
                     </tr>
@@ -43,6 +46,7 @@ import { BuildingsApiService, Building } from '../../services/buildings-api.serv
                     <tr>
                         <td>{{ b.name }}</td>
                         <td>{{ b.address || '-' }}</td>
+                        <td>{{ formatAccessLevels(b) }}</td>
                         <td>
                             <span class="status-badge" [class.active]="b.active" [class.inactive]="!b.active">
                                 {{ (b.active ? 'COMMON.ACTIVE' : 'COMMON.INACTIVE') | translate }}
@@ -57,7 +61,7 @@ import { BuildingsApiService, Building } from '../../services/buildings-api.serv
                 </ng-template>
                 <ng-template pTemplate="emptymessage">
                     <tr>
-                        <td colspan="4" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td>
+                        <td colspan="5" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td>
                     </tr>
                 </ng-template>
             </p-table>
@@ -84,6 +88,20 @@ import { BuildingsApiService, Building } from '../../services/buildings-api.serv
                             <option [ngValue]="true">{{ 'COMMON.ACTIVE' | translate }}</option>
                             <option [ngValue]="false">{{ 'COMMON.INACTIVE' | translate }}</option>
                         </select>
+                    </div>
+                    <div class="field">
+                        <label>{{ 'BUILDINGS.ACCESS_LEVELS' | translate }}</label>
+                        <p-multiSelect
+                            [(ngModel)]="form.accessLevelIds"
+                            [options]="accessLevelOptions"
+                            optionLabel="name"
+                            optionValue="id"
+                            [placeholder]="'BUILDINGS.SELECT_ACCESS_LEVELS' | translate"
+                            [display]="'chip'"
+                            [showClear]="true"
+                            appendTo="body"
+                            [style]="{'width':'100%'}">
+                        </p-multiSelect>
                     </div>
                 </div>
             }
@@ -121,14 +139,16 @@ export class BuildingListComponent implements OnInit {
     private notify = inject(NotificationService);
 
     buildings: Building[] = [];
+    accessLevelOptions: AccessLevel[] = [];
     loading = false;
     showDialog = false;
     editing: Building | null = null;
     saving = false;
-    form = { name: '', address: '', active: true };
+    form = { name: '', address: '', active: true, accessLevelIds: [] as string[] };
 
     ngOnInit(): void {
         this.loadData();
+        this.loadAccessLevels();
     }
 
     loadData(): void {
@@ -139,12 +159,28 @@ export class BuildingListComponent implements OnInit {
         });
     }
 
+    loadAccessLevels(): void {
+        this.buildingsApi.getAccessLevels().subscribe({
+            next: (accessLevels) => {
+                this.accessLevelOptions = accessLevels;
+            },
+            error: () => {
+                this.accessLevelOptions = [];
+            },
+        });
+    }
+
     openDialog(building?: Building): void {
         this.editing = building ?? null;
         if (building) {
-            this.form = { name: building.name, address: building.address ?? '', active: building.active };
+            this.form = {
+                name: building.name,
+                address: building.address ?? '',
+                active: building.active,
+                accessLevelIds: (building.accessLevels ?? []).map((accessLevel) => accessLevel.id),
+            };
         } else {
-            this.form = { name: '', address: '', active: true };
+            this.form = { name: '', address: '', active: true, accessLevelIds: [] };
         }
         this.showDialog = true;
     }
@@ -155,6 +191,7 @@ export class BuildingListComponent implements OnInit {
             name: this.form.name.trim(),
             address: this.form.address.trim() || undefined,
             active: this.form.active,
+            accessLevelIds: [...new Set(this.form.accessLevelIds)],
         };
 
         const obs = this.editing
@@ -173,5 +210,10 @@ export class BuildingListComponent implements OnInit {
                 this.notify.error(err);
             },
         });
+    }
+
+    formatAccessLevels(building: Building): string {
+        const names = (building.accessLevels ?? []).map((accessLevel) => accessLevel.name).filter(Boolean);
+        return names.length ? names.join(', ') : '-';
     }
 }

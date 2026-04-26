@@ -74,4 +74,20 @@ export class DoorIoService {
             description: `Deleted door IO "${io.name}"`,
         }).catch(() => { });
     }
+
+    async upsertByExternalId(data: Partial<DoorIo>): Promise<{ entity: DoorIo; action: 'created' | 'updated' }> {
+        const { id: _id, ...safeData } = data;
+        if (!safeData.externalId) {
+            const created = await this.doorIoRepo.save(this.doorIoRepo.create(safeData));
+            return { entity: created, action: 'created' };
+        }
+        const existing = await this.doorIoRepo.findOne({ where: { externalId: safeData.externalId } });
+        if (existing) {
+            Object.assign(existing, safeData);
+            const saved = await this.doorIoRepo.save(existing);
+            return { entity: saved, action: 'updated' };
+        }
+        const created = await this.doorIoRepo.save(this.doorIoRepo.create(safeData));
+        return { entity: created, action: 'created' };
+    }
 }

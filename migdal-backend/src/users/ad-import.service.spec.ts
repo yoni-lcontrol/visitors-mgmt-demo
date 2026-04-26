@@ -3,11 +3,13 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { AdImportService } from './ad-import.service';
 import { User } from './entities/user.entity';
 import { AdConfiguration } from '../settings/entities/ad-configuration.entity';
+import { SectorsService } from '../sectors/sectors.service';
 
 describe('AdImportService', () => {
     let service: AdImportService;
     let mockUserRepo: any;
     let mockAdConfigRepo: any;
+    let mockSectorsService: any;
 
     beforeEach(async () => {
         mockUserRepo = {
@@ -18,12 +20,16 @@ describe('AdImportService', () => {
         mockAdConfigRepo = {
             find: jest.fn(),
         };
+        mockSectorsService = {
+            findOrCreateByName: jest.fn().mockResolvedValue({ id: 'sector-1', name: 'Test' }),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 AdImportService,
                 { provide: getRepositoryToken(User), useValue: mockUserRepo },
                 { provide: getRepositoryToken(AdConfiguration), useValue: mockAdConfigRepo },
+                { provide: SectorsService, useValue: mockSectorsService },
             ],
         }).compile();
 

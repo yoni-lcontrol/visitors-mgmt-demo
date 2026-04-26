@@ -182,6 +182,7 @@ Password: Admin@123456
 | [Frontend Structure](docs/frontend-structure.md) | Angular project structure & components |
 | [Database Design](docs/database-design.md) | Schema, tables, relationships |
 | [Auth Flow](docs/auth-flow.md) | Authentication & authorization (JWT + Entra ID) |
+| [Entra Setup](docs/entra-id-setup.md) | Microsoft Entra app registration and environment setup |
 | [WebSocket Events](docs/websocket-events.md) | Real-time event contracts (users + agents) |
 | [Permissions Model](docs/permissions-model.md) | RBAC & 47 permission keys |
 | [Integrations](docs/integrations.md) | Inbound M2M integration platform |

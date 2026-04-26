@@ -20,7 +20,6 @@ import { ParkingRequest } from './entities/parking-request.entity';
 import { PermissionKey } from '../common/enums/permission-key.enum';
 import { BlacklistService } from './blacklist.service';
 import { VisitCheckInCodeService } from './visit-check-in-code.service';
-import { AccessLevel } from '../access-control/entities/access-level.entity';
 import { AuditService } from '../audit/audit.service';
 
 @Injectable()
@@ -39,8 +38,6 @@ export class VisitParticipantService {
         private readonly dataSource: DataSource,
         private readonly blacklistService: BlacklistService,
         private readonly checkInCodeService: VisitCheckInCodeService,
-        @InjectRepository(AccessLevel)
-        private readonly accessLevelRepo: Repository<AccessLevel>,
         @InjectRepository(ParkingRequest)
         private readonly parkingRequestRepo: Repository<ParkingRequest>,
         private readonly auditService: AuditService,
@@ -73,23 +70,6 @@ export class VisitParticipantService {
         }
     }
 
-    async validateAccessLevelIds(accessLevelIds: string[]): Promise<void> {
-        const unique = [...new Set(accessLevelIds.filter(Boolean))];
-        if (!unique.length) return;
-        const validLevels = await this.accessLevelRepo
-            .createQueryBuilder('al')
-            .where('al.id IN (:...ids)', { ids: unique })
-            .andWhere('al.active = :active', { active: true })
-            .andWhere('al.visitorAccess = :va', { va: true })
-            .getMany();
-        const validIds = new Set(validLevels.map(al => al.id));
-        for (const id of unique) {
-            if (!validIds.has(id)) {
-                throw new BadRequestException(`Access level ${id} does not exist or is no longer available`);
-            }
-        }
-    }
-
     // ── Visit Visitors ──
 
     async getVisitVisitors(visitId: string): Promise<any[]> {
@@ -98,7 +78,7 @@ export class VisitParticipantService {
 
         const visitors = await this.visitVisitorRepo.find({
             where: { visitId, isActive: true },
-            relations: ['visitor', 'status', 'accessLevel'],
+            relations: ['visitor', 'status'],
         });
 
         const vvIds = visitors.map((vv) => vv.id);
@@ -113,8 +93,6 @@ export class VisitParticipantService {
                 id: vv.id,
                 visitId: vv.visitId,
                 visitorId: vv.visitorId,
-                accessLevelId: vv.accessLevelId,
-                accessLevel: vv.accessLevel ? { id: vv.accessLevel.id, name: vv.accessLevel.name } : null,
                 notes: vv.notes,
                 visitor: vv.visitor ? {
                     id: vv.visitor.id,
@@ -145,7 +123,6 @@ export class VisitParticipantService {
         if (!visit) throw new NotFoundException('Visit not found');
 
         await this.validateVisitorsNotBlacklisted(dto.visitors);
-        await this.validateAccessLevelIds(dto.visitors.map(v => v.accessLevelId));
 
         const qr = this.dataSource.createQueryRunner();
         await qr.connect();
@@ -168,7 +145,6 @@ export class VisitParticipantService {
                 const vv = qr.manager.create(VisitVisitor, {
                     visitId,
                     visitorId: savedVisitor.id,
-                    accessLevelId: v.accessLevelId,
                     notes: v.notes ?? null,
                     createdBy: currentUserId ?? null,
                     updatedBy: currentUserId ?? null,
@@ -239,10 +215,6 @@ export class VisitParticipantService {
             }
         }
 
-        if (dto.accessLevelId !== undefined) {
-            await this.validateAccessLevelIds([dto.accessLevelId]);
-        }
-
         if (dto.firstName !== undefined) visitor.firstName = dto.firstName;
         if (dto.lastName !== undefined) visitor.lastName = dto.lastName;
         if (dto.email !== undefined) visitor.email = dto.email ?? null;
@@ -257,7 +229,6 @@ export class VisitParticipantService {
         visitor.updatedBy = currentUserId ?? null;
         await this.visitorRepo.save(visitor);
 
-        if (dto.accessLevelId !== undefined) vv.accessLevelId = dto.accessLevelId;
         if (dto.notes !== undefined) vv.notes = dto.notes ?? null;
         vv.updatedBy = currentUserId ?? null;
         await this.visitVisitorRepo.save(vv);

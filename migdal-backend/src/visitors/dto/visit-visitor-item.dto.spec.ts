@@ -7,7 +7,6 @@ describe('VisitVisitorItemDto', () => {
         firstName: 'John',
         lastName: 'Doe',
         personId: '123456789',
-        accessLevelId: 'A0000000-0000-0000-0000-000000000001',
         phone: '+972501234567',
     };
 

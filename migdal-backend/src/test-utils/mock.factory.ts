@@ -12,6 +12,7 @@ export function createMockRepository() {
         create: jest.fn((data: any) => ({ ...data })),
         save: jest.fn((entity: any) => Promise.resolve({ id: 'mock-id', ...entity })),
         update: jest.fn().mockResolvedValue({ affected: 1 }),
+        remove: jest.fn().mockResolvedValue(undefined),
         delete: jest.fn().mockResolvedValue({ affected: 1 }),
         createQueryBuilder: jest.fn(),
         count: jest.fn(),

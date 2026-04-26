@@ -49,6 +49,12 @@ public sealed class AmadeusEventContext
     /// <summary>Cardholder UID from the "cardholderUID" field.</summary>
     public string? CardholderUid { get; init; }
 
+    /// <summary>Cardholder first name from the "cardholderFirstName" field.</summary>
+    public string? CardholderFirstName { get; init; }
+
+    /// <summary>Cardholder last name from the "cardholderLastName" field.</summary>
+    public string? CardholderLastName { get; init; }
+
     /// <summary>Card code from the "cardCode" field.</summary>
     public string? CardCode { get; init; }
 
@@ -98,6 +104,8 @@ public sealed class AmadeusEventContext
                 OutputStatusCode = TryGetFirstObjectPropertyIntValue(root, "OutputStatuses"),
                 ReaderName      = TryGetString(root, "readerName"),
                 CardholderUid   = TryGetString(root, "cardholderUID"),
+                CardholderFirstName = TryGetString(root, "cardholderFirstName"),
+                CardholderLastName = TryGetString(root, "cardholderLastName"),
                 CardCode        = TryGetString(root, "cardCode"),
                 AccessDeniedCode = TryGetInt(root, "accessDeniedCode"),
                 ReaderFunctionCodes = TryGetInt(root, "readerFunctionCodes"),

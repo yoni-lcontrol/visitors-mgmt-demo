@@ -5,6 +5,9 @@ export const environment = {
     entra: {
         clientId: '',
         tenantId: '',
+        authority: '',
         redirectUri: 'http://localhost:4200',
+        postLogoutRedirectUri: 'http://localhost:4200',
+        apiAudience: '',
     },
 };

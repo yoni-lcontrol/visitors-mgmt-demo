@@ -25,7 +25,6 @@ import { VisitVisitor, VisitorStatus, VisitorAccessEventType } from '@core/model
                 <th>{{ 'VISITORS.CAR_NUMBER' | translate }}</th>
                 <th>{{ 'VISITORS.VEHICLE_TYPE' | translate }}</th>
                 <th>{{ 'VISITS.PHONE' | translate }}</th>
-                <th>{{ 'VISITS.ACCESS_LEVEL' | translate }}</th>
                 <th>{{ 'VISITS.CHECK_IN_CODE' | translate }}</th>
                 <th>{{ 'COMMON.STATUS' | translate }}</th>
                 <th>{{ 'VISITS.LAST_EVENT' | translate }}</th>
@@ -44,7 +43,6 @@ import { VisitVisitor, VisitorStatus, VisitorAccessEventType } from '@core/model
                   <td>{{ vv.visitor?.carNumber ?? '-' }}</td>
                   <td>{{ vv.visitor?.vehicleType ?? '-' }}</td>
                   <td>{{ vv.visitor?.phone ?? '-' }}</td>
-                  <td>{{ vv.accessLevel?.name ?? '-' }}</td>
                   <td class="code-cell">{{ codeMap.get(vv.id) ?? '-' }}</td>
                   <td>
                     <span [class]="'status-badge ' + getStatusClass(vv.status?.currentStatus)">

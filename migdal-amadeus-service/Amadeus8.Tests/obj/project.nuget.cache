@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "2FuZrp0rjQE=",
+  "dgSpecHash": "pT4aHNgntCM=",
   "success": true,
-  "projectFilePath": "C:\\development\\Migdal-new\\migdal-app\\amadeus-service\\Amadeus8.Tests\\Amadeus8.Tests.csproj",
+  "projectFilePath": "C:\\development\\Migdal-new\\migdal-app\\migdal-amadeus-service\\Amadeus8.Tests\\Amadeus8.Tests.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\sarit.b\\.nuget\\packages\\azure.core\\1.38.0\\azure.core.1.38.0.nupkg.sha512",
     "C:\\Users\\sarit.b\\.nuget\\packages\\azure.identity\\1.11.4\\azure.identity.1.11.4.nupkg.sha512",

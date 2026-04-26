@@ -92,10 +92,16 @@ export class AcControllerController {
 
     @Post('import')
     @RequirePermissions(PermissionKey.AccessControlImport)
-    @HttpCode(HttpStatus.ACCEPTED)
-    @ApiOperation({ summary: 'Trigger import from remote access control server (async)' })
+    @ApiOperation({ summary: 'Import data from remote access control server' })
     async importData() {
-        await this.importService.triggerRemoteImport();
-        return { message: 'Import request sent to remote server. Data will arrive via callback.' };
+        const result = await this.importService.triggerRemoteImport();
+        return {
+            message: `Import completed: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped`,
+            created: result.created,
+            updated: result.updated,
+            skipped: result.skipped,
+            items: result.items,
+            errors: result.errors,
+        };
     }
 }

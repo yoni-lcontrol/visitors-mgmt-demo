@@ -37,7 +37,7 @@ describe('VisitDetailComponent', () => {
         workstationId: 'ws-1',
         code: 'WS-001',
         displayName: 'WS1',
-        devices: [{ providerType: 'printer', isConnected: true, agentVersion: '1.0', lastSeenAt: '', capabilities: null }],
+        devices: [{ providerType: 'printer', isConnected: true, deviceConnected: true, agentVersion: '1.0', lastSeenAt: '', capabilities: null }],
         error: null,
     };
 
@@ -58,7 +58,6 @@ describe('VisitDetailComponent', () => {
         mockApi.get.and.callFake((url: string): any => {
             if (url.includes('/visitors')) return of([]);
             if (url.includes('/escorts')) return of([]);
-            if (url.includes('/access-levels')) return of({ items: [], total: 0, page: 1, limit: 100, totalPages: 0 });
             // /visits/:id
             return of({ id: 'visit-1', title: 'Test Visit', plannedStartTimeUtc: '2026-01-01T09:00:00Z', plannedEndTimeUtc: '2026-01-01T17:00:00Z' });
         });
@@ -277,7 +276,7 @@ describe('VisitDetailComponent', () => {
 
         it('isEditVisitorValid should return false when vehicle is blacklisted', () => {
             component.editingVisitor = {
-                firstName: 'A', lastName: 'B', personId: '123', accessLevelId: 'al-1',
+                firstName: 'A', lastName: 'B', personId: '123',
                 hasVehicle: false, carNumber: '', vehicleType: '',
             } as any;
             component.editVehicleBlacklistStatus = { checking: false, blacklisted: true };
@@ -300,7 +299,6 @@ describe('VisitDetailComponent', () => {
             const vv = {
                 id: 'vv-1',
                 visitor: { firstName: 'A', lastName: 'B', email: '', phone: '', personId: '123', carNumber: 'ABC', vehicleType: 'car' },
-                accessLevel: { id: 'al-1', name: 'Level' },
                 parkingRequest: { status: 'Pending' },
             } as any;
             component.openEditVisitorDialog(vv);
@@ -311,7 +309,6 @@ describe('VisitDetailComponent', () => {
             const vv = {
                 id: 'vv-2',
                 visitor: { firstName: 'A', lastName: 'B', email: '', phone: '', personId: '456', carNumber: null, vehicleType: null },
-                accessLevel: { id: 'al-1', name: 'Level' },
                 parkingRequest: null,
             } as any;
             component.openEditVisitorDialog(vv);

@@ -1,11 +1,41 @@
 import { AdSyncAdapterService, AdConnectionException } from './ad-sync-adapter.service';
 import { AdConfiguration } from '../settings/entities/ad-configuration.entity';
 
+jest.mock('ldapts', () => {
+    const client = {
+        bind: jest.fn(),
+        search: jest.fn(),
+        unbind: jest.fn(),
+        modify: jest.fn(),
+        add: jest.fn(),
+        del: jest.fn(),
+        delete: jest.fn(),
+    };
+
+    return {
+        Client: jest.fn().mockImplementation(() => client),
+        __client: client,
+    };
+});
+
 describe('AdSyncAdapterService', () => {
     let service: AdSyncAdapterService;
+    let ldapClient: any;
 
     beforeEach(() => {
         service = new AdSyncAdapterService();
+        ldapClient = (jest.requireMock('ldapts') as any).__client;
+        ldapClient.bind.mockReset();
+        ldapClient.search.mockReset();
+        ldapClient.unbind.mockReset();
+        ldapClient.modify.mockReset();
+        ldapClient.add.mockReset();
+        ldapClient.del.mockReset();
+        ldapClient.delete.mockReset();
+
+        ldapClient.bind.mockResolvedValue(undefined);
+        ldapClient.search.mockResolvedValue({ searchEntries: [] });
+        ldapClient.unbind.mockResolvedValue(undefined);
     });
 
     describe('validateConfig', () => {
@@ -19,6 +49,7 @@ describe('AdSyncAdapterService', () => {
             password: 'pass',
             port: 389,
             useSsl: false,
+            targetGroupsJson: null,
             isActive: true,
         } as AdConfiguration;
 
@@ -80,7 +111,28 @@ describe('AdSyncAdapterService', () => {
                 department: 'IT',
                 title: 'Developer',
                 idNumber: null,
+                company: null,
+                groupNames: [],
+                isDisabled: false,
             });
+        });
+
+        it('should extract AD group names from memberOf (full DN + CN)', () => {
+            const entry = {
+                sAMAccountName: 'jdoe',
+                memberOf: [
+                    'CN=Visitors Operators,OU=Groups,DC=corp,DC=local',
+                    'CN=Reception,OU=Groups,DC=corp,DC=local',
+                ],
+            };
+
+            const result = service.mapEntry(entry);
+            expect(result.groupNames).toEqual(expect.arrayContaining([
+                'CN=Visitors Operators,OU=Groups,DC=corp,DC=local',
+                'Visitors Operators',
+                'CN=Reception,OU=Groups,DC=corp,DC=local',
+                'Reception',
+            ]));
         });
 
         it('should use sAMAccountName as firstName when givenName is missing', () => {
@@ -97,6 +149,7 @@ describe('AdSyncAdapterService', () => {
             expect(result.department).toBeNull();
             expect(result.title).toBeNull();
             expect(result.idNumber).toBeNull();
+            expect(result.groupNames).toEqual([]);
         });
 
         it('should handle array attributes', () => {
@@ -167,6 +220,109 @@ describe('AdSyncAdapterService', () => {
             } catch (err) {
                 expect(err).toBeInstanceOf(AdConnectionException);
                 expect((err as AdConnectionException).code).toBe('AD_INVALID_CONFIG');
+            }
+        });
+
+        it('should use read-only LDAP operations only', async () => {
+            const config = {
+                id: 'c1',
+                name: 'Test AD',
+                domain: 'test.local',
+                ldapUrl: 'ldap://dc1.test.local:389',
+                baseDn: 'DC=test,DC=local',
+                username: 'admin',
+                password: 'pass',
+                port: 389,
+                useSsl: false,
+                isActive: true,
+            } as AdConfiguration;
+
+            await service.fetchUsers(config);
+
+            expect(ldapClient.bind).toHaveBeenCalled();
+            expect(ldapClient.search).toHaveBeenCalled();
+            expect(ldapClient.unbind).toHaveBeenCalled();
+            expect(ldapClient.modify).not.toHaveBeenCalled();
+            expect(ldapClient.add).not.toHaveBeenCalled();
+            expect(ldapClient.del).not.toHaveBeenCalled();
+            expect(ldapClient.delete).not.toHaveBeenCalled();
+        });
+
+        it('should fetch users only from configured AD groups and deduplicate', async () => {
+            const config = {
+                id: 'c1',
+                name: 'Test AD',
+                domain: 'test.local',
+                ldapUrl: 'ldap://dc1.test.local:389',
+                baseDn: 'DC=test,DC=local',
+                username: 'admin',
+                password: 'pass',
+                port: 389,
+                useSsl: false,
+                isActive: true,
+            } as AdConfiguration;
+
+            ldapClient.search
+                .mockResolvedValueOnce({
+                    searchEntries: [{ distinguishedName: 'CN=Reception,OU=Groups,DC=test,DC=local', cn: 'Reception' }],
+                })
+                .mockResolvedValueOnce({
+                    searchEntries: [{ distinguishedName: 'CN=Visitors Operators,OU=Groups,DC=test,DC=local', cn: 'Visitors Operators' }],
+                })
+                .mockResolvedValueOnce({
+                    searchEntries: [
+                        {
+                            sAMAccountName: 'jdoe',
+                            givenName: 'John',
+                            sn: 'Doe',
+                            memberOf: ['CN=Reception,OU=Groups,DC=test,DC=local'],
+                        },
+                        {
+                            sAMAccountName: 'jdoe',
+                            givenName: 'John',
+                            sn: 'Doe',
+                            memberOf: ['CN=Visitors Operators,OU=Groups,DC=test,DC=local'],
+                        },
+                    ],
+                });
+
+            const users = await service.fetchUsers(config, { targetGroups: ['Reception', 'Visitors Operators'] });
+
+            expect(users).toHaveLength(1);
+            expect(users[0].username).toBe('jdoe');
+            expect(ldapClient.search).toHaveBeenCalledTimes(3);
+
+            const userSearchFilter = ldapClient.search.mock.calls[2][1].filter as string;
+            expect(userSearchFilter).toContain('(memberOf=CN=Reception,OU=Groups,DC=test,DC=local)');
+            expect(userSearchFilter).toContain('(memberOf=CN=Visitors Operators,OU=Groups,DC=test,DC=local)');
+        });
+
+        it('should throw AD_GROUP_NOT_FOUND when configured groups do not exist', async () => {
+            const config = {
+                id: 'c1',
+                name: 'Test AD',
+                domain: 'test.local',
+                ldapUrl: 'ldap://dc1.test.local:389',
+                baseDn: 'DC=test,DC=local',
+                username: 'admin',
+                password: 'pass',
+                port: 389,
+                useSsl: false,
+                isActive: true,
+            } as AdConfiguration;
+
+            ldapClient.search.mockResolvedValue({ searchEntries: [] });
+
+            await expect(service.fetchUsers(config, { targetGroups: ['NoSuchGroup'] }))
+                .rejects
+                .toThrow('None of the configured AD groups were found');
+
+            try {
+                await service.fetchUsers(config, { targetGroups: ['NoSuchGroup'] });
+                fail('should have thrown');
+            } catch (err) {
+                expect(err).toBeInstanceOf(AdConnectionException);
+                expect((err as AdConnectionException).code).toBe('AD_GROUP_NOT_FOUND');
             }
         });
     });

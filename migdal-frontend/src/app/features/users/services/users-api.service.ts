@@ -24,6 +24,10 @@ export class UsersApiService {
         return this.api.patch<User>(`${this.basePath}/${id}`, payload);
     }
 
+    assignRoles(id: string, roleIds: string[]): Observable<User> {
+        return this.api.post<User>(`${this.basePath}/${id}/roles`, { roleIds });
+    }
+
     export(params: Record<string, string | number>): Observable<Blob> {
         return this.api.download(`${this.basePath}/export`, params);
     }

@@ -94,6 +94,30 @@ Adjust this order once the final entity relationships are verified.
 - Decide whether the whole sync should stop or continue per entity type.
 - Favor partial progress with clear error reporting unless consistency requires fail-fast behavior.
 
+### Per-record resiliency policy
+- Each source record is processed in an isolated save boundary.
+- A single record failure must not stop the remaining records in the page or subsequent pages.
+- Validation failures (for example missing required external IDs) are counted as `Skipped` and included in failure details.
+- Mapping/database failures are counted as `Failed` and included in failure details.
+
+### Import summary contract
+Every import operation returns a summary with:
+- `TotalReceived`
+- `Succeeded`
+- `Created`
+- `Updated`
+- `Unchanged`
+- `Skipped`
+- `Failed`
+- `Failures[]` with per-record diagnostics:
+	- `EquipmentType`
+	- `ExternalId`
+	- `Name`
+	- `FailureStage` (`fetch`, `validate`, `map`, `save`, `update`)
+	- `FailureCategory` (invalid source, missing required field, foreign key issue, duplicate conflict, null value, parsing, db save/update, unexpected API, unhandled)
+	- `Message`
+	- `StackTrace` (when available)
+
 ## Observability
 Track and expose:
 - last sync start time

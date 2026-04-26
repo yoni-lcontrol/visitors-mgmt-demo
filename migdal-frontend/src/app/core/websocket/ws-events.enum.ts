@@ -17,6 +17,17 @@ export enum WsEvent {
     AccessControlDoorDeleted = 'access-control:door:deleted',
     AccessControlImportCompleted = 'access-control:import:completed',
     AccessControlImportFailed = 'access-control:import:failed',
+    AccessControlControllersImportProgress = 'access-control:controllers:import-progress',
+    AccessControlControllersImportCompleted = 'access-control:controllers:import-completed',
+    AccessControlControllersImportFailed = 'access-control:controllers:import-failed',
+    AccessControlAccessLevelsImportProgress = 'access-control:access-levels:import-progress',
+    AccessControlAccessLevelsImportCompleted = 'access-control:access-levels:import-completed',
+    AccessControlAccessLevelsImportFailed = 'access-control:access-levels:import-failed',
+
+    // AD Sync
+    AdSyncProgress = 'users:ad-sync:progress',
+    AdSyncCompleted = 'users:ad-sync:completed',
+    AdSyncFailed = 'users:ad-sync:failed',
 
     // Visitors
     VisitorsVisitorCreated = 'visitors:visitor:created',
@@ -43,6 +54,7 @@ export enum WsEvent {
     IntegrationsAccessControlEventReceived = 'integrations:access-control:event-received',
     IntegrationsScannerEventReceived = 'integrations:scanner:event-received',
     IntegrationsPrinterEventReceived = 'integrations:printer:event-received',
+    IntegrationsAmadeusEventReceived = 'integrations:amadeus:event-received',
 
     // Workstation binding
     WorkstationBindCurrentSession = 'workstation:bind-current-session',

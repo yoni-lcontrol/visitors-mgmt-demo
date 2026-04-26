@@ -21,6 +21,7 @@ import { VisitEscort } from '@core/models/entities.model';
               <tr>
                 <th>{{ 'VISITS.FIRST_NAME' | translate }}</th>
                 <th>{{ 'VISITS.LAST_NAME' | translate }}</th>
+                <th>{{ 'VISITS.SECTOR' | translate }}</th>
                 <th>{{ 'VISITS.PHONE' | translate }}</th>
                 <th>{{ 'VISITS.EMAIL' | translate }}</th>
                 <th>{{ 'COMMON.ACTIONS' | translate }}</th>
@@ -31,6 +32,7 @@ import { VisitEscort } from '@core/models/entities.model';
                 <tr>
                   <td>{{ escort.firstName }}</td>
                   <td>{{ escort.lastName }}</td>
+                  <td>{{ escort.sector || '-' }}</td>
                   <td>{{ escort.phone }}</td>
                   <td>{{ escort.email }}</td>
                   <td class="actions">

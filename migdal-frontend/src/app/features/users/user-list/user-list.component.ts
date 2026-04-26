@@ -65,6 +65,7 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
             <th pSortableColumn="username">{{ 'USERS.USERNAME' | translate }} <p-sortIcon field="username" /> <p-columnFilter field="username" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="email">{{ 'USERS.EMAIL' | translate }} <p-sortIcon field="email" /> <p-columnFilter field="email" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="phone">{{ 'USERS.PHONE' | translate }} <p-sortIcon field="phone" /> <p-columnFilter field="phone" type="text" display="menu"></p-columnFilter></th>
+            <th pSortableColumn="sectorName">{{ 'USERS.SECTOR' | translate }} <p-sortIcon field="sectorName" /> <p-columnFilter field="sectorName" type="text" display="menu"></p-columnFilter></th>
             <th>{{ 'USERS.ID_NUMBER' | translate }} </th>
             <th>{{ 'USERS.ROLE' | translate }} </th>
             <th>{{ 'COMMON.ACTIVE' | translate }} <p-columnFilter field="isActive" type="text" display="menu"></p-columnFilter></th>
@@ -78,6 +79,7 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
             <td>{{ user.username }}</td>
             <td>{{ user.email ?? '-' }}</td>
             <td>{{ user.phone ?? '-' }}</td>
+            <td>{{ user.sector?.name ?? '-' }}</td>
             <td>{{ user.idNumber ?? '-' }}</td>
             <td>
               @for (role of getUserRoles(user); track role.id) {
@@ -103,7 +105,7 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
           </tr>
         </ng-template>
         <ng-template pTemplate="emptymessage">
-          <tr><td colspan="9" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
+          <tr><td colspan="10" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
         </ng-template>
       </p-table>
     </div>

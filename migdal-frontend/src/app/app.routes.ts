@@ -63,6 +63,15 @@ export const routes: Routes = [
                 data: { permission: 'visits.read' },
             },
             {
+                path: 'visitors',
+                loadChildren: () =>
+                    import('./features/visitors/visitors.routes').then(
+                        (m) => m.VISITORS_ROUTES,
+                    ),
+                canActivate: [permissionGuard],
+                data: { permission: 'visitors.read' },
+            },
+            {
                 path: 'workstations',
                 loadChildren: () =>
                     import('./features/workstations/workstations.routes').then(

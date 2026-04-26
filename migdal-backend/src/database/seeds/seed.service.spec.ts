@@ -6,6 +6,7 @@ import { User } from '../../users/entities/user.entity';
 import { SmsTemplate } from '../../settings/entities/sms-template.entity';
 import { EmailTemplate } from '../../settings/entities/email-template.entity';
 import { Setting } from '../../settings/entities/setting.entity';
+import { AdGroupRoleMapping } from '../../ad-group-role-mappings/entities/ad-group-role-mapping.entity';
 
 describe('SeedService', () => {
     function createRepositoryMock() {
@@ -44,6 +45,7 @@ describe('SeedService', () => {
         const smsTemplateRepo = createRepositoryMock();
         const emailTemplateRepo = createRepositoryMock();
         const settingRepo = createRepositoryMock();
+        const adGroupRoleMappingRepo = createRepositoryMock();
 
         const repositories = new Map<any, ReturnType<typeof createRepositoryMock>>([
             [Permission, permissionRepo],
@@ -52,6 +54,7 @@ describe('SeedService', () => {
             [SmsTemplate, smsTemplateRepo],
             [EmailTemplate, emailTemplateRepo],
             [Setting, settingRepo],
+            [AdGroupRoleMapping, adGroupRoleMappingRepo],
         ]);
 
         const queryRunner = {
@@ -162,6 +165,7 @@ describe('SeedService', () => {
         const smsTemplateRepo = createRepositoryMock();
         const emailTemplateRepo = createRepositoryMock();
         const settingRepo = createRepositoryMock();
+        const adGroupRoleMappingRepo = createRepositoryMock();
 
         const repositories = new Map<any, ReturnType<typeof createRepositoryMock>>([
             [Permission, permissionRepo],
@@ -170,6 +174,7 @@ describe('SeedService', () => {
             [SmsTemplate, smsTemplateRepo],
             [EmailTemplate, emailTemplateRepo],
             [Setting, settingRepo],
+            [AdGroupRoleMapping, adGroupRoleMappingRepo],
         ]);
 
         const queryRunner = {
@@ -246,6 +251,7 @@ describe('SeedService', () => {
         const smsTemplateRepo = createRepositoryMock();
         const emailTemplateRepo = createRepositoryMock();
         const settingRepo = createRepositoryMock();
+        const adGroupRoleMappingRepo = createRepositoryMock();
 
         const repositories = new Map<any, ReturnType<typeof createRepositoryMock>>([
             [Permission, permissionRepo],
@@ -254,6 +260,7 @@ describe('SeedService', () => {
             [SmsTemplate, smsTemplateRepo],
             [EmailTemplate, emailTemplateRepo],
             [Setting, settingRepo],
+            [AdGroupRoleMapping, adGroupRoleMappingRepo],
         ]);
 
         const queryRunner = {
@@ -286,5 +293,156 @@ describe('SeedService', () => {
             'parking.approve',
             'access-control.import',
         ]));
+    });
+
+    it('should upsert AD group-role mappings by groupName', async () => {
+        const permissionRepo = createRepositoryMock();
+
+        const roleRepo = createRepositoryMock();
+        roleRepo.find
+            .mockResolvedValueOnce([
+                { name: 'Admin' },
+                { name: 'עובד מגדל' },
+                { name: 'מנהלים בכירים ומזכירות' },
+                { name: 'מרכז הדרכות' },
+                { name: 'מוקד ביטחון' },
+                { name: 'דלפקים' },
+                { name: 'קב"ט' },
+            ])
+            .mockResolvedValueOnce([
+                { id: 'role-users', name: 'עובד מגדל', isActive: true },
+                { id: 'role-managers', name: 'מנהלים בכירים ומזכירות', isActive: true },
+                { id: 'role-training', name: 'מרכז הדרכות', isActive: true },
+                { id: 'role-security-center', name: 'מוקד ביטחון', isActive: true },
+                { id: 'role-desk', name: 'דלפקים', isActive: true },
+                { id: 'role-kabat', name: 'קב"ט', isActive: true },
+            ]);
+        roleRepo.findOne.mockResolvedValue({
+            id: 'admin-role',
+            name: 'Admin',
+            permissions: [],
+        });
+
+        const userRepo = createRepositoryMock();
+        userRepo.findOne.mockResolvedValue({ id: 'admin-user', username: 'admin' });
+
+        const smsTemplateRepo = createRepositoryMock();
+        const emailTemplateRepo = createRepositoryMock();
+        const settingRepo = createRepositoryMock();
+        const adGroupRoleMappingRepo = createRepositoryMock();
+        adGroupRoleMappingRepo.findOne.mockImplementation(async ({ where }: any) => {
+            if (where?.groupName === 'Sniper_Kabat') {
+                return {
+                    id: 10,
+                    groupName: 'Sniper_Kabat',
+                    adSourceId: null,
+                    roleId: 'legacy-role-id',
+                };
+            }
+
+            return null;
+        });
+
+        const repositories = new Map<any, ReturnType<typeof createRepositoryMock>>([
+            [Permission, permissionRepo],
+            [Role, roleRepo],
+            [User, userRepo],
+            [SmsTemplate, smsTemplateRepo],
+            [EmailTemplate, emailTemplateRepo],
+            [Setting, settingRepo],
+            [AdGroupRoleMapping, adGroupRoleMappingRepo],
+        ]);
+
+        const queryRunner = {
+            connect: jest.fn(),
+            startTransaction: jest.fn(),
+            commitTransaction: jest.fn(),
+            rollbackTransaction: jest.fn(),
+            release: jest.fn(),
+            manager: {
+                getRepository: jest.fn((entity) => repositories.get(entity)),
+            },
+        };
+
+        const dataSource = {
+            createQueryRunner: jest.fn().mockReturnValue(queryRunner),
+        } as unknown as DataSource;
+
+        const service = new SeedService(dataSource);
+        await service.onModuleInit();
+
+        const createdGroupNames = adGroupRoleMappingRepo.create.mock.calls.map(([value]) => value.groupName);
+        expect(createdGroupNames).toEqual(expect.arrayContaining([
+            'Sniper_useres',
+            'Sniper_Mangers',
+            'Sniper_merkaz_Hadrachot',
+            'Sniper_Moked_bitachon',
+            'Sniper_Dalpak_Bitachon',
+        ]));
+        expect(createdGroupNames).not.toContain('Sniper_Kabat');
+
+        const savedMappings = adGroupRoleMappingRepo.save.mock.calls.map(([value]) => value);
+        const updatedKabatMapping = savedMappings.find((mapping) => mapping.groupName === 'Sniper_Kabat');
+        expect(updatedKabatMapping).toBeDefined();
+        expect(updatedKabatMapping.roleId).toBe('role-kabat');
+    });
+
+    it('should skip AD group mappings when target role is missing', async () => {
+        const permissionRepo = createRepositoryMock();
+
+        const roleRepo = createRepositoryMock();
+        roleRepo.find
+            .mockResolvedValueOnce([
+                { name: 'Admin' },
+                { name: 'עובד מגדל' },
+            ])
+            .mockResolvedValueOnce([
+                { id: 'role-users', name: 'עובד מגדל', isActive: true },
+            ]);
+        roleRepo.findOne.mockResolvedValue({
+            id: 'admin-role',
+            name: 'Admin',
+            permissions: [],
+        });
+
+        const userRepo = createRepositoryMock();
+        userRepo.findOne.mockResolvedValue({ id: 'admin-user', username: 'admin' });
+
+        const smsTemplateRepo = createRepositoryMock();
+        const emailTemplateRepo = createRepositoryMock();
+        const settingRepo = createRepositoryMock();
+        const adGroupRoleMappingRepo = createRepositoryMock();
+
+        const repositories = new Map<any, ReturnType<typeof createRepositoryMock>>([
+            [Permission, permissionRepo],
+            [Role, roleRepo],
+            [User, userRepo],
+            [SmsTemplate, smsTemplateRepo],
+            [EmailTemplate, emailTemplateRepo],
+            [Setting, settingRepo],
+            [AdGroupRoleMapping, adGroupRoleMappingRepo],
+        ]);
+
+        const queryRunner = {
+            connect: jest.fn(),
+            startTransaction: jest.fn(),
+            commitTransaction: jest.fn(),
+            rollbackTransaction: jest.fn(),
+            release: jest.fn(),
+            manager: {
+                getRepository: jest.fn((entity) => repositories.get(entity)),
+            },
+        };
+
+        const dataSource = {
+            createQueryRunner: jest.fn().mockReturnValue(queryRunner),
+        } as unknown as DataSource;
+
+        const service = new SeedService(dataSource);
+        await service.onModuleInit();
+
+        const createdGroupNames = adGroupRoleMappingRepo.create.mock.calls.map(([value]) => value.groupName);
+        expect(createdGroupNames).toEqual(['Sniper_useres']);
+        expect(adGroupRoleMappingRepo.save).toHaveBeenCalledTimes(1);
     });
 });

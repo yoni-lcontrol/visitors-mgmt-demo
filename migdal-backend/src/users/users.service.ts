@@ -55,11 +55,12 @@ export class UsersService {
         const { search, sortBy, sortOrder, filters } = query;
         const qb = this.userRepo
             .createQueryBuilder('user')
-            .leftJoinAndSelect('user.role', 'role');
+            .leftJoinAndSelect('user.role', 'role')
+            .leftJoinAndSelect('user.sector', 'sector');
 
         if (search) {
             qb.andWhere(
-                '(user.username LIKE :s OR user.firstName LIKE :s OR user.lastName LIKE :s)',
+                '(user.username LIKE :s OR user.firstName LIKE :s OR user.lastName LIKE :s OR sector.name LIKE :s)',
                 { s: `%${search}%` },
             );
         }
@@ -70,6 +71,7 @@ export class UsersService {
             username: 'user.username',
             email: 'user.email',
             phone: 'user.phone',
+            sectorName: 'sector.name',
             isActive: 'user.isActive',
         });
 
@@ -79,6 +81,7 @@ export class UsersService {
             username: 'user.username',
             email: 'user.email',
             phone: 'user.phone',
+            sectorName: 'sector.name',
             createdAt: 'user.createdAt',
             updatedAt: 'user.updatedAt',
         };

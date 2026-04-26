@@ -10,7 +10,7 @@ import { VisitVisitor } from './entities/visit-visitor.entity';
 import { VisitEscort } from './entities/visit-escort.entity';
 import { VisitVisitorStatus } from './entities/visit-visitor-status.entity';
 import { Visitor } from './entities/visitor.entity';
-import { CreateVisitDto } from './dto/create-visit.dto';
+import { CreateVisitDto, VisitRequesterDto } from './dto/create-visit.dto';
 import { UpdateVisitDto } from './dto/update-visit.dto';
 import { VisitorStatus } from './enums/visitor-status.enum';
 import { VisitsQueryDto, TimeFilter } from './dto/visits-query.dto';
@@ -30,6 +30,7 @@ import { ParkingRequestStatus } from './enums/parking-request-status.enum';
 import { PermissionKey } from '../common/enums/permission-key.enum';
 import { resolveVisitRequester, buildSmsData } from './visit.utils';
 import { getDayBoundsUtc } from '../common/utils/date.util';
+import { VisitorPersistenceService } from './visitor-persistence.service';
 import {
     isEscortRequiredForVisit,
     isOnBehalfOnlyRole,
@@ -47,6 +48,8 @@ export class VisitsService {
         private readonly statusRepo: Repository<VisitVisitorStatus>,
         @InjectRepository(Visitor)
         private readonly visitorRepo: Repository<Visitor>,
+        @InjectRepository(VisitEscort)
+        private readonly escortRepo: Repository<VisitEscort>,
         private readonly dataSource: DataSource,
         private readonly wsGateway: UsersGateway,
         @InjectRepository(User)
@@ -54,12 +57,166 @@ export class VisitsService {
         private readonly smsNotification: SmsNotificationService,
         private readonly emailNotification: EmailNotificationService,
         private readonly auditService: AuditService,
+        private readonly visitorPersistence: VisitorPersistenceService,
         private readonly participantService: VisitParticipantService,
         private readonly checkInCodeService: VisitCheckInCodeService,
     ) { }
 
     resolveVisitRequester(visit: Visit): { firstName: string; lastName: string; phone: string; email: string } | null {
         return resolveVisitRequester(visit);
+    }
+
+    private normalizeAutoEscortOrThrow(
+        source: {
+            firstName?: string | null;
+            lastName?: string | null;
+            phone?: string | null;
+            email?: string | null;
+            sector?: string | null;
+        },
+        sourceLabel: string,
+    ): { firstName: string; lastName: string; phone: string; email: string; sector: string | null } {
+        const firstName = source.firstName?.trim() ?? '';
+        const lastName = source.lastName?.trim() ?? '';
+        const phone = source.phone?.trim() ?? '';
+        const email = source.email?.trim() ?? '';
+
+        if (!firstName || !lastName || !phone || !email) {
+            throw new BadRequestException(
+                `Cannot auto-assign escort from ${sourceLabel}: firstName, lastName, phone and email are required`,
+            );
+        }
+
+        return {
+            firstName,
+            lastName,
+            phone,
+            email,
+            sector: source.sector?.trim() ? source.sector.trim() : null,
+        };
+    }
+
+    private buildAutoEscortFromRequester(requester: VisitRequesterDto): {
+        firstName: string;
+        lastName: string;
+        phone: string;
+        email: string;
+        sector: string | null;
+    } {
+        return this.normalizeAutoEscortOrThrow(
+            {
+                firstName: requester.firstName,
+                lastName: requester.lastName,
+                phone: requester.phone,
+                email: requester.email,
+            },
+            'visit requester',
+        );
+    }
+
+    private buildAutoEscortFromUser(user: User | null, sourceLabel: string): {
+        firstName: string;
+        lastName: string;
+        phone: string;
+        email: string;
+        sector: string | null;
+    } {
+        if (!user) {
+            throw new BadRequestException(`Cannot auto-assign escort from ${sourceLabel}: user not found`);
+        }
+
+        return this.normalizeAutoEscortOrThrow(
+            {
+                firstName: user.firstName,
+                lastName: user.lastName,
+                phone: user.phone,
+                email: user.email,
+                sector: user.sector?.name ?? null,
+            },
+            sourceLabel,
+        );
+    }
+
+    private getCreateEscorts(
+        dto: CreateVisitDto,
+        isSelfRequester: boolean,
+        currentUser: User | null,
+    ): Array<{ firstName: string; lastName: string; phone: string; email: string; sector?: string | null }> {
+        const explicitEscorts = dto.escorts ?? [];
+        if (explicitEscorts.length > 0) {
+            return explicitEscorts;
+        }
+
+        if (!isSelfRequester && dto.visitRequester) {
+            return [this.buildAutoEscortFromRequester(dto.visitRequester)];
+        }
+
+        return [this.buildAutoEscortFromUser(currentUser, 'current user')];
+    }
+
+    private async resolveAutoEscortForUpdate(
+        visit: Visit,
+        dto: UpdateVisitDto,
+        currentUserId?: string,
+    ): Promise<{ firstName: string; lastName: string; phone: string; email: string; sector: string | null }> {
+        if (dto.visitRequester !== undefined) {
+            if (dto.visitRequester === null) {
+                if (!currentUserId) {
+                    throw new BadRequestException('Cannot auto-assign escort from current user: user not found');
+                }
+                const currentUser = await this.userRepo.findOne({
+                    where: { id: currentUserId },
+                    relations: ['sector'],
+                });
+                return this.buildAutoEscortFromUser(currentUser, 'current user');
+            }
+
+            return this.buildAutoEscortFromRequester(dto.visitRequester as VisitRequesterDto);
+        }
+
+        if (visit.visitRequesterUserId) {
+            const requesterUser = visit.visitRequesterUser ?? await this.userRepo.findOne({
+                where: { id: visit.visitRequesterUserId },
+                relations: ['sector'],
+            });
+            return this.buildAutoEscortFromUser(requesterUser, 'visit requester user');
+        }
+
+        return this.normalizeAutoEscortOrThrow(
+            {
+                firstName: visit.visitRequesterFirstName,
+                lastName: visit.visitRequesterLastName,
+                phone: visit.visitRequesterPhone,
+                email: visit.visitRequesterEmail,
+            },
+            'visit requester',
+        );
+    }
+
+    private async ensureAutoEscortForUpdate(
+        visit: Visit,
+        dto: UpdateVisitDto,
+        currentUserId?: string,
+    ): Promise<void> {
+        const escortCount = await this.escortRepo.count({
+            where: {
+                visitId: visit.id,
+                isActive: true,
+            },
+        });
+
+        if (escortCount > 0) {
+            return;
+        }
+
+        const autoEscort = await this.resolveAutoEscortForUpdate(visit, dto, currentUserId);
+        const escort = this.escortRepo.create({
+            visitId: visit.id,
+            ...autoEscort,
+            createdBy: currentUserId ?? null,
+            updatedBy: currentUserId ?? null,
+        });
+        await this.escortRepo.save(escort);
     }
 
     private async resolveScopedCreatorUserIds(currentUserId?: string, userRoles?: string[]): Promise<string[] | null> {
@@ -463,6 +620,7 @@ export class VisitsService {
         const currentUser = currentUserId
             ? await this.userRepo.findOne({ where: { id: currentUserId }, relations: ['sector'] })
             : null;
+        const escortsToCreate = this.getCreateEscorts(dto, isSelfRequester, currentUser);
 
         // Check blacklist for all visitors
         await this.participantService.validateVisitorsNotBlacklisted(dto.visitors);
@@ -499,19 +657,15 @@ export class VisitsService {
             const savedVisit = await qr.manager.save(visit);
 
             for (const v of dto.visitors) {
-                const visitor = qr.manager.create(Visitor, {
+                const { visitor: savedVisitor } = await this.visitorPersistence.upsertByPersonId({
                     firstName: v.firstName,
                     lastName: v.lastName,
-                    fullName: `${v.firstName} ${v.lastName}`,
                     email: v.email ?? null,
                     phone: v.phone ?? null,
                     personId: v.personId,
                     carNumber: v.hasVehicle ? (v.carNumber ?? null) : null,
                     vehicleType: v.hasVehicle ? (v.vehicleType ?? null) : null,
-                    createdBy: currentUserId ?? null,
-                    updatedBy: currentUserId ?? null,
-                });
-                const savedVisitor = await qr.manager.save(visitor);
+                }, currentUserId, qr.manager);
 
                 const vv = qr.manager.create(VisitVisitor, {
                     visitId: savedVisit.id,
@@ -544,13 +698,14 @@ export class VisitsService {
                 }
             }
 
-            for (const e of dto.escorts) {
+            for (const e of escortsToCreate) {
                 const escort = qr.manager.create(VisitEscort, {
                     visitId: savedVisit.id,
                     firstName: e.firstName,
                     lastName: e.lastName,
                     phone: e.phone,
                     email: e.email,
+                    sector: e.sector?.trim() ? e.sector.trim() : null,
                     createdBy: currentUserId ?? null,
                     updatedBy: currentUserId ?? null,
                 });
@@ -567,7 +722,7 @@ export class VisitsService {
                 entity: 'Visit',
                 entityId: savedVisit.id,
                 description: `Created visit "${savedVisit.title}" with ${dto.visitors.length} visitors`,
-                newValue: { title: dto.title, siteId: dto.siteId, sectorId: currentUser?.sectorId ?? null, visitorCount: dto.visitors.length, escortCount: dto.escorts.length },
+                newValue: { title: dto.title, siteId: dto.siteId, sectorId: currentUser?.sectorId ?? null, visitorCount: dto.visitors.length, escortCount: escortsToCreate.length },
             }).catch(() => { });
 
             // Trigger SMS for visit created (fire-and-forget)
@@ -671,6 +826,7 @@ export class VisitsService {
             updatedBy: currentUserId ?? null,
         });
         await this.visitRepo.save(visit);
+        await this.ensureAutoEscortForUpdate(visit, dto, currentUserId);
 
         // Reload with visitRequesterUser for SMS/email hostName resolution
         if (visit.visitRequesterUserId && !visit.visitRequesterUser) {

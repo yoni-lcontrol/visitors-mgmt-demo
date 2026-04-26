@@ -4,6 +4,7 @@ import { SettingsController } from './settings.controller';
 import { SettingsService } from './settings.service';
 import { Setting } from './entities/setting.entity';
 import { AdConfiguration } from './entities/ad-configuration.entity';
+import { PermanentEscort } from './entities/permanent-escort.entity';
 import { AuditLog } from '../common/entities/audit-log.entity';
 import { Visit } from '../visitors/entities/visit.entity';
 import { AdConfigurationController } from './ad-configuration.controller';
@@ -14,16 +15,30 @@ import { CardTemplate } from './entities/card-template.entity';
 import { CardTemplateController } from './card-template.controller';
 import { CardTemplateService } from './card-template.service';
 import { DeviceCommandLog } from '../device-commands/entities/device-command-log.entity';
+import { User } from '../users/entities/user.entity';
+import { Sector } from '../sectors/entities/sector.entity';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { PrintingModule } from '../printing/printing.module';
 import { NotificationsModule } from './notifications.module';
 import { NotificationSettingsController } from './notification-settings.controller';
 import { SmsTemplateController } from './sms-template.controller';
 import { EmailTemplateController } from './email-template.controller';
+import { PermanentEscortsController } from './permanent-escorts.controller';
+import { PermanentEscortsService } from './permanent-escorts.service';
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([Setting, AdConfiguration, AuditLog, Visit, CardTemplate, DeviceCommandLog]),
+        TypeOrmModule.forFeature([
+            Setting,
+            AdConfiguration,
+            PermanentEscort,
+            AuditLog,
+            Visit,
+            CardTemplate,
+            DeviceCommandLog,
+            User,
+            Sector,
+        ]),
         WebsocketModule,
         PrintingModule,
         NotificationsModule,
@@ -34,6 +49,7 @@ import { EmailTemplateController } from './email-template.controller';
         EmailTemplateController,
         AdConfigurationController,
         CardTemplateController,
+        PermanentEscortsController,
         SettingsController,
     ],
     providers: [
@@ -42,6 +58,7 @@ import { EmailTemplateController } from './email-template.controller';
         AdSearchService,
         RetentionCleanupService,
         CardTemplateService,
+        PermanentEscortsService,
     ],
     exports: [
         SettingsService,

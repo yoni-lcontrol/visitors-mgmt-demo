@@ -217,6 +217,25 @@ backend/src/ad-group-role-mappings/
 
 This mapping table is intentionally independent from the user table so AD import can scale to multiple group memberships per user and evolve with extra mapping metadata in the future.
 
+Default global mappings seeded by `SeedService`:
+
+| AD Group | Role Name |
+|----------|-----------|
+| `Sniper_useres` | `עובד מגדל` |
+| `Sniper_Mangers` | `מנהלים בכירים ומזכירות` |
+| `Sniper_merkaz_Hadrachot` | `מרכז הדרכות` |
+| `Sniper_Moked_bitachon` | `מוקד ביטחון` |
+| `Sniper_Dalpak_Bitachon` | `דלפקים` |
+| `Sniper_Kabat` | `קב"ט` |
+
+Seed behavior for these mappings:
+
+1. Resolves target roles by stable role name (never by hardcoded IDs).
+2. Upserts global mappings by (`adSourceId = null`, `groupName`).
+3. Updates an existing mapping when `roleId` is different.
+4. Logs a warning and skips mapping when the target role is missing or inactive.
+5. Avoids duplicates via the existing unique key on (`adSourceId`, `groupName`).
+
 Uniqueness behavior:
 
 1. `groupName` is unique per source context (`adSourceId`, `groupName`).
@@ -232,6 +251,13 @@ AD user sync can be scoped to specific AD groups. Group sources are resolved in 
 3. `AdGroupRoleMappings.groupName`
 
 When groups are resolved, LDAP fetch runs in group-scoped mode (`memberOf` filter) and deduplicates users across groups by external ID. If no groups are resolved, sync falls back to legacy all-users mode for backward compatibility.
+
+To apply/update all seeds (including AD group-role mappings), run:
+
+```bash
+cd migdal-backend
+npm run seed
+```
 
 ## Testing Structure
 
@@ -343,7 +369,7 @@ backend/src/visitors/
 
 | Service | Responsibility |
 |---------|---------------|
-| `VisitsService` | Visit lifecycle CRUD (create, update, cancel), stamps the visit sector from the authenticated user, paginated queries, Excel export, check-in code generation |
+| `VisitsService` | Visit lifecycle CRUD (create, update, cancel), stamps the visit sector from the authenticated user, auto-assigns a default escort when none is provided (current user for self-request, requester for on-behalf), paginated queries, Excel export, check-in code generation |
 | `VisitParticipantService` | Visitor/escort add, update, remove (prevents removing last visitor); batch blacklist validation; access-level validation; check-in code generation; parking request data in visitor response |
 | `VisitStatusService` | Access events (arrived, check-in, check-out), on-site queries (batch blacklist), visitor history, auto-checkout |
 | `BlacklistService` | Blacklist CRUD, batch lookups, notifications |
@@ -389,6 +415,8 @@ backend/src/settings/
 ├── email-template.service.ts       # Email template CRUD
 ├── email-template-renderer.service.ts # Email template rendering
 ├── email-provider.service.ts       # Email provider integration
+├── permanent-escorts.service.ts    # Permanent escort mapping CRUD + domain-filtered user lookup
+├── permanent-escorts.controller.ts # /settings/permanent-escorts endpoints
 └── notification-settings.service.ts # Per-event notification configuration
 ```
 

@@ -27,7 +27,9 @@ User
 | `permissions` | read | `permissions.read` |
 | `access-control` | create, read, update, delete, import, sync | `access-control.create`, `access-control.read`, `access-control.update`, `access-control.delete`, `access-control.import`, `access-control.sync` |
 | `visits` | create, read, update, delete, print-card, check-in-code.send, check-in-code.regenerate | `visits.create`, `visits.read`, `visits.update`, `visits.delete`, `visits.print-card`, `visits.check-in-code.send`, `visits.check-in-code.regenerate` |
+| `visitors` | create, read, update, delete, export | `visitors.create`, `visitors.read`, `visitors.update`, `visitors.delete`, `visitors.export` |
 | `settings` | read, update | `settings.read`, `settings.update` |
+| `settings.permanent-escorts` | read, manage | `settings.permanent-escorts.read`, `settings.permanent-escorts.manage` |
 | `settings.card-templates` | create, read, update, delete | `settings.card-templates.create`, `settings.card-templates.read`, `settings.card-templates.update`, `settings.card-templates.delete` |
 | `audit` | read, export | `audit.read`, `audit.export` |
 | `devices` | read, manage | `devices.read`, `devices.manage` |
@@ -37,7 +39,7 @@ User
 | `blacklist` | create, read, update, delete, check | `blacklist.create`, `blacklist.read`, `blacklist.update`, `blacklist.delete`, `blacklist.check` |
 | `parking` | request, auto-approve, approve | `parking.request`, `parking.auto-approve`, `parking.approve` |
 
-**Total: 47 permissions**
+**Total: 54 permissions**
 
 ## Default Roles
 
@@ -46,7 +48,7 @@ User
 Full access to everything. Cannot be deleted or modified.
 
 ```
-All 22 permissions
+All permissions
 ```
 
 ### Operator (System Role)
@@ -60,11 +62,13 @@ permissions.read
 access-control.create, access-control.read, access-control.update, access-control.import
 visits.create, visits.read, visits.update, visits.delete
 visits.print-card
+visitors.create, visitors.read, visitors.update, visitors.delete, visitors.export
 blacklist.create, blacklist.read, blacklist.update, blacklist.delete, blacklist.check
 parking.request, parking.auto-approve
 devices.read
 scanner.execute
 settings.read
+settings.permanent-escorts.read
 buildings.create, buildings.read, buildings.update
 ```
 
@@ -78,8 +82,10 @@ roles.read
 permissions.read
 access-control.read
 visits.read
+visitors.read
 blacklist.read, blacklist.check
 devices.read
+settings.permanent-escorts.read
 settings.read
 buildings.read
 ```
@@ -162,7 +168,7 @@ if (this.permissionService.hasPermission('users.update')) {
 
 ### Sidebar Navigation
 
-Menu items are filtered based on user permissions. The sidebar component checks permissions before rendering each nav item.
+Menu items are filtered based on user permissions. The sidebar component checks permissions before rendering each nav item. The Visitors Management submenu can render for visit workflows, the standalone visitor directory, or both, depending on the user's effective permissions.
 
 ## Important Design Decisions
 
@@ -175,3 +181,12 @@ Menu items are filtered based on user permissions. The sidebar component checks 
 4. **Permissions are code-defined**: Permissions are seeded from a code-defined list. They cannot be created/deleted from the UI Ã¢â‚¬â€ only assigned to roles. This prevents invalid/orphan permissions.
 
 5. **Frontend enforcement is UX-only**: Frontend guards and directives hide UI elements, but the backend is the true enforcer. A user bypassing the UI will still be blocked by backend guards.
+
+## Visitor Directory Scope Rules
+
+The `visitors.*` permissions control operation availability (read/update/delete/export), while backend role policy also controls **record scope** for the Visitors Directory:
+
+- **Own-only scope**: regular users and secretary/domain-manager-like roles can see and edit only visitors that belong to them (created by them, or linked to visits they created/requested).
+- **Full scope**: desk/security/Kabat roles can see and edit all visitors.
+
+Scope enforcement is backend-side and applies consistently to list, search, export, read-by-id, update, and delete endpoints under `/visitors`.

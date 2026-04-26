@@ -17,6 +17,7 @@ import { ExcelImportService } from '@core/services/excel-import.service';
 import { BlacklistCheckService } from '@core/services/blacklist-check.service';
 import { VisitorSearchService, VisitorSuggestion } from '@core/services/visitor-search.service';
 import { AdSearchService, AdPersonSuggestion } from '@core/services/ad-search.service';
+import { SectorsLookupService, SectorLookupItem } from '@core/services/sectors-lookup.service';
 import { VisitsApiService } from '../services/visits-api.service';
 import { buildVehicleTypeOptions } from '@core/utils/vehicle-type.util';
 import { VisitorPrintService } from '../services/visitor-print.service';
@@ -466,6 +467,20 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                 }
               </div>
             </div>
+            <div class="form-row">
+              <div class="field">
+                <label>{{ 'VISITS.SECTOR' | translate }}</label>
+                <p-dropdown
+                  [options]="escortSectorOptions"
+                  [(ngModel)]="e.sector"
+                  optionLabel="name"
+                  optionValue="name"
+                  [placeholder]="'VISITS.SECTOR' | translate"
+                  appendTo="body"
+                  [style]="{width: '100%'}"
+                ></p-dropdown>
+              </div>
+            </div>
           </div>
         }
         <button class="btn btn-secondary btn-add-inline" (click)="addNewEscortRow()">
@@ -715,6 +730,20 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                 } @else if (eeEmail.hasError('pattern') && eeEmail.touched) {
                   <small class="field-error">{{ 'VALIDATION.EMAIL' | translate }}</small>
                 }
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label>{{ 'VISITS.SECTOR' | translate }}</label>
+                <p-dropdown
+                  [options]="escortSectorOptions"
+                  [(ngModel)]="editingEscort.sector"
+                  optionLabel="name"
+                  optionValue="name"
+                  [placeholder]="'VISITS.SECTOR' | translate"
+                  appendTo="body"
+                  [style]="{width: '100%'}"
+                ></p-dropdown>
               </div>
             </div>
           </div>
@@ -999,6 +1028,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   private blacklistCheck = inject(BlacklistCheckService);
   private visitorSearch = inject(VisitorSearchService);
   private adSearch = inject(AdSearchService);
+  private sectorsLookup = inject(SectorsLookupService);
   private visitsApi = inject(VisitsApiService);
   private printService = inject(VisitorPrintService);
   private confirmService = inject(ConfirmService);
@@ -1029,6 +1059,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   eventCheckedOut = VisitorAccessEventType.CheckedOut;
 
   vehicleTypeOptions: { label: string; value: string }[] = [];
+  escortSectorOptions: SectorLookupItem[] = [];
 
   // Add visitor dialog
   showAddVisitorDialog = false;
@@ -1119,6 +1150,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     this.canRequestParking = this.permissionService.hasPermission('parking.request');
     this.translateService.onLangChange.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.vehicleTypeOptions = buildVehicleTypeOptions(this.translateService));
     this.visitId = this.route.snapshot.paramMap.get('visitId') ?? '';
+    this.loadEscortSectorOptions();
     this.loadVisit();
     this.loadVisitors();
     this.loadEscorts();
@@ -1174,6 +1206,13 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     this.visitsApi.getEscorts(this.visitId).subscribe({
       next: (es) => { this.escorts = es; this.loadingEscorts = false; },
       error: () => { this.loadingEscorts = false; },
+    });
+  }
+
+  private loadEscortSectorOptions(): void {
+    this.sectorsLookup.getActiveSectors().subscribe({
+      next: (items) => { this.escortSectorOptions = items; },
+      error: () => { this.escortSectorOptions = []; },
     });
   }
 
@@ -1391,7 +1430,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   }
 
   addNewEscortRow(): void {
-    this.newEscorts.push({ firstName: '', lastName: '', phone: '', email: '' });
+    this.newEscorts.push({ firstName: '', lastName: '', phone: '', email: '', sector: '' });
   }
 
   removeNewEscort(index: number): void {
@@ -1413,6 +1452,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
         lastName: e.lastName,
         phone: e.phone,
         email: e.email,
+        sector: e.sector || undefined,
       })),
     };
     this.visitsApi.addEscorts(this.visitId, body).subscribe({
@@ -1560,6 +1600,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
       lastName: escort.lastName,
       phone: escort.phone,
       email: escort.email,
+      sector: escort.sector ?? '',
     };
     this.showEditEscortDialog = true;
   }
@@ -1579,6 +1620,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
       lastName: e.lastName,
       phone: e.phone,
       email: e.email,
+      sector: e.sector || undefined,
     };
     this.visitsApi.updateEscort(this.visitId, this.editingEscortId, body).subscribe({
       next: () => {

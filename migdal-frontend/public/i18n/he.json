@@ -87,6 +87,7 @@
         "ON_SITE": "באתר",
         "ENTRANCE_EXIT_LOGS": "יומן כניסות / יציאות",
         "VISITS": "ביקורים",
+        "VISITORS": "מאגר אורחים",
         "SETTINGS": "הגדרות",
         "GENERAL_SETTINGS": "כללי",
         "NOTIFICATION_SETTINGS": "התראות",
@@ -94,6 +95,7 @@
         "AD_GROUP_ROLE_MAPPINGS": "מיפוי קבוצות AD לתפקידים",
         "CARD_TEMPLATES": "עיצוב כרטיסים",
         "BUILDINGS": "מבנים",
+        "PERMANENT_ESCORTS": "מלווים קבועים",
         "WORKSTATIONS": "עמדות עבודה",
         "AUDIT_LOGS": "יומן פעולות"
     },
@@ -260,6 +262,7 @@
         "NEVER": "מעולם לא",
         "EMAIL": "דוא\"ל",
         "PHONE": "טלפון",
+        "SECTOR": "תחום",
         "ID_NUMBER": "תעודת זהות",
         "SYNC_AD": "סנכרון מ-AD",
         "SYNC_STARTED": "סנכרון AD הופעל ברקע",
@@ -351,6 +354,12 @@
     },
     "VISITORS": {
         "TITLE": "ניהול מבקרים",
+        "PAGE_TITLE": "מאגר אורחים",
+        "PAGE_DESCRIPTION": "צפייה, חיפוש, ייצוא וניהול ספריית המבקרים המשותפת לפי מספר זהות.",
+        "VISITOR_NAME": "שם המבקר",
+        "HOST_NAME": "שם המארח",
+        "BUILDING": "בניין",
+        "FLOOR": "קומה",
         "ADD_VISITOR": "הוסף מבקר",
         "EDIT_VISITOR": "ערוך מבקר",
         "FIRST_NAME": "שם פרטי",
@@ -364,6 +373,9 @@
         "STATUS_CHECKED_IN": "נכנס",
         "STATUS_CHECKED_OUT": "יצא",
         "DELETE_CONFIRM": "האם אתה בטוח שברצונך למחוק רשומת מבקר זו?",
+        "CREATED_SUCCESS": "המבקר נשמר בהצלחה",
+        "UPDATED_SUCCESS": "פרטי המבקר עודכנו בהצלחה",
+        "DELETED_SUCCESS": "המבקר נמחק בהצלחה",
         "PERSON_ID": "מספר זהות",
         "CAR_NUMBER": "מספר רכב",
         "HAS_VEHICLE": "מגיע עם רכב",
@@ -552,6 +564,7 @@
             "roles": "תפקידים",
             "access-control": "בקרת גישה",
             "visits": "ביקורים",
+            "visitors": "מבקרים",
             "settings": "הגדרות",
             "audit": "יומן ביקורת",
             "devices": "מכשירים",
@@ -593,6 +606,13 @@
                     "send": "שליחת קוד כניסה",
                     "regenerate": "חידוש קוד כניסה"
                 }
+            },
+            "visitors": {
+                "create": "יצירת מבקרים",
+                "read": "צפייה במבקרים",
+                "update": "עדכון מבקרים",
+                "delete": "מחיקת מבקרים",
+                "export": "ייצוא מבקרים"
             },
             "settings": {
                 "read": "צפייה בהגדרות",
@@ -676,6 +696,13 @@
                     "send": "שליחה או שליחה מחדש של קוד כניסה למבקר",
                     "regenerate": "חידוש קוד כניסה למבקר"
                 }
+            },
+            "visitors": {
+                "create": "יצירת רשומות מבקר בספרייה המשותפת",
+                "read": "צפייה בספריית המבקרים ובפרטי מבקר",
+                "update": "עדכון רשומות מבקר קיימות",
+                "delete": "מחיקת רשומות מבקר",
+                "export": "ייצוא נתוני ספריית המבקרים"
             },
             "settings": {
                 "read": "צפייה בהגדרות מערכת",
@@ -828,7 +855,7 @@
         "DEACTIVATED": "הושבתו"
     },
     "AD_SEARCH": {
-        "NO_RESULTS": "לא נמצאו אנשים ב-Active Directory",
+        "NO_RESULTS": "לא נמצא משתמש",
         "ERROR_NO_CONFIG": "לא נמצאה תצורת Active Directory",
         "ERROR_SEARCH_FAILED": "החיפוש נכשל, נסה שוב"
     },
@@ -1113,6 +1140,24 @@
         "EDIT": "ערוך מבנה",
         "SELECT_BUILDING": "בחר מבנה",
         "SELECT_ACCESS_LEVELS": "בחר רמות גישה"
+    },
+    "PERMANENT_ESCORTS": {
+        "TITLE": "ניהול מלווים קבועים",
+        "DESCRIPTION": "הוספה או הסרה של מלווים קבועים מתוך משתמשי המערכת.",
+        "ADD": "הוסף מלווה קבוע",
+        "DOMAIN": "תחום / אזור / מחלקה",
+        "USER": "משתמש",
+        "FULL_NAME": "שם מלא",
+        "USERNAME": "שם משתמש",
+        "EMAIL": "דוא\"ל",
+        "SELECT_DOMAIN": "בחר תחום",
+        "SELECT_USER": "בחר משתמש",
+        "SELECT_DOMAIN_FIRST": "יש לבחור תחום תחילה",
+        "VALIDATION_DOMAIN_REQUIRED": "יש לבחור תחום לפני הוספת מלווה קבוע.",
+        "VALIDATION_USER_REQUIRED": "יש לבחור משתמש לפני הוספת מלווה קבוע.",
+        "ADDED_SUCCESS": "מלווה קבוע נוסף בהצלחה",
+        "REMOVED_SUCCESS": "מלווה קבוע הוסר בהצלחה",
+        "CONFIRM_REMOVE": "להסיר את {{name}} מרשימת המלווים הקבועים?"
     },
     "AD_GROUP_ROLE_MAPPINGS": {
         "TITLE": "מיפוי קבוצות AD לתפקידים",

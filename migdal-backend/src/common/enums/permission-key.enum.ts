@@ -34,9 +34,18 @@ export enum PermissionKey {
     VisitsCheckInCodeSend = 'visits.check-in-code.send',
     VisitsCheckInCodeRegenerate = 'visits.check-in-code.regenerate',
 
+    // Visitors
+    VisitorsCreate = 'visitors.create',
+    VisitorsRead = 'visitors.read',
+    VisitorsUpdate = 'visitors.update',
+    VisitorsDelete = 'visitors.delete',
+    VisitorsExport = 'visitors.export',
+
     // Settings
     SettingsRead = 'settings.read',
     SettingsUpdate = 'settings.update',
+    SettingsPermanentEscortsRead = 'settings.permanent-escorts.read',
+    SettingsPermanentEscortsManage = 'settings.permanent-escorts.manage',
 
     // Card Templates
     SettingsCardTemplatesRead = 'settings.card-templates.read',

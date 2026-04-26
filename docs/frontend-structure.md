@@ -110,16 +110,17 @@ frontend/src/
         Ã¢â€â€š   Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ services/
         Ã¢â€â€š
         Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ visitors/
-        Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ visitors.routes.ts
-        Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ visitor-list/
-        Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ visitor-form/
+        Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ visitors.routes.ts          # /visitors
+        Ã¢â€â€š   Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ visitor-list.component.ts  # Standalone visitor directory page + add/edit dialog
         Ã¢â€â€š   Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ services/
-        |       |__ visitor-print.service.ts  # Print card via WS (per-component)
+        Ã¢â€â€š       Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ visitors-api.service.ts
+        Ã¢â€â€š       Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ visitors-api.service.spec.ts
 
         Ã¢â€â€š
         Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ settings/
             Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ settings.routes.ts
             Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ settings-list/
+            Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ permanent-escorts/
             Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ setting-form/
             Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ services/
 ```
@@ -163,7 +164,7 @@ export const routes: Routes = [
       { path: 'access-control', loadChildren: () => import('./features/access-control/access-control.routes'),
         canActivate: [permissionGuard], data: { permission: 'access-control.read' } },
       { path: 'visitors',       loadChildren: () => import('./features/visitors/visitors.routes'),
-        canActivate: [permissionGuard], data: { permission: 'visits.read' } },
+        canActivate: [permissionGuard], data: { permission: 'visitors.read' } },
       { path: 'settings',       loadChildren: () => import('./features/settings/settings.routes'),
         canActivate: [permissionGuard], data: { permission: 'settings.read' } },
     ]
@@ -243,6 +244,17 @@ The parent `VisitDetailComponent` retains:
 - Add/edit visitor dialogs (with person blacklist check, vehicle blacklist check, parking request, and person search)
 - Add/edit escort dialogs (with AD autocomplete)
 - All API call orchestration and state management
+
+### Visitors Directory
+
+The standalone visitors feature adds a dedicated `/visitors` page for the shared visitor directory.
+
+- Uses PrimeNG lazy table loading with backend pagination, filtering, sorting, and export.
+- Uses `visitors.read`, `visitors.create`, `visitors.update`, `visitors.delete`, and `visitors.export` to gate the route and actions.
+- Reuses the shared vehicle-type helpers and keeps create/update in the same dialog because backend writes are upsert-by-person-ID.
+- Appears under the Visitors Management sidebar group even when the user only has visitor-directory permissions.
+- Table columns include visitor name, person ID, phone, vehicle type, license number, building, floor, and host name.
+- Data scope is role-based and enforced by backend policy (own-only for regular/secretary-like roles, full access for desk/security/Kabat roles).
 
 ### Parking Requests
 

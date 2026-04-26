@@ -230,6 +230,26 @@ Password: Admin@123456 (bcrypt hashed)
 Roles:    [Admin]
 ```
 
+### Default AD Group to Role Mappings
+
+The seed creates global (`adSourceId = null`) AD group-role mappings in `AdGroupRoleMappings`.
+
+| AD Group | Role Name |
+|----------|-----------|
+| `Sniper_useres` | `עובד מגדל` |
+| `Sniper_Mangers` | `מנהלים בכירים ומזכירות` |
+| `Sniper_merkaz_Hadrachot` | `מרכז הדרכות` |
+| `Sniper_Moked_bitachon` | `מוקד ביטחון` |
+| `Sniper_Dalpak_Bitachon` | `דלפקים` |
+| `Sniper_Kabat` | `קב"ט` |
+
+Behavior:
+
+1. Role IDs are resolved by role name at runtime.
+2. Existing mappings are updated if the mapped role changes.
+3. Missing target roles are logged and skipped (seed continues).
+4. Duplicate mappings are prevented by source+group uniqueness.
+
 ### Default SMS Templates (9 events × 4 target groups = 36 templates)
 
 Each notification event has a separate SMS template per target group (`system_users`, `visitors`, `escorts`, `visit_requester`). The `SmsTemplates` table uses a composite unique constraint on `(event, targetGroup)`.
@@ -258,7 +278,14 @@ Each notification event has a separate SMS template per target group (`system_us
 | `visitors.badgePrefix` | VIS- | string | visitors | No |
 | `retention.deviceCommandLogsMonths` | 3 | number | retention | No |
 
-All seed data is managed by `SeedService` on startup (upsert — only inserts missing rows, never overwrites existing).
+All seed data is managed by `SeedService` on startup and can also be run manually. Seed behavior is additive and idempotent: inserts missing records and updates selected mappings where required.
+
+Run seeds manually:
+
+```bash
+cd migdal-backend
+npm run seed
+```
 
 ## SQL Files
 

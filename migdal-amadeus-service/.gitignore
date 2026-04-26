@@ -1,3 +1,76 @@
-node_modules/
-dist/
-.appsettings.json
+
+# =========================
+# Build / output
+# =========================
+bin/
+obj/
+out/
+publish/
+artifacts/
+logs/
+*.log
+
+# =========================
+# Visual Studio / IDE
+# =========================
+.vs/
+.vscode/
+.idea/
+
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.csproj.user
+*.VC.db
+*.VC.opendb
+
+# Rider
+*.sln.iml
+
+# =========================
+# NuGet
+# =========================
+packages/
+*.nupkg
+*.snupkg
+.nuget/
+project.lock.json
+project.fragment.lock.json
+
+# =========================
+# Test / coverage
+# =========================
+TestResults/
+test-results/
+*.trx
+*.coverage
+*.coveragexml
+coverage/
+
+# =========================
+# Generated / temporary
+# =========================
+Generated/
+Generated Files/
+_ReSharper*/
+*.DotSettings.user
+*.tmp
+*.temp
+*.cache
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# =========================
+# Local secrets/config
+# Keep appsettings.json tracked
+# =========================
+appsettings.Development.json
+appsettings.Local.json
+secrets.json
+*.pfx

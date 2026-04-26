@@ -26,12 +26,23 @@ public class ImportBridgeController : ControllerBase
     public async Task<IActionResult> ImportDevices(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Device import request received");
+        try
+        {
+            var payload = await _importBridgeService.ImportDevicesAsync(cancellationToken);
 
-        var payload = await _importBridgeService.ImportDevicesAsync(cancellationToken);
+            _logger.LogInformation("Device import completed with {Count} controllers", payload.Controllers.Count);
 
-        _logger.LogInformation("Device import completed with {Count} controllers", payload.Controllers.Count);
-
-        return Ok(payload);
+            return Ok(payload);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Device import endpoint failed unexpectedly. Returning empty payload as fail-safe response.");
+            return Ok(new ImportCallbackPayload());
+        }
     }
 
     /// <summary>
@@ -41,11 +52,22 @@ public class ImportBridgeController : ControllerBase
     public async Task<IActionResult> ImportAccessLevels(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Access-level import request received");
+        try
+        {
+            var payload = await _importBridgeService.ImportAccessLevelsAsync(cancellationToken);
 
-        var payload = await _importBridgeService.ImportAccessLevelsAsync(cancellationToken);
+            _logger.LogInformation("Access-level import completed with {Count} items", payload.AccessLevels.Count);
 
-        _logger.LogInformation("Access-level import completed with {Count} items", payload.AccessLevels.Count);
-
-        return Ok(payload);
+            return Ok(payload);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Access-level import endpoint failed unexpectedly. Returning empty payload as fail-safe response.");
+            return Ok(new AccessLevelCallbackPayload());
+        }
     }
 }

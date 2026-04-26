@@ -84,10 +84,10 @@ export class AccessControlApiService {
 
     // ──────────────────────────── HTTP helpers ──────────────────────────────
 
-    private async post<T>(path: string, data: unknown): Promise<T> {
+    private async post<T>(path: string, data: unknown, extraConfig?: AxiosRequestConfig): Promise<T> {
         const url = `${this.getBaseUrl()}${path}`;
         const body = JSON.stringify(data);
-        const config = this.buildConfig(body);
+        const config = this.buildConfig(body, extraConfig);
 
         try {
             const response = await firstValueFrom(
@@ -156,28 +156,26 @@ export class AccessControlApiService {
 
     // ──────────────────────── Import: full topology ─────────────────────────
 
-    async triggerFullImport(): Promise<void> {
-        const callbackUrl = this.getCallbackBaseUrl();
+    async triggerFullImport(): Promise<ImportCallbackPayload> {
         this.logger.log('Triggering full import on remote AC server');
 
-        await this.post('/api/import', {
+        const payload = await this.post<ImportCallbackPayload>('/api/import', {
             action: 'import',
-            callbackUrl: `${callbackUrl}/api/access-control/import/callback`,
-        });
+        }, { timeout: 120_000 });
 
-        this.logger.log('Full import triggered, awaiting callback');
+        this.logger.log('Full import completed, received response with data');
+        return payload;
     }
 
-    async triggerAccessLevelImport(): Promise<void> {
-        const callbackUrl = this.getCallbackBaseUrl();
+    async triggerAccessLevelImport(): Promise<AccessLevelCallbackPayload> {
         this.logger.log('Triggering access-level import on remote AC server');
 
-        await this.post('/api/import/access-levels', {
+        const payload = await this.post<AccessLevelCallbackPayload>('/api/import/access-levels', {
             action: 'import-access-levels',
-            callbackUrl: `${callbackUrl}/api/access-control/import/access-levels/callback`,
-        });
+        }, { timeout: 120_000 });
 
-        this.logger.log('Access-level import triggered, awaiting callback');
+        this.logger.log('Access-level import completed, received response with data');
+        return payload;
     }
 
     // ──────────────────────── Cardholders CRUD ──────────────────────────────

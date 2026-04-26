@@ -1,4 +1,4 @@
-import { Entity, Column, ManyToMany, JoinTable } from 'typeorm';
+import { Entity, Column, ManyToMany, JoinTable, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { User } from '../../users/entities/user.entity';
 import { Permission } from '../../permissions/entities/permission.entity';
@@ -14,7 +14,7 @@ export class Role extends BaseEntity {
     @Column({ type: 'bit', default: false })
     isSystem!: boolean;
 
-    @ManyToMany(() => User, (user) => user.roles)
+    @OneToMany(() => User, (user) => user.role)
     users!: User[];
 
     @ManyToMany(() => Permission, (permission) => permission.roles, {

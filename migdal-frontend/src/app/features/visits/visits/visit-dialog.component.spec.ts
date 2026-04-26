@@ -12,6 +12,7 @@ import { VisitorSearchService } from '@core/services/visitor-search.service';
 import { AdSearchService } from '@core/services/ad-search.service';
 import { TranslateModule } from '@ngx-translate/core';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
+import { AuthService } from '@core/auth/auth.service';
 
 describe('VisitDialogComponent', () => {
     let component: VisitDialogComponent;
@@ -30,6 +31,22 @@ describe('VisitDialogComponent', () => {
                 { provide: BlacklistCheckService, useValue: jasmine.createSpyObj('BlacklistCheckService', ['checkPerson', 'checkVehicle']) },
                 { provide: VisitorSearchService, useValue: jasmine.createSpyObj('VisitorSearchService', ['search']) },
                 { provide: AdSearchService, useValue: jasmine.createSpyObj('AdSearchService', ['searchPeople']) },
+                {
+                    provide: AuthService,
+                    useValue: {
+                        currentUser: {
+                            id: 'user-1',
+                            username: 'admin',
+                            firstName: 'Admin',
+                            lastName: 'User',
+                            email: null,
+                            phone: null,
+                            sector: { id: 'sector-1', name: 'Operations' },
+                            roles: ['Admin'],
+                            permissions: ['visits.create'],
+                        },
+                    },
+                },
             ],
         }).compileComponents();
 
@@ -39,6 +56,10 @@ describe('VisitDialogComponent', () => {
 
     it('should create', () => {
         expect(component).toBeTruthy();
+    });
+
+    it('should expose current user sector name for create mode', () => {
+        expect(component.currentSectorName).toBe('Operations');
     });
 
     describe('open() for new visit', () => {

@@ -69,4 +69,17 @@ export class InboundEventLogService {
             processedAt: new Date(),
         });
     }
+
+    async findRecentByProvider(provider: string, limit = 200): Promise<ExternalEventLog[]> {
+        return this.repo.find({
+            where: {
+                provider,
+                isActive: true,
+            },
+            order: {
+                receivedAt: 'DESC',
+            },
+            take: limit,
+        });
+    }
 }

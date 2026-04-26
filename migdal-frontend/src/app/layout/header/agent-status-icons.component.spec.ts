@@ -93,11 +93,11 @@ describe('AgentStatusIconsComponent', () => {
             code: 'WS-001',
             displayName: 'WS 01',
             devices: [
-                { providerType: 'printer', isConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null },
+                { providerType: 'printer', isConnected: true, deviceConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null },
             ],
         });
         devicesSubject.next([
-            { providerType: 'printer', isConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null },
+            { providerType: 'printer', isConnected: true, deviceConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null },
         ]);
         fixture.detectChanges();
 
@@ -116,7 +116,7 @@ describe('AgentStatusIconsComponent', () => {
             devices: [],
         });
         devicesSubject.next([
-            { providerType: 'scanner', isConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null },
+            { providerType: 'scanner', isConnected: true, deviceConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null },
         ]);
         fixture.detectChanges();
 
@@ -135,8 +135,8 @@ describe('AgentStatusIconsComponent', () => {
             devices: [],
         });
         devicesSubject.next([
-            { providerType: 'printer', isConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null },
-            { providerType: 'scanner', isConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null },
+            { providerType: 'printer', isConnected: true, deviceConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null },
+            { providerType: 'scanner', isConnected: true, deviceConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null },
         ]);
         fixture.detectChanges();
 
@@ -162,7 +162,7 @@ describe('AgentStatusIconsComponent', () => {
 
         // Printer comes online
         devicesSubject.next([
-            { providerType: 'printer', isConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null },
+            { providerType: 'printer', isConnected: true, deviceConnected: true, agentVersion: null, lastSeenAt: null, capabilities: null },
         ]);
         fixture.detectChanges();
 

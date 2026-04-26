@@ -22,9 +22,13 @@ describe('EntraIdService', () => {
     const validConfig = {
         ENTRA_TENANT_ID: 'test-tenant-id',
         ENTRA_CLIENT_ID: 'test-client-id',
+        ENTRA_AUTHORITY: 'https://login.microsoftonline.com/test-tenant-id',
+        ENTRA_API_AUDIENCE: 'api://test-client-id',
         ENTRA_REDIRECT_URI: 'http://localhost:4200',
+        ENTRA_POST_LOGOUT_REDIRECT_URI: 'http://localhost:4200',
         ENTRA_AUTO_PROVISION: 'false',
         ENTRA_DEFAULT_ROLE: 'Viewer',
+        ENTRA_UNKNOWN_USER_MODE: 'deny',
     };
 
     beforeEach(async () => {
@@ -53,9 +57,13 @@ describe('EntraIdService', () => {
             const config = service.getConfig();
             expect(config.tenantId).toBe('test-tenant-id');
             expect(config.clientId).toBe('test-client-id');
+            expect(config.authority).toBe('https://login.microsoftonline.com/test-tenant-id');
+            expect(config.apiAudience).toBe('api://test-client-id');
             expect(config.redirectUri).toBe('http://localhost:4200');
+            expect(config.postLogoutRedirectUri).toBe('http://localhost:4200');
             expect(config.autoProvision).toBe(false);
             expect(config.defaultRole).toBe('Viewer');
+            expect(config.unknownUserMode).toBe('deny');
         });
 
         it('should return autoProvision true when configured', () => {
@@ -90,7 +98,7 @@ describe('EntraIdService', () => {
         });
     });
 
-    describe('validateIdToken', () => {
+    describe('validateAccessToken', () => {
         const mockClaims = {
             oid: 'user-oid-123',
             upn: 'user@domain.com',
@@ -107,15 +115,15 @@ describe('EntraIdService', () => {
                 return defaultValue ?? '';
             });
 
-            await expect(service.validateIdToken('some-token'))
+            await expect(service.validateAccessToken('some-token'))
                 .rejects.toThrow(UnauthorizedException);
         });
 
         it('should throw for invalid token format (no header)', async () => {
             (jwt.decode as jest.Mock).mockReturnValue(null);
 
-            await expect(service.validateIdToken('bad-token'))
-                .rejects.toThrow('Invalid ID token format');
+            await expect(service.validateAccessToken('bad-token'))
+                .rejects.toThrow('Invalid Entra token format');
         });
 
         it('should throw when token has no kid in header', async () => {
@@ -124,8 +132,8 @@ describe('EntraIdService', () => {
                 payload: mockClaims,
             });
 
-            await expect(service.validateIdToken('no-kid-token'))
-                .rejects.toThrow('Invalid ID token format');
+            await expect(service.validateAccessToken('no-kid-token'))
+                .rejects.toThrow('Invalid Entra token format');
         });
 
         it('should throw when oid claim is missing', async () => {
@@ -135,7 +143,7 @@ describe('EntraIdService', () => {
             });
             (jwt.verify as jest.Mock).mockReturnValue({ tid: 'test-tenant-id' });
 
-            await expect(service.validateIdToken('no-oid-token'))
+            await expect(service.validateAccessToken('no-oid-token'))
                 .rejects.toThrow('Missing oid claim');
         });
 
@@ -146,7 +154,7 @@ describe('EntraIdService', () => {
             });
             (jwt.verify as jest.Mock).mockReturnValue(mockClaims);
 
-            const result = await service.validateIdToken('valid-token');
+            const result = await service.validateAccessToken('valid-token');
 
             expect(result.oid).toBe('user-oid-123');
             expect(result.email).toBe('user@domain.com');
@@ -163,8 +171,8 @@ describe('EntraIdService', () => {
                 throw new jwt.TokenExpiredError('jwt expired', new Date());
             });
 
-            await expect(service.validateIdToken('expired-token'))
-                .rejects.toThrow('Invalid or expired ID token');
+            await expect(service.validateAccessToken('expired-token'))
+                .rejects.toThrow('Invalid or expired Entra access token');
         });
 
         it('should throw for invalid audience', async () => {
@@ -176,8 +184,8 @@ describe('EntraIdService', () => {
                 throw new jwt.JsonWebTokenError('jwt audience invalid');
             });
 
-            await expect(service.validateIdToken('wrong-audience-token'))
-                .rejects.toThrow('Invalid or expired ID token');
+            await expect(service.validateAccessToken('wrong-audience-token'))
+                .rejects.toThrow('Invalid or expired Entra access token');
         });
     });
 

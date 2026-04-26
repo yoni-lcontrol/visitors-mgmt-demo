@@ -27,6 +27,15 @@ export const SETTINGS_ROUTES: Routes = [
             ),
     },
     {
+        path: 'ad-group-role-mappings',
+        canActivate: [permissionGuard],
+        data: { permission: 'settings.read' },
+        loadComponent: () =>
+            import('./ad-group-role-mappings/ad-group-role-mappings.component').then(
+                (m) => m.AdGroupRoleMappingsComponent,
+            ),
+    },
+    {
         path: 'card-templates',
         canActivate: [permissionGuard],
         data: { permission: 'settings.card-templates.read' },

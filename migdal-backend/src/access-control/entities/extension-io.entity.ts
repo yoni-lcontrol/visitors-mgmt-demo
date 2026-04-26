@@ -19,7 +19,7 @@ export class ExtensionIo extends BaseEntity {
     @Column({ type: 'int', default: 0 })
     ioState!: number;
 
-    @Column({ type: 'nvarchar', length: 200, nullable: true })
+    @Column({ type: 'nvarchar', length: 200, nullable: true, unique: true })
     externalId!: string | null;
 
     @ManyToOne(() => Extension, (ext) => ext.extensionIos, {

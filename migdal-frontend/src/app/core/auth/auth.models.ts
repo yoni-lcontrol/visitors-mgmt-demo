@@ -4,7 +4,7 @@ export interface LoginRequest {
 }
 
 export interface EntraLoginRequest {
-    idToken: string;
+    accessToken: string;
 }
 
 export interface LoginResponse {
@@ -19,6 +19,7 @@ export interface AuthUser {
     lastName: string;
     email: string | null;
     phone: string | null;
+    sector: { id: string; name: string } | null;
     roles: string[];
     permissions: string[];
 }
@@ -27,5 +28,8 @@ export interface EntraClientConfig {
     enabled: boolean;
     clientId: string | null;
     tenantId: string | null;
+    authority: string | null;
     redirectUri: string | null;
+    postLogoutRedirectUri: string | null;
+    apiAudience: string | null;
 }

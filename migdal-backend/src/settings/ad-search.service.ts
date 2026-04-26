@@ -40,9 +40,21 @@ export class AdSearchService {
         const escaped = this.escapeLdapFilter(query);
         const filter = `(&(objectClass=person)(objectCategory=person)(|(givenName=${escaped}*)(sn=${escaped}*)(displayName=*${escaped}*)))`;
 
-        const url = config.useSsl
-            ? `ldaps://${new URL(config.ldapUrl.startsWith('ldap') ? config.ldapUrl : `ldap://${config.ldapUrl}`).hostname}:${config.port}`
-            : config.ldapUrl.includes('://') ? config.ldapUrl : `ldap://${config.ldapUrl}:${config.port}`;
+        const port = config.port || 389;
+        let url: string;
+        if (config.useSsl) {
+            const rawUrl = config.ldapUrl.startsWith('ldap') ? config.ldapUrl : `ldap://${config.ldapUrl}`;
+            url = `ldaps://${new URL(rawUrl).hostname}:${port}`;
+        } else if (config.ldapUrl.includes('://')) {
+            try {
+                const parsed = new URL(config.ldapUrl);
+                url = `${parsed.protocol}//${parsed.hostname}:${port}`;
+            } catch {
+                url = `ldap://${config.ldapUrl}:${port}`;
+            }
+        } else {
+            url = `ldap://${config.ldapUrl}:${port}`;
+        }
 
         const client = new Client({ url, tlsOptions: config.useSsl ? { rejectUnauthorized: false } : undefined });
 
@@ -53,7 +65,7 @@ export class AdSearchService {
 
             await client.bind(bindDn, config.password);
 
-            const { searchEntries } = await client.search(config.baseDn ?? `DC=${config.domain.split('.').join(',DC=')}`, {
+            const { searchEntries } = await client.search(config.baseDn || `DC=${config.domain.split('.').join(',DC=')}`, {
                 scope: 'sub',
                 filter,
                 attributes: ['givenName', 'sn', 'displayName', 'mail', 'telephoneNumber', 'mobile'],

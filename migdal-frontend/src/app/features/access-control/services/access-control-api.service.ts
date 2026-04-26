@@ -3,6 +3,21 @@ import { Observable } from 'rxjs';
 import { ApiService } from '../../../core/api/api.service';
 import { AcController, Door, Extension, DoorIo, ExtensionIo, AccessLevel, PaginatedResult } from '../../../core/models/entities.model';
 
+export interface AmadeusEvent {
+    eventType: string;
+    externalEventId: string;
+    occurredAt: string;
+    sourceEntityId?: string | null;
+    isActive: boolean;
+    signalRMethod: string;
+    equipmentKind: string;
+    equipmentName: string;
+    controllerExternalId?: string | null;
+    cardholderName?: string | null;
+    cardholderUid?: string | null;
+    cardCode?: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AccessControlApiService {
     private readonly api = inject(ApiService);
@@ -33,8 +48,8 @@ export class AccessControlApiService {
         return this.api.download(`${this.basePath}/controllers/export`, params);
     }
 
-    importControllers(): Observable<void> {
-        return this.api.post<void>(`${this.basePath}/controllers/import`, {});
+    importControllers(): Observable<ControllerImportResult> {
+        return this.api.post<ControllerImportResult>(`${this.basePath}/controllers/import`, {});
     }
 
     // ===== Doors =====
@@ -114,7 +129,29 @@ export class AccessControlApiService {
         return this.api.delete<void>(`${this.basePath}/access-levels/${id}`);
     }
 
-    importAccessLevels(): Observable<void> {
-        return this.api.post<void>(`${this.basePath}/access-levels/import`, {});
+    importAccessLevels(): Observable<AccessLevelImportResult> {
+        return this.api.post<AccessLevelImportResult>(`${this.basePath}/access-levels/import`, {});
     }
+
+    getAmadeusEvents(limit = 200): Observable<AmadeusEvent[]> {
+        return this.api.get<AmadeusEvent[]>('/events/amadeus', { limit });
+    }
+}
+
+export interface AccessLevelImportResult {
+    message: string;
+    created: number;
+    updated: number;
+    skipped: number;
+    items: Array<{ name: string; active: boolean; visitorAccess: boolean; externalId?: string }>;
+    errors: string[];
+}
+  
+export interface ControllerImportResult {
+    message: string;
+    created: number;
+    updated: number;
+    skipped: number;
+    items: Array<{ name: string; type?: number; ip?: string; port?: number; model?: string; externalId?: string }>;
+    errors: string[];
 }

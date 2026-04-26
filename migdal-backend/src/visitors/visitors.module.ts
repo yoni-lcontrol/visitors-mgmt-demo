@@ -27,7 +27,6 @@ import { WebsocketModule } from '../websocket/websocket.module';
 import { PrintingModule } from '../printing/printing.module';
 import { SettingsModule } from '../settings/settings.module';
 import { User } from '../users/entities/user.entity';
-import { AccessLevel } from '../access-control/entities/access-level.entity';
 import { Building } from '../buildings/entities/building.entity';
 
 @Module({
@@ -37,7 +36,6 @@ import { Building } from '../buildings/entities/building.entity';
             Visit, VisitVisitor, VisitEscort, VisitorAccessLog, VisitVisitorStatus,
             VisitVisitorCheckInCode,
             ParkingRequest,
-            AccessLevel,
             Building,
         ]),
         BlacklistModule,

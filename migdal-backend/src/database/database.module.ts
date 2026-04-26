@@ -37,6 +37,8 @@ import { DeviceCommandLog } from '../device-commands/entities/device-command-log
 import { ExternalEventLog } from '../integrations/common/entities/external-event-log.entity';
 import { Building } from '../buildings/entities/building.entity';
 import { ParkingRequest } from '../visitors/entities/parking-request.entity';
+import { Sector } from '../sectors/entities/sector.entity';
+import { AdGroupRoleMapping } from '../ad-group-role-mappings/entities/ad-group-role-mapping.entity';
 
 const entities = [
     User, Role, Permission, RefreshToken,
@@ -47,6 +49,8 @@ const entities = [
     Workstation, UserWorkstationSession, WorkstationUser, WorkstationRole, WorkstationEnrollmentToken,
     DeviceAgent, DeviceCommandLog, ExternalEventLog,
     Building,
+    Sector,
+    AdGroupRoleMapping,
 ];
 
 @Module({

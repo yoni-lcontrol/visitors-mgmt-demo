@@ -16,11 +16,12 @@ import { VisitorSearchService, VisitorSuggestion } from '@core/services/visitor-
 import { AdSearchService, AdPersonSuggestion } from '@core/services/ad-search.service';
 import { Subject, Subscription, EMPTY } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError, finalize } from 'rxjs/operators';
-import { Visit, AccessLevel, InlineVisitor, InlineEscort } from '@core/models/entities.model';
+import { Visit, InlineVisitor, InlineEscort } from '@core/models/entities.model';
 import { buildVehicleTypeOptions } from '@core/utils/vehicle-type.util';
 import { Building as BuildingItem } from '../../settings/services/buildings-api.service';
 import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
 import { PermissionService } from '@core/permissions/permission.service';
+import { AuthService } from '@core/auth/auth.service';
 
 @Component({
   selector: 'app-visit-dialog',
@@ -90,6 +91,12 @@ import { PermissionService } from '@core/permissions/permission.service';
           </div>
           <div class="form-row">
             <div class="field">
+              <label><i class="pi pi-sitemap"></i> {{ 'VISITS.SECTOR' | translate }}</label>
+              <input type="text" [value]="currentSectorName" disabled [placeholder]="'VISITS.SECTOR' | translate" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
               <label><i class="pi pi-calendar"></i> {{ 'VISITS.PLANNED_START_DATE' | translate }} <span class="required">*</span></label>
               <p-calendar [(ngModel)]="form.plannedStartDate" [dateFormat]="'dd/mm/yy'" [showIcon]="true" [placeholder]="'VISITS.PLANNED_START_DATE' | translate" required #startDateFieldEdit="ngModel" appendTo="body" [style]="{'width':'100%'}" [inputStyle]="{'width':'100%'}"></p-calendar>
               @if (startDateFieldEdit.invalid && startDateFieldEdit.touched) {
@@ -128,10 +135,13 @@ import { PermissionService } from '@core/permissions/permission.service';
           </div>
           <div class="field checkbox-field requester-toggle">
             <label class="checkbox-label">
-              <input type="checkbox" [(ngModel)]="requesterIsSomeoneElse" (ngModelChange)="onRequesterCheckboxChange()" />
+              <input type="checkbox" [(ngModel)]="requesterIsSomeoneElse" (ngModelChange)="onRequesterCheckboxChange()" [disabled]="requesterLockedToOnBehalf" />
               <i class="pi pi-user-edit"></i>
               {{ 'VISITS.REQUESTER_IS_SOMEONE_ELSE' | translate }}
             </label>
+            @if (requesterLockedToOnBehalf) {
+              <small class="field-warning"><i class="pi pi-info-circle"></i> {{ 'VISITS.ON_BEHALF_ONLY_REQUIRED' | translate }}</small>
+            }
           </div>
           @if (requesterIsSomeoneElse) {
           <div class="requester-section" @slideSection>
@@ -332,27 +342,6 @@ import { PermissionService } from '@core/permissions/permission.service';
                 </div>
                 <div class="form-row">
                   <div class="field">
-                    <label><i class="pi pi-lock"></i> {{ 'VISITS.ACCESS_LEVEL' | translate }} <span class="required">*</span></label>
-                    <p-dropdown
-                      [(ngModel)]="v.accessLevelId"
-                      [options]="accessLevels"
-                      optionLabel="name"
-                      optionValue="id"
-                      [placeholder]="'VISITS.SELECT_ACCESS_LEVEL' | translate"
-                      appendTo="body"
-                      [style]="{'width':'100%'}"
-                      required
-                      #alField="ngModel"
-                      [class.input-invalid]="isAccessLevelRemoved(v.accessLevelId)"
-                    ></p-dropdown>
-                    @if (alField.invalid && alField.touched && !v.accessLevelId) {
-                      <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
-                    }
-                    @if (isAccessLevelRemoved(v.accessLevelId)) {
-                      <small class="field-error"><i class="pi pi-exclamation-triangle"></i> {{ 'VALIDATION.ACCESS_LEVEL_REMOVED' | translate }}</small>
-                    }
-                  </div>
-                  <div class="field">
                     <label><i class="pi pi-envelope"></i> {{ 'VISITS.EMAIL' | translate }}</label>
                     <input type="email" [(ngModel)]="v.email" [pattern]="emailPattern" #vEmail="ngModel" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" />
                     @if (vEmail.hasError('pattern') && vEmail.touched) {
@@ -480,6 +469,12 @@ import { PermissionService } from '@core/permissions/permission.service';
             </div>
             <div class="form-row">
               <div class="field">
+                <label><i class="pi pi-sitemap"></i> {{ 'VISITS.SECTOR' | translate }}</label>
+                <input type="text" [value]="currentSectorName" disabled [placeholder]="'VISITS.SECTOR' | translate" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
                 <label><i class="pi pi-calendar"></i> {{ 'VISITS.PLANNED_START_DATE' | translate }} <span class="required">*</span></label>
                 <p-calendar [(ngModel)]="form.plannedStartDate" [dateFormat]="'dd/mm/yy'" [showIcon]="true" [placeholder]="'VISITS.PLANNED_START_DATE' | translate" [minDate]="today" required #startDateField="ngModel" appendTo="body" [style]="{'width':'100%'}" [inputStyle]="{'width':'100%'}"></p-calendar>
                 @if (startDateField.invalid && startDateField.touched) {
@@ -522,10 +517,13 @@ import { PermissionService } from '@core/permissions/permission.service';
             </div>
             <div class="field checkbox-field requester-toggle">
               <label class="checkbox-label">
-                <input type="checkbox" [(ngModel)]="requesterIsSomeoneElse" (ngModelChange)="onRequesterCheckboxChange()" />
+                <input type="checkbox" [(ngModel)]="requesterIsSomeoneElse" (ngModelChange)="onRequesterCheckboxChange()" [disabled]="requesterLockedToOnBehalf" />
                 <i class="pi pi-user-edit"></i>
                 {{ 'VISITS.REQUESTER_IS_SOMEONE_ELSE' | translate }}
               </label>
+              @if (requesterLockedToOnBehalf) {
+                <small class="field-warning"><i class="pi pi-info-circle"></i> {{ 'VISITS.ON_BEHALF_ONLY_REQUIRED' | translate }}</small>
+              }
             </div>
             @if (requesterIsSomeoneElse) {
             <div class="requester-section" @slideSection>
@@ -928,6 +926,8 @@ import { PermissionService } from '@core/permissions/permission.service';
   `],
 })
 export class VisitDialogComponent implements OnDestroy {
+  private static readonly ON_BEHALF_ONLY_ROLES = ['דלפקים', 'קב"ט'];
+
   private el = inject(ElementRef);
   private api = inject(ApiService);
   private visitsApi = inject(VisitsApiService);
@@ -938,12 +938,16 @@ export class VisitDialogComponent implements OnDestroy {
   private visitorSearch = inject(VisitorSearchService);
   private adSearch = inject(AdSearchService);
   private permissionService = inject(PermissionService);
+  private authService = inject(AuthService);
 
   canRequestParking = false;
 
+  get currentSectorName(): string {
+    return this.authService.currentUser?.sector?.name ?? '';
+  }
+
   @Input() visible = false;
   @Input() editing: Visit | null = null;
-  @Input() accessLevels: AccessLevel[] = [];
   @Input() buildings: BuildingItem[] = [];
   @Output() visibleChange = new EventEmitter<boolean>();
   @Output() saved = new EventEmitter<void>();
@@ -987,6 +991,7 @@ export class VisitDialogComponent implements OnDestroy {
     };
   visitRequester = { firstName: '', lastName: '', phone: '', email: '' };
   requesterIsSomeoneElse = false;
+  requesterLockedToOnBehalf = false;
   inlineVisitors: InlineVisitor[] = [];
   inlineEscorts: InlineEscort[] = [];
   importErrors: string[] = [];
@@ -1033,6 +1038,7 @@ export class VisitDialogComponent implements OnDestroy {
     this.buildVehicleTypeOptions();
     this.resetDialogState();
     this.canRequestParking = this.permissionService.hasPermission('parking.request');
+    this.requesterLockedToOnBehalf = this.permissionService.hasAnyRole(VisitDialogComponent.ON_BEHALF_ONLY_ROLES);
     this.editing = visit ?? null;
     if (visit) {
       const startDate = visit.plannedStartTimeUtc ? new Date(visit.plannedStartTimeUtc) : null;
@@ -1051,6 +1057,9 @@ export class VisitDialogComponent implements OnDestroy {
         ? { ...visit.visitRequester }
         : { firstName: '', lastName: '', phone: '', email: '' };
       this.requesterIsSomeoneElse = !visit.visitRequesterUserId;
+      if (this.requesterLockedToOnBehalf) {
+        this.requesterIsSomeoneElse = true;
+      }
     } else {
       const defaultStart = new Date();
       defaultStart.setHours(8, 0, 0, 0);
@@ -1058,7 +1067,8 @@ export class VisitDialogComponent implements OnDestroy {
       defaultEnd.setHours(17, 0, 0, 0);
       this.form.plannedStartTime = defaultStart;
       this.form.plannedEndTime = defaultEnd;
-      this.inlineVisitors = [{ firstName: '', lastName: '', email: '', phone: '', personId: '', hasVehicle: false, carNumber: '', vehicleType: '', accessLevelId: '', requestParking: false }];
+      this.requesterIsSomeoneElse = this.requesterLockedToOnBehalf;
+      this.inlineVisitors = [{ firstName: '', lastName: '', email: '', phone: '', personId: '', hasVehicle: false, carNumber: '', vehicleType: '', requestParking: false }];
     }
     this.visible = true;
     this.visibleChange.emit(true);
@@ -1078,6 +1088,7 @@ export class VisitDialogComponent implements OnDestroy {
     this.form = { title: '', purposeOfVisit: '', buildingId: '', floor: null, plannedStartDate: null, plannedStartTime: null, plannedEndDate: null, plannedEndTime: null };
     this.visitRequester = { firstName: '', lastName: '', phone: '', email: '' };
     this.requesterIsSomeoneElse = false;
+    this.requesterLockedToOnBehalf = false;
     this.inlineVisitors = [];
     this.inlineEscorts = [];
     this.importErrors = [];
@@ -1120,6 +1131,11 @@ export class VisitDialogComponent implements OnDestroy {
   // ── Validation ──
 
   onRequesterCheckboxChange(): void {
+    if (this.requesterLockedToOnBehalf) {
+      this.requesterIsSomeoneElse = true;
+      return;
+    }
+
     if (!this.requesterIsSomeoneElse) {
       this.visitRequester = { firstName: '', lastName: '', phone: '', email: '' };
     }
@@ -1162,14 +1178,14 @@ export class VisitDialogComponent implements OnDestroy {
     if (!this.form.plannedEndDate || !this.form.plannedEndTime) return false;
     if (this.startDateInPastError()) return false;
     if (this.endBeforeStartError()) return false;
+    if (this.requesterLockedToOnBehalf && !this.requesterIsSomeoneElse) return false;
     if (this.requesterIsSomeoneElse) {
       if (!this.visitRequester.firstName || !this.visitRequester.lastName || !this.visitRequester.phone || !this.visitRequester.email) return false;
     }
     if (!this.editing) {
       if (!this.inlineVisitors.length) return false;
       for (const v of this.inlineVisitors) {
-        if (!v.firstName || !v.lastName || !v.personId || !v.accessLevelId) return false;
-        if (this.isAccessLevelRemoved(v.accessLevelId)) return false;
+        if (!v.firstName || !v.lastName || !v.personId) return false;
         if (v.hasVehicle && (!v.carNumber || !v.vehicleType)) return false;
       }
       for (const e of this.inlineEscorts) {
@@ -1183,7 +1199,7 @@ export class VisitDialogComponent implements OnDestroy {
   // ── Inline visitor/escort management ──
 
   addInlineVisitor(): void {
-    this.inlineVisitors.push({ firstName: '', lastName: '', email: '', phone: '', personId: '', hasVehicle: false, carNumber: '', vehicleType: '', accessLevelId: '', requestParking: false });
+    this.inlineVisitors.push({ firstName: '', lastName: '', email: '', phone: '', personId: '', hasVehicle: false, carNumber: '', vehicleType: '', requestParking: false });
   }
 
   removeInlineVisitor(index: number): void {
@@ -1243,7 +1259,6 @@ export class VisitDialogComponent implements OnDestroy {
           hasVehicle: !!(row['carNumber']),
           carNumber: row['carNumber'] ?? '',
           vehicleType: row['vehicleType'] ?? '',
-          accessLevelId: '',
           requestParking: false,
         });
       }
@@ -1272,6 +1287,17 @@ export class VisitDialogComponent implements OnDestroy {
   // ── Save ──
 
   save(): void {
+    const canSave = this.editing
+      ? this.permissionService.hasPermission('visits.update')
+      : this.permissionService.hasPermission('visits.create');
+    if (!canSave) {
+      this.notify.error('COMMON.ACTION_NOT_ALLOWED');
+      return;
+    }
+    if (this.requesterLockedToOnBehalf && !this.requesterIsSomeoneElse) {
+      this.notify.error('VISITS.ON_BEHALF_ONLY_REQUIRED');
+      return;
+    }
     if (!this.isFormValid()) return;
     this.saving = true;
 
@@ -1316,7 +1342,6 @@ export class VisitDialogComponent implements OnDestroy {
           hasVehicle: v.hasVehicle,
           carNumber: v.hasVehicle ? (v.carNumber || undefined) : undefined,
           vehicleType: v.hasVehicle ? (v.vehicleType || undefined) : undefined,
-          accessLevelId: v.accessLevelId,
           requestParking: v.hasVehicle ? v.requestParking : undefined,
         })),
         escorts: this.inlineEscorts.map(e => ({
@@ -1423,9 +1448,6 @@ export class VisitDialogComponent implements OnDestroy {
     v.carNumber = visitor.carNumber ?? '';
     v.vehicleType = visitor.vehicleType ?? '';
     v.hasVehicle = !!(visitor.carNumber);
-    if (visitor.accessLevelId && this.accessLevels.some(al => al.id === visitor.accessLevelId)) {
-      v.accessLevelId = visitor.accessLevelId;
-    }
     this.visitorSuggestions.delete(index);
     this.showNoResults.delete(index);
     this.suggestionsVisible.delete(index);
@@ -1446,11 +1468,6 @@ export class VisitDialogComponent implements OnDestroy {
       if (status.blacklisted) return true;
     }
     return false;
-  }
-
-  isAccessLevelRemoved(accessLevelId: string): boolean {
-    if (!accessLevelId) return false;
-    return !this.accessLevels.some(al => al.id === accessLevelId);
   }
 
   isDuplicatePersonId(index: number): boolean {

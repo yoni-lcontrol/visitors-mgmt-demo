@@ -28,7 +28,7 @@ describe('SelectWorkstationComponent', () => {
             machineId: null,
             hostname: null,
             devices: [
-                { providerType: 'printer', isConnected: true, agentVersion: '1.0' },
+                { providerType: 'printer', isConnected: true, deviceConnected: true, agentVersion: '1.0' },
             ],
         },
         {

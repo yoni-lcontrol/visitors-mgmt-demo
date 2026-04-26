@@ -5,7 +5,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Visitor } from './entities/visitor.entity';
-import { VisitVisitor } from './entities/visit-visitor.entity';
 import { CreateVisitorDto } from './dto/create-visitor.dto';
 import { UpdateVisitorDto } from './dto/update-visitor.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -22,8 +21,6 @@ export class VisitorsService {
     constructor(
         @InjectRepository(Visitor)
         private readonly visitorRepo: Repository<Visitor>,
-        @InjectRepository(VisitVisitor)
-        private readonly visitVisitorRepo: Repository<VisitVisitor>,
         private readonly wsGateway: UsersGateway,
         private readonly blacklistService: BlacklistService,
         private readonly auditService: AuditService,
@@ -81,7 +78,7 @@ export class VisitorsService {
         return qb;
     }
 
-    async searchByPersonId(prefix: string): Promise<(Pick<Visitor, 'id' | 'firstName' | 'lastName' | 'personId' | 'phone' | 'email' | 'carNumber' | 'vehicleType'> & { accessLevelId: string | null })[]> {
+    async searchByPersonId(prefix: string): Promise<Pick<Visitor, 'id' | 'firstName' | 'lastName' | 'personId' | 'phone' | 'email' | 'carNumber' | 'vehicleType'>[]> {
         if (!prefix || prefix.trim().length < 4) return [];
 
         const sanitized = prefix.trim();
@@ -94,29 +91,7 @@ export class VisitorsService {
             .take(10)
             .getMany();
 
-        if (!visitors.length) return [];
-
-        const visitorIds = visitors.map(v => v.id);
-        const recentAccessLevels = await this.visitVisitorRepo
-            .createQueryBuilder('vv')
-            .select(['vv.visitorId', 'vv.accessLevelId'])
-            .where('vv.visitorId IN (:...ids)', { ids: visitorIds })
-            .andWhere('vv.accessLevelId IS NOT NULL')
-            .andWhere('vv.isActive = :active', { active: true })
-            .orderBy('vv.createdAt', 'DESC')
-            .getMany();
-
-        const accessLevelMap = new Map<string, string>();
-        for (const vv of recentAccessLevels) {
-            if (!accessLevelMap.has(vv.visitorId)) {
-                accessLevelMap.set(vv.visitorId, vv.accessLevelId!);
-            }
-        }
-
-        return visitors.map(v => ({
-            ...v,
-            accessLevelId: accessLevelMap.get(v.id) ?? null,
-        }));
+        return visitors;
     }
 
     async findById(id: string): Promise<Visitor> {

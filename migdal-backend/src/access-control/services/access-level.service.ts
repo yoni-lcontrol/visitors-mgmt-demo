@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AccessLevel } from '../entities/access-level.entity';
-import { VisitVisitor } from '../../visitors/entities/visit-visitor.entity';
 import { CreateAccessLevelDto } from '../dto/create-access-level.dto';
 import { UpdateAccessLevelDto } from '../dto/update-access-level.dto';
 import { AccessLevelQueryDto } from '../dto/access-level-query.dto';
@@ -16,8 +15,6 @@ export class AccessLevelService {
     constructor(
         @InjectRepository(AccessLevel)
         private readonly accessLevelRepo: Repository<AccessLevel>,
-        @InjectRepository(VisitVisitor)
-        private readonly visitVisitorRepo: Repository<VisitVisitor>,
         private readonly auditService: AuditService,
     ) { }
 
@@ -102,12 +99,6 @@ export class AccessLevelService {
 
     async remove(id: string, currentUserId?: string): Promise<void> {
         const al = await this.findById(id);
-        await this.visitVisitorRepo
-            .createQueryBuilder()
-            .update(VisitVisitor)
-            .set({ accessLevelId: null })
-            .where('accessLevelId = :id', { id })
-            .execute();
         al.isActive = false;
         await this.accessLevelRepo.save(al);
 
@@ -119,5 +110,25 @@ export class AccessLevelService {
             entityId: id,
             description: `Deleted access level "${al.name}"`,
         }).catch(() => { });
+    }
+
+    async upsertByExternalId(data: Partial<AccessLevel>): Promise<{ entity: AccessLevel; action: 'created' | 'updated' }> {
+        const { id: _id, ...safeData } = data;
+        if (!safeData.externalId) {
+            const created = await this.accessLevelRepo.save(this.accessLevelRepo.create(safeData));
+            return { entity: created, action: 'created' };
+        }
+        const existing = await this.accessLevelRepo.findOne({ where: { externalId: safeData.externalId } });
+        if (existing) {
+            const wasInactive = !existing.isActive;
+            Object.assign(existing, safeData);
+            if (wasInactive) {
+                existing.isActive = true;
+            }
+            const saved = await this.accessLevelRepo.save(existing);
+            return { entity: saved, action: wasInactive ? 'created' : 'updated' };
+        }
+        const created = await this.accessLevelRepo.save(this.accessLevelRepo.create(safeData));
+        return { entity: created, action: 'created' };
     }
 }

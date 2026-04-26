@@ -28,6 +28,13 @@ export class AdConfigurationController {
         return this.adSearch.searchPeopleHttp(dto.query);
     }
 
+    @Post(':id/test-connection')
+    @RequirePermissions(PermissionKey.SettingsUpdate)
+    @ApiOperation({ summary: 'Test AD connection for a specific configuration' })
+    testConnection(@Param('id', ParseUUIDPipe) id: string) {
+        return this.service.testConnection(id);
+    }
+
     @Get()
     @RequirePermissions(PermissionKey.SettingsRead)
     @ApiOperation({ summary: 'List all AD configurations' })

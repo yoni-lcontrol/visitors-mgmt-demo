@@ -37,6 +37,8 @@ integrations/
 │   ├── amadeus-events.controller.ts       # POST batch + single endpoints
 │   ├── amadeus-events.service.ts          # Event processing + WS broadcast
 │   └── amadeus-integration.module.ts
+
+**Note**: The Amadeus event ingestion module lives in `src/amadeus/` (not under `src/integrations/`) because it also serves M2M equipment and sync endpoints. It imports `IntegrationsCommonModule` to reuse `InboundEventLogService` for idempotency and event logging.
 └── integrations.module.ts           # Root module
 ```
 
@@ -83,8 +85,14 @@ Optional: `INTEGRATIONS_HMAC_MAX_SKEW_MS` (default: 300000 = 5 minutes)
 | POST | `/api/integrations/access-control/events` | Access Control |
 | POST | `/api/integrations/scanner/events` | Scanner |
 | POST | `/api/integrations/printer/events` | Printer |
-| POST | `/api/integrations/amadeus/events` | Amadeus (batch) |
-| POST | `/api/integrations/amadeus/events/single` | Amadeus (single) |
+| POST | `/api/events/amadeus` | Amadeus (batch) |
+| GET | `/api/events/amadeus` | Amadeus (recent realtime event history) |
+| GET | `/api/controllers` | Amadeus (equipment) |
+| GET | `/api/doors` | Amadeus (equipment) |
+| GET | `/api/door-ios` | Amadeus (equipment) |
+| GET | `/api/extensions` | Amadeus (equipment) |
+| GET | `/api/extension-ios` | Amadeus (equipment) |
+| POST | `/api/sync/full` | Amadeus (sync) |
 
 ### Request Shape (example: access-control)
 

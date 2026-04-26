@@ -10,7 +10,6 @@ import {
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { GUID_REGEX } from '../../common/constants/regex.constants';
 import { VehicleType } from '../enums/vehicle-type.enum';
 
 export class VisitVisitorItemDto {
@@ -57,11 +56,6 @@ export class VisitVisitorItemDto {
     @IsEnum(VehicleType, { message: 'vehicleType must be a valid vehicle type' })
     @IsNotEmpty({ message: 'vehicleType is required when hasVehicle is true' })
     vehicleType?: VehicleType;
-
-    @ApiProperty({ description: 'Access level UUID' })
-    @Matches(GUID_REGEX, { message: 'accessLevelId must be a valid GUID' })
-    @IsNotEmpty()
-    accessLevelId!: string;
 
     @ApiPropertyOptional()
     @IsOptional()

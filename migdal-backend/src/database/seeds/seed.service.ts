@@ -53,13 +53,15 @@ export class SeedService implements OnModuleInit {
 
             // 2. Seed roles
             const roleRepo = queryRunner.manager.getRepository(Role);
-            const existingRoleCount = await roleRepo.count();
+            const existingRoles = await roleRepo.find();
+            const existingRoleNames = new Set(existingRoles.map((role) => role.name));
+            const missingRoles = rolesSeed.filter((role) => !existingRoleNames.has(role.name));
+            const allPerms = await permRepo.find();
 
-            if (existingRoleCount === 0) {
-                this.logger.log('Seeding roles...');
-                const allPerms = await permRepo.find();
+            if (missingRoles.length > 0) {
+                this.logger.log(`Seeding ${missingRoles.length} missing role(s)...`);
 
-                for (const r of rolesSeed) {
+                for (const r of missingRoles) {
                     const role = roleRepo.create({
                         name: r.name,
                         description: r.description,
@@ -70,20 +72,52 @@ export class SeedService implements OnModuleInit {
                     );
                     await roleRepo.save(role);
                 }
-                this.logger.log(`Seeded ${rolesSeed.length} roles`);
-            } else {
-                // Always ensure the Admin role has ALL permissions
-                const adminRole = await roleRepo.findOne({
-                    where: { name: 'Admin' },
+                this.logger.log(`Seeded ${missingRoles.length} role(s)`);
+            }
+
+            // Ensure existing seeded roles include required default permissions (additive only)
+            for (const seededRole of rolesSeed) {
+                if (!existingRoleNames.has(seededRole.name)) {
+                    continue;
+                }
+
+                const role = await roleRepo.findOne({
+                    where: { name: seededRole.name },
                     relations: ['permissions'],
                 });
-                if (adminRole) {
-                    const allPerms = await permRepo.find();
-                    if (adminRole.permissions.length !== allPerms.length) {
-                        adminRole.permissions = allPerms;
-                        await roleRepo.save(adminRole);
-                        this.logger.log(`Updated Admin role: ${adminRole.permissions.length} → ${allPerms.length} permissions`);
-                    }
+
+                if (!role) {
+                    continue;
+                }
+
+                const existingKeys = new Set((role.permissions ?? []).map((permission) => permission.key));
+                const missingKeys = seededRole.permissions.filter((permissionKey) => !existingKeys.has(permissionKey));
+
+                if (missingKeys.length === 0) {
+                    continue;
+                }
+
+                const missingPermissions = allPerms.filter((permission) => missingKeys.includes(permission.key as any));
+                if (missingPermissions.length === 0) {
+                    continue;
+                }
+
+                role.permissions = [...(role.permissions ?? []), ...missingPermissions];
+                await roleRepo.save(role);
+                this.logger.log(`Updated role ${role.name}: added ${missingPermissions.length} permission(s)`);
+            }
+
+            // Always ensure the Admin role has ALL permissions
+            const adminRole = await roleRepo.findOne({
+                where: { name: 'Admin' },
+                relations: ['permissions'],
+            });
+            if (adminRole) {
+                const allPerms = await permRepo.find();
+                if (adminRole.permissions.length !== allPerms.length) {
+                    adminRole.permissions = allPerms;
+                    await roleRepo.save(adminRole);
+                    this.logger.log(`Updated Admin role: ${adminRole.permissions.length} → ${allPerms.length} permissions`);
                 }
             }
 
@@ -106,7 +140,7 @@ export class SeedService implements OnModuleInit {
                     firstName: adminUserSeed.firstName,
                     lastName: adminUserSeed.lastName,
                 });
-                admin.roles = adminRole ? [adminRole] : [];
+                admin.roleId = adminRole?.id ?? null;
                 await userRepo.save(admin);
                 this.logger.log(
                     `Admin user created: ${adminUserSeed.username} / ${adminUserSeed.password}`,

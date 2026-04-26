@@ -12,6 +12,7 @@ import { AdSearchService } from '@core/services/ad-search.service';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Router } from '@angular/router';
 import { ConfirmationService } from 'primeng/api';
+import { AuthService } from '@core/auth/auth.service';
 
 describe('VisitListComponent', () => {
     let component: VisitListComponent;
@@ -34,6 +35,22 @@ describe('VisitListComponent', () => {
                 { provide: VisitorSearchService, useValue: jasmine.createSpyObj('VisitorSearchService', ['search']) },
                 { provide: AdSearchService, useValue: jasmine.createSpyObj('AdSearchService', ['search']) },
                 { provide: Router, useValue: jasmine.createSpyObj('Router', ['navigate']) },
+                {
+                    provide: AuthService,
+                    useValue: {
+                        currentUser: {
+                            id: 'user-1',
+                            username: 'admin',
+                            firstName: 'Admin',
+                            lastName: 'User',
+                            email: null,
+                            phone: null,
+                            sector: null,
+                            roles: ['Admin'],
+                            permissions: ['visits.read', 'visits.create', 'visits.update', 'visits.delete'],
+                        },
+                    },
+                },
                 ConfirmationService,
             ],
         }).compileComponents();

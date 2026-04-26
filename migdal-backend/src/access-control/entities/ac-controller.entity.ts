@@ -20,7 +20,7 @@ export class AcController extends BaseEntity {
     @Column({ type: 'int', default: 0 })
     port!: number;
 
-    @Column({ type: 'nvarchar', length: 200, nullable: true })
+    @Column({ type: 'nvarchar', length: 200, nullable: true, unique: true })
     externalId!: string | null;
 
     @OneToMany(() => Door, (door) => door.controller, { cascade: true })

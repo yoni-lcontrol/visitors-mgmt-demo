@@ -8,7 +8,6 @@ import { VisitVisitor } from './entities/visit-visitor.entity';
 import { VisitEscort } from './entities/visit-escort.entity';
 import { VisitVisitorStatus } from './entities/visit-visitor-status.entity';
 import { Visitor } from './entities/visitor.entity';
-import { AccessLevel } from '../access-control/entities/access-level.entity';
 import { ParkingRequest } from './entities/parking-request.entity';
 import { VisitorStatus } from './enums/visitor-status.enum';
 import { BlacklistService } from './blacklist.service';
@@ -29,7 +28,6 @@ describe('VisitParticipantService', () => {
     let mockEscortRepo: ReturnType<typeof createMockRepository>;
     let mockStatusRepo: ReturnType<typeof createMockRepository>;
     let mockVisitorRepo: ReturnType<typeof createMockRepository>;
-    let mockAlRepo: ReturnType<typeof createMockRepository>;
     let mockParkingRepo: ReturnType<typeof createMockRepository>;
     let mockDs: ReturnType<typeof createMockDataSource>;
     let mockBl: ReturnType<typeof createMockBlacklistService>;
@@ -41,7 +39,6 @@ describe('VisitParticipantService', () => {
         mockEscortRepo = createMockRepository();
         mockStatusRepo = createMockRepository();
         mockVisitorRepo = createMockRepository();
-        mockAlRepo = createMockRepository();
         mockParkingRepo = createMockRepository();
         mockDs = createMockDataSource();
         mockBl = createMockBlacklistService();
@@ -55,7 +52,6 @@ describe('VisitParticipantService', () => {
                 { provide: getRepositoryToken(VisitEscort), useValue: mockEscortRepo },
                 { provide: getRepositoryToken(VisitVisitorStatus), useValue: mockStatusRepo },
                 { provide: getRepositoryToken(Visitor), useValue: mockVisitorRepo },
-                { provide: getRepositoryToken(AccessLevel), useValue: mockAlRepo },
                 { provide: getRepositoryToken(ParkingRequest), useValue: mockParkingRepo },
                 { provide: DataSource, useValue: mockDs },
                 { provide: BlacklistService, useValue: mockBl },
@@ -73,11 +69,10 @@ describe('VisitParticipantService', () => {
         it('should return mapped visit visitors with parkingRequest null when none exists', async () => {
             mockVisitRepo.findOne.mockResolvedValue({ id: 'v1', isActive: true });
             mockVvRepo.find.mockResolvedValue([{
-                id: 'vv1', visitId: 'v1', visitorId: 'vis1', accessLevelId: 'al1', notes: null,
+                id: 'vv1', visitId: 'v1', visitorId: 'vis1', notes: null,
                 createdAt: new Date(),
                 visitor: { id: 'vis1', firstName: 'Jane', lastName: 'Smith', email: null, phone: '+972501234567', personId: '123', carNumber: null, vehicleType: null },
                 status: { currentStatus: VisitorStatus.Pending, arrivedAtUtc: null, checkedInAtUtc: null, checkedOutAtUtc: null, lastEventTimeUtc: null },
-                accessLevel: { id: 'al1', name: 'Employee' },
             }]);
             mockParkingRepo.find.mockResolvedValue([]);
 
@@ -85,18 +80,16 @@ describe('VisitParticipantService', () => {
 
             expect(result).toHaveLength(1);
             expect(result[0].visitor.firstName).toBe('Jane');
-            expect(result[0].accessLevel.name).toBe('Employee');
             expect(result[0].parkingRequest).toBeNull();
         });
 
         it('should return parkingRequest status when one exists', async () => {
             mockVisitRepo.findOne.mockResolvedValue({ id: 'v1', isActive: true });
             mockVvRepo.find.mockResolvedValue([{
-                id: 'vv1', visitId: 'v1', visitorId: 'vis1', accessLevelId: 'al1', notes: null,
+                id: 'vv1', visitId: 'v1', visitorId: 'vis1', notes: null,
                 createdAt: new Date(),
                 visitor: { id: 'vis1', firstName: 'Jane', lastName: 'Smith', email: null, phone: '+972501234567', personId: '123', carNumber: 'ABC123', vehicleType: 'car' },
                 status: null,
-                accessLevel: { id: 'al1', name: 'Employee' },
             }]);
             mockParkingRepo.find.mockResolvedValue([{ visitVisitorId: 'vv1', status: 'Pending', isActive: true }]);
 
@@ -114,7 +107,7 @@ describe('VisitParticipantService', () => {
 
     describe('updateVisitVisitor', () => {
         it('should update visitor and visit-visitor fields', async () => {
-            mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true, accessLevelId: 'al1' });
+            mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true });
             mockVisitorRepo.findOne.mockResolvedValue({ id: 'vis1', firstName: 'Jane', lastName: 'Smith', isActive: true });
             mockVisitorRepo.save.mockImplementation((e: any) => Promise.resolve(e));
             mockVvRepo.save.mockImplementation((e: any) => Promise.resolve(e));
@@ -137,23 +130,13 @@ describe('VisitParticipantService', () => {
                 .rejects.toThrow(BadRequestException);
         });
 
-        it('should validate access level if changed', async () => {
-            mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true });
-            mockVisitorRepo.findOne.mockResolvedValue({ id: 'vis1', isActive: true });
-            const alQb = createMockQueryBuilder([]);  // empty = invalid
-            mockAlRepo.createQueryBuilder.mockReturnValue(alQb);
-
-            await expect(service.updateVisitVisitor('v1', 'vv1', { accessLevelId: 'bad-al' } as any))
-                .rejects.toThrow(BadRequestException);
-        });
-
         it('should throw NotFoundException on missing visit-visitor', async () => {
             mockVvRepo.findOne.mockResolvedValue(null);
             await expect(service.updateVisitVisitor('v1', 'bad', {} as any)).rejects.toThrow(NotFoundException);
         });
 
         it('should clear carNumber and vehicleType when hasVehicle is false', async () => {
-            mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true, accessLevelId: 'al1' });
+            mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true });
             mockVisitorRepo.findOne.mockResolvedValue({ id: 'vis1', firstName: 'Jane', lastName: 'Smith', isActive: true, carNumber: 'ABC', vehicleType: 'private' });
             mockVisitorRepo.save.mockImplementation((e: any) => Promise.resolve(e));
             mockVvRepo.save.mockImplementation((e: any) => Promise.resolve(e));
@@ -166,7 +149,7 @@ describe('VisitParticipantService', () => {
         });
 
         it('should set vehicleType when provided', async () => {
-            mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true, accessLevelId: 'al1' });
+            mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true });
             mockVisitorRepo.findOne.mockResolvedValue({ id: 'vis1', firstName: 'Jane', lastName: 'Smith', isActive: true, carNumber: null, vehicleType: null });
             mockVisitorRepo.save.mockImplementation((e: any) => Promise.resolve(e));
             mockVvRepo.save.mockImplementation((e: any) => Promise.resolve(e));

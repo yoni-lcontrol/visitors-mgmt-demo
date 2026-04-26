@@ -68,9 +68,16 @@ export class AccessLevelController {
     @Post('import')
     @RequirePermissions(PermissionKey.AccessControlImport)
     @HttpCode(HttpStatus.ACCEPTED)
-    @ApiOperation({ summary: 'Trigger access levels import from remote server (async)' })
+    @ApiOperation({ summary: 'Trigger access levels import from remote server' })
     async importData() {
-        await this.importService.triggerAccessLevelImport();
-        return { message: 'Import request sent to remote server. Data will arrive via callback.' };
+        const result = await this.importService.triggerAccessLevelImport();
+        return {
+            message: `Import completed: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped`,
+            created: result.created,
+            updated: result.updated,
+            skipped: result.skipped,
+            items: result.items,
+            errors: result.errors,
+        };
     }
 }

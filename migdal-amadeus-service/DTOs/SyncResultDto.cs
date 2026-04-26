@@ -10,7 +10,9 @@ public class SyncResultDto
     public int Created { get; set; }
     public int Updated { get; set; }
     public int Unchanged { get; set; }
+    public int Succeeded { get; set; }
     public int Skipped { get; set; }
     public int Failed { get; set; }
     public string? ErrorMessage { get; set; }
+    public List<ImportFailureDetailDto> Failures { get; set; } = [];
 }

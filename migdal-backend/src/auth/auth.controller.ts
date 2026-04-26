@@ -130,7 +130,7 @@ export class AuthController {
         @Res({ passthrough: true }) res: Response,
     ) {
         const result = await this.authService.loginWithEntra(
-            dto.idToken,
+            dto.accessToken,
             req.headers['user-agent'],
             req.ip,
         );
@@ -159,7 +159,10 @@ export class AuthController {
             enabled: this.entraIdService.isConfigured(),
             clientId: config.clientId || null,
             tenantId: config.tenantId || null,
+            authority: config.authority || null,
             redirectUri: config.redirectUri || null,
+            postLogoutRedirectUri: config.postLogoutRedirectUri || null,
+            apiAudience: config.apiAudience || null,
         };
     }
 }

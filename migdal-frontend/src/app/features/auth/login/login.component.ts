@@ -346,6 +346,12 @@ export class LoginComponent {
     if (msg.includes('deactivated')) {
       return this.translate.instant('AUTH.ACCOUNT_DEACTIVATED');
     }
+    if (msg.includes('pending administrator approval')) {
+      return this.translate.instant('AUTH.ACCOUNT_PENDING_APPROVAL');
+    }
+    if (msg.includes('No matching local account found')) {
+      return this.translate.instant('AUTH.ACCOUNT_NOT_PROVISIONED');
+    }
     return msg || this.translate.instant('AUTH.INVALID_CREDENTIALS');
   }
 }

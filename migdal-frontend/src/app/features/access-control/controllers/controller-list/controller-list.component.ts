@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { TranslateModule } from '@ngx-translate/core';
@@ -6,17 +6,21 @@ import { TableModule } from 'primeng/table';
 import { InputTextModule } from 'primeng/inputtext';
 import { InputSwitchModule } from 'primeng/inputswitch';
 import { DialogModule } from 'primeng/dialog';
-import { AccessControlApiService } from '../../services/access-control-api.service';
+import { ProgressBarModule } from 'primeng/progressbar';
+import { AccessControlApiService, ControllerImportResult } from '../../services/access-control-api.service';
 import { HasPermissionDirective } from '@core/permissions/has-permission.directive';
 import { NotificationService } from '@core/notifications/notification.service';
 import { ConfirmService } from '@core/services/confirm.service';
+import { UserWebSocketService } from '@core/websocket/user-websocket.service';
+import { WsEvent } from '@core/websocket/ws-events.enum';
 import { downloadBlob } from '@core/utils/download.util';
 import { AcController } from '@core/models/entities.model';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-controller-list',
   standalone: true,
-  imports: [TranslateModule, FormsModule, ReactiveFormsModule, HasPermissionDirective, TableModule, InputTextModule, InputSwitchModule, DialogModule],
+  imports: [TranslateModule, FormsModule, ReactiveFormsModule, HasPermissionDirective, TableModule, InputTextModule, InputSwitchModule, DialogModule, ProgressBarModule],
   template: `
     <div class="page-header">
       <h1>{{ 'ACCESS_CONTROL.CONTROLLERS' | translate }}</h1>
@@ -31,6 +35,12 @@ import { AcController } from '@core/models/entities.model';
         </button>
       </div>
     </div>
+    @if (importing) {
+      <div class="import-progress-container">
+        <p-progressBar [value]="importProgress" [showValue]="true"></p-progressBar>
+        <span class="import-progress-text">{{ importProgressMessage }}</span>
+      </div>
+    }
     <div class="card table-card">
       <p-table
         #dt
@@ -44,7 +54,7 @@ import { AcController } from '@core/models/entities.model';
         [first]="first"
         [showCurrentPageReport]="true"
         [rowsPerPageOptions]="[10, 20, 50]"
-        [globalFilterFields]="['name', 'ip', 'model', 'type', 'port', 'externalId']"
+        [globalFilterFields]="['name', 'ip', 'model', 'type', 'port']"
         dataKey="id"
         styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines"
         currentPageReportTemplate="{first}-{last} / {totalRecords}"
@@ -65,7 +75,6 @@ import { AcController } from '@core/models/entities.model';
             <th pSortableColumn="model">{{ 'ACCESS_CONTROL.MODEL' | translate }} <p-sortIcon field="model" /> <p-columnFilter field="model" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="ip">{{ 'ACCESS_CONTROL.IP_ADDRESS' | translate }} <p-sortIcon field="ip" /> <p-columnFilter field="ip" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="port">{{ 'ACCESS_CONTROL.PORT' | translate }} <p-sortIcon field="port" /> <p-columnFilter field="port" type="numeric" display="menu"></p-columnFilter></th>
-            <th pSortableColumn="externalId">{{ 'ACCESS_CONTROL.EXTERNAL_ID' | translate }} <p-sortIcon field="externalId" /> <p-columnFilter field="externalId" type="text" display="menu"></p-columnFilter></th>
             <th>{{ 'COMMON.ACTIVE' | translate }}</th>
             <th>{{ 'COMMON.ACTIONS' | translate }}</th>
           </tr>
@@ -77,7 +86,6 @@ import { AcController } from '@core/models/entities.model';
             <td>{{ ctrl.model ?? '-' }}</td>
             <td><code>{{ ctrl.ip ?? '-' }}</code></td>
             <td>{{ ctrl.port }}</td>
-            <td>{{ ctrl.externalId ?? '-' }}</td>
             <td>
               <p-inputSwitch [(ngModel)]="ctrl.isActive" (onChange)="toggleActive(ctrl)"></p-inputSwitch>
             </td>
@@ -95,7 +103,7 @@ import { AcController } from '@core/models/entities.model';
           </tr>
         </ng-template>
         <ng-template pTemplate="emptymessage">
-          <tr><td colspan="8" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
+          <tr><td colspan="7" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
         </ng-template>
       </p-table>
     </div>
@@ -143,6 +151,44 @@ import { AcController } from '@core/models/entities.model';
         <button class="btn btn-secondary" (click)="showDialog = false">{{ 'COMMON.CANCEL' | translate }}</button>
         <button class="btn btn-primary" (click)="saveDialog()" [disabled]="dialogForm.invalid || saving">{{ 'COMMON.SAVE' | translate }}</button>
       </ng-template>
+    </p-dialog>
+
+    <!-- Import Results Dialog -->
+    <p-dialog [header]="'ACCESS_CONTROL.IMPORT_RESULTS' | translate"
+      [(visible)]="showImportResults" [modal]="true" [style]="{width: '780px'}" [draggable]="false">
+      @if (showImportResults && importResult) {
+        <div class="import-summary">
+          <span class="import-stat success"><i class="pi pi-plus-circle"></i> {{ 'ACCESS_CONTROL.CREATED' | translate }}: {{ importResult.created }}</span>
+          <span class="import-stat info"><i class="pi pi-refresh"></i> {{ 'ACCESS_CONTROL.UPDATED' | translate }}: {{ importResult.updated }}</span>
+          <span class="import-stat warn"><i class="pi pi-exclamation-circle"></i> {{ 'ACCESS_CONTROL.SKIPPED' | translate }}: {{ importResult.skipped }}</span>
+        </div>
+        @if (importResult.items.length > 0) {
+          <p-table [value]="importResult.items" [paginator]="importResult.items.length > 10" [rows]="10"
+            styleClass="p-datatable-sm p-datatable-striped" [scrollable]="true" scrollHeight="350px">
+            <ng-template pTemplate="header">
+              <tr>
+                <th>{{ 'ACCESS_CONTROL.CONTROLLER_NAME' | translate }}</th>
+                <th>{{ 'ACCESS_CONTROL.TYPE' | translate }}</th>
+                <th>{{ 'ACCESS_CONTROL.MODEL' | translate }}</th>
+                <th>{{ 'ACCESS_CONTROL.IP_ADDRESS' | translate }}</th>
+                <th>{{ 'ACCESS_CONTROL.PORT' | translate }}</th>
+              </tr>
+            </ng-template>
+            <ng-template pTemplate="body" let-item>
+              <tr>
+                <td>{{ item.name }}</td>
+                <td>{{ item.type ?? '-' }}</td>
+                <td>{{ item.model ?? '-' }}</td>
+                <td><code>{{ item.ip ?? '-' }}</code></td>
+                <td>{{ item.port ?? '-' }}</td>
+              </tr>
+            </ng-template>
+          </p-table>
+        }
+      }
+      <ng-template pTemplate="footer">
+        <button class="btn btn-primary" (click)="showImportResults = false">{{ 'COMMON.CLOSE' | translate }}</button>
+      </ng-template>
     </p-dialog>  `,
   styles: [`
       :host { display: block; }
@@ -162,14 +208,23 @@ import { AcController } from '@core/models/entities.model';
       .dialog-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.15rem; }
       .dialog-form-grid .field { display: flex; flex-direction: column; }
       .dialog-form-grid .field label { font-weight: 500; margin-bottom: 0.3rem; font-size: 0.85rem; color: var(--color-text-secondary, #5c5a78); }
+      .import-progress-container { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+      .import-progress-text { font-size: 0.85rem; color: var(--color-text-secondary, #6b7280); }
+      .import-summary { display: flex; gap: 1.5rem; margin-bottom: 1rem; }
+      .import-stat { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; font-weight: 500; }
+      .import-stat.success { color: #16a34a; }
+      .import-stat.info { color: #2563eb; }
+      .import-stat.warn { color: #d97706; }
+      .import-stat i { font-size: 1rem; }
 
     `],
 })
-export class ControllerListComponent implements OnInit {
+export class ControllerListComponent implements OnInit, OnDestroy {
   private acApi = inject(AccessControlApiService);
   private notify = inject(NotificationService);
   private fb = inject(FormBuilder);
   private confirmService = inject(ConfirmService);
+  private userWs = inject(UserWebSocketService);
   router = inject(Router);
   controllers: AcController[] = [];
   totalRecords = 0;
@@ -181,6 +236,13 @@ export class ControllerListComponent implements OnInit {
   importing = false;
   private lastLazyEvent: any = { first: 0, rows: 20, sortField: 'name', sortOrder: 1, filters: {} };
 
+  // Import progress
+  importProgress = 0;
+  importProgressMessage = '';
+  importResult: ControllerImportResult | null = null;
+  showImportResults = false;
+  private wsSubs: Subscription[] = [];
+
   // Dialog
   showDialog = false;
   editingController: AcController | null = null;
@@ -190,6 +252,23 @@ export class ControllerListComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadData();
+    this.subscribeToImportEvents();
+  }
+
+  ngOnDestroy(): void {
+    this.wsSubs.forEach((s) => s.unsubscribe());
+    this.wsSubs = [];
+  }
+
+  private subscribeToImportEvents(): void {
+    this.wsSubs.push(
+      this.userWs.on<{ phase: string; message: string; current: number; total: number }>(
+        WsEvent.AccessControlControllersImportProgress,
+      ).subscribe((data) => {
+        this.importProgressMessage = data.message;
+        this.importProgress = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
+      }),
+    );
   }
 
   loadData(event: any = this.lastLazyEvent): void {
@@ -252,13 +331,22 @@ export class ControllerListComponent implements OnInit {
 
   doImport(): void {
     this.importing = true;
+    this.importProgress = 0;
+    this.importProgressMessage = '';
+    this.importResult = null;
     this.acApi.importControllers().subscribe({
-      next: () => {
+      next: (result) => {
         this.importing = false;
+        this.importProgress = 100;
+        this.importResult = result;
+        this.showImportResults = true;
         this.notify.success('ACCESS_CONTROL.IMPORT_TRIGGERED');
+        this.loadData();
       },
       error: (err) => {
         this.importing = false;
+        this.importProgress = 0;
+        this.importProgressMessage = '';
         this.notify.error(err);
       },
     });

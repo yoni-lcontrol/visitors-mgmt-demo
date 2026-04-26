@@ -35,11 +35,12 @@ describe('AuthService', () => {
             findByUsername: jest.fn(),
             findById: jest.fn(),
             findByEmail: jest.fn(),
-            findByExternalAuthId: jest.fn(),
+            findByExternalIdentity: jest.fn(),
             updateLastLogin: jest.fn(),
             updateLastExternalLogin: jest.fn(),
             linkExternalAuth: jest.fn(),
             createExternalUser: jest.fn(),
+            createPendingExternalUser: jest.fn(),
         };
         mockJwtService = {
             sign: jest.fn().mockReturnValue('mock-access-token'),
@@ -52,13 +53,17 @@ describe('AuthService', () => {
             log: jest.fn().mockResolvedValue(undefined),
         };
         mockEntraIdService = {
-            validateIdToken: jest.fn(),
+            validateAccessToken: jest.fn(),
             getConfig: jest.fn().mockReturnValue({
                 tenantId: 'tid',
                 clientId: 'cid',
+                authority: 'https://login.microsoftonline.com/tid',
                 redirectUri: 'http://localhost:4200',
+                postLogoutRedirectUri: 'http://localhost:4200',
+                apiAudience: 'api://cid',
                 autoProvision: false,
                 defaultRole: 'Viewer',
+                unknownUserMode: 'deny',
             }),
             isConfigured: jest.fn().mockReturnValue(true),
             extractEmail: jest.fn(),
@@ -88,7 +93,8 @@ describe('AuthService', () => {
             lastName: 'User',
             passwordHash: 'hashed',
             isActive: true,
-            roles: [{ id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }] }],
+            sector: { id: 'sector-1', name: 'Operations' },
+            role: { id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }] },
         };
 
         it('should throw UnauthorizedException for unknown username', async () => {
@@ -120,9 +126,29 @@ describe('AuthService', () => {
             expect(result.accessToken).toBe('mock-access-token');
             expect(result.refreshToken).toBeDefined();
             expect(result.user.username).toBe('admin');
+            expect(result.user.sector).toEqual({ id: 'sector-1', name: 'Operations' });
             expect(result.user.permissions).toContain('users.read');
             expect(mockUsersService.updateLastLogin).toHaveBeenCalledWith('user-1');
             expect(mockRefreshTokenRepo.save).toHaveBeenCalled();
+        });
+
+        it('should merge permissions from multiple roles', async () => {
+            const multiRoleUser = {
+                ...mockUser,
+                roles: [
+                    { id: 'r1', name: 'Role1', permissions: [{ key: 'users.read' }, { key: 'users.update' }] },
+                    { id: 'r2', name: 'Role2', permissions: [{ key: 'visits.read' }, { key: 'users.read' }] },
+                ],
+            };
+
+            mockUsersService.findByUsername.mockResolvedValue(multiRoleUser);
+            jest.spyOn(hashUtil, 'comparePassword').mockResolvedValue(true);
+
+            const result = await service.login({ username: 'admin', password: 'correct' });
+
+            expect(result.user.roles).toEqual(['Role1', 'Role2']);
+            expect(result.user.permissions).toEqual(expect.arrayContaining(['users.read', 'users.update', 'visits.read']));
+            expect(result.user.permissions.filter((p) => p === 'users.read')).toHaveLength(1);
         });
     });
 
@@ -177,7 +203,8 @@ describe('AuthService', () => {
                 firstName: 'Admin',
                 lastName: 'User',
                 isActive: true,
-                roles: [{ id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }] }],
+                sector: { id: 'sector-1', name: 'Operations' },
+                role: { id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }] },
             };
             mockUsersService.findById.mockResolvedValue(mockUser);
 
@@ -187,6 +214,7 @@ describe('AuthService', () => {
             expect(result.refreshToken).toBeDefined();
             expect(result.user).toBeDefined();
             expect(result.user.username).toBe('admin');
+            expect(result.user.sector).toEqual({ id: 'sector-1', name: 'Operations' });
             expect(result.user.permissions).toContain('users.read');
             expect(result.user.roles).toContain('Admin');
             expect(mockRefreshTokenRepo.update).toHaveBeenCalledWith('rt-1', { isRevoked: true });
@@ -211,7 +239,7 @@ describe('AuthService', () => {
                 id: 'user-1',
                 username: 'admin',
                 isActive: false,
-                roles: [],
+                role: null,
             });
 
             await expect(service.refreshTokens('valid-token'))
@@ -233,10 +261,7 @@ describe('AuthService', () => {
                 firstName: 'Admin',
                 lastName: 'User',
                 isActive: true,
-                roles: [
-                    { id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }] },
-                    { id: 'role-operator', name: 'Operator', permissions: [{ key: 'users.read' }, { key: 'visits.read' }] },
-                ],
+                role: { id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }] },
             };
             mockUsersService.findById.mockResolvedValue(mockUser);
 
@@ -244,9 +269,7 @@ describe('AuthService', () => {
 
             expect(result.user.permissions).toContain('users.read');
             expect(result.user.permissions).toContain('users.create');
-            expect(result.user.permissions).toContain('visits.read');
-            // Deduplicated
-            expect(result.user.permissions.filter((p: string) => p === 'users.read').length).toBe(1);
+            expect(result.user.permissions).toHaveLength(2);
         });
 
         it('should reflect updated permissions after admin changes role between login and refresh', async () => {
@@ -261,7 +284,7 @@ describe('AuthService', () => {
                 lastName: 'User',
                 passwordHash: 'hashed',
                 isActive: true,
-                roles: [{ id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }] }],
+                role: { id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }] },
             });
             jest.spyOn(hashUtil, 'comparePassword').mockResolvedValue(true);
 
@@ -284,7 +307,7 @@ describe('AuthService', () => {
                 firstName: 'Test',
                 lastName: 'User',
                 isActive: true,
-                roles: [{ id: 'role-operator', name: 'Operator', permissions: [{ key: 'visits.read' }, { key: 'visits.create' }] }],
+                role: { id: 'role-operator', name: 'Operator', permissions: [{ key: 'visits.read' }, { key: 'visits.create' }] },
             });
 
             // --- Step 3: User's token refresh picks up the new permissions ---
@@ -313,7 +336,7 @@ describe('AuthService', () => {
                 lastName: 'User',
                 passwordHash: 'hashed',
                 isActive: true,
-                roles: [{ id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }, { key: 'users.update' }] }],
+                role: { id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }, { key: 'users.update' }] },
             });
             jest.spyOn(hashUtil, 'comparePassword').mockResolvedValue(true);
 
@@ -336,7 +359,7 @@ describe('AuthService', () => {
                 firstName: 'Test',
                 lastName: 'User',
                 isActive: true,
-                roles: [{ id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }, { key: 'visits.read' }] }],
+                role: { id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }, { key: 'visits.read' }] },
             });
 
             // --- Step 3: User's token refresh picks up the modified role permissions ---
@@ -367,7 +390,7 @@ describe('AuthService', () => {
                 username: 'admin',
                 firstName: 'Admin',
                 lastName: 'User',
-                roles: [{ id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }] }],
+                role: { id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }] },
             };
             mockUsersService.findById.mockResolvedValue(mockUser);
 
@@ -396,41 +419,62 @@ describe('AuthService', () => {
             firstName: 'John',
             lastName: 'Doe',
             isActive: true,
-            roles: [{ id: 'role-viewer', name: 'Viewer', permissions: [{ key: 'users.read' }] }],
+            role: { id: 'role-viewer', name: 'Viewer', permissions: [{ key: 'users.read' }] },
         };
 
         beforeEach(() => {
-            mockEntraIdService.validateIdToken.mockResolvedValue(mockClaims);
+            mockEntraIdService.validateAccessToken.mockResolvedValue(mockClaims);
             mockEntraIdService.extractEmail.mockReturnValue('john@domain.com');
             mockEntraIdService.extractDisplayName.mockReturnValue({ firstName: 'John', lastName: 'Doe' });
         });
 
-        it('should authenticate user found by externalAuthId', async () => {
-            mockUsersService.findByExternalAuthId.mockResolvedValue(mockUser);
+        it('should authenticate user found by external identity', async () => {
+            mockUsersService.findByExternalIdentity.mockResolvedValue(mockUser);
 
             const result = await service.loginWithEntra('valid-token');
 
             expect(result.accessToken).toBe('mock-access-token');
             expect(result.user.username).toBe('john');
             expect(result.user.permissions).toContain('users.read');
-            expect(mockUsersService.updateLastExternalLogin).toHaveBeenCalledWith('user-1');
+            expect(mockUsersService.updateLastExternalLogin).toHaveBeenCalledWith(
+                'user-1',
+                expect.objectContaining({
+                    displayName: 'John Doe',
+                    email: 'john@domain.com',
+                }),
+            );
         });
 
         it('should fallback to email lookup and link external auth', async () => {
-            mockUsersService.findByExternalAuthId.mockResolvedValue(null);
+            mockUsersService.findByExternalIdentity.mockResolvedValue(null);
             mockUsersService.findByEmail.mockResolvedValue(mockUser);
 
             const result = await service.loginWithEntra('valid-token');
 
             expect(result.user.username).toBe('john');
-            expect(mockUsersService.linkExternalAuth).toHaveBeenCalledWith('user-1', 'entra', 'entra-oid-123');
+            expect(mockUsersService.linkExternalAuth).toHaveBeenCalledWith(
+                'user-1',
+                expect.objectContaining({
+                    provider: 'entra',
+                    externalId: 'entra-oid-123',
+                    tenantId: 'test-tenant',
+                }),
+            );
         });
 
-        it('should auto-provision when enabled and user not found', async () => {
-            mockUsersService.findByExternalAuthId.mockResolvedValue(null);
+        it('should auto-provision when mode is autoProvision and user not found', async () => {
+            mockUsersService.findByExternalIdentity.mockResolvedValue(null);
             mockUsersService.findByEmail.mockResolvedValue(null);
             mockEntraIdService.getConfig.mockReturnValue({
-                tenantId: 'tid', clientId: 'cid', redirectUri: '', autoProvision: true, defaultRole: 'Viewer',
+                tenantId: 'tid',
+                clientId: 'cid',
+                authority: 'https://login.microsoftonline.com/tid',
+                redirectUri: '',
+                postLogoutRedirectUri: '',
+                apiAudience: 'api://cid',
+                autoProvision: true,
+                defaultRole: 'Viewer',
+                unknownUserMode: 'autoProvision',
             });
             mockUsersService.createExternalUser.mockResolvedValue(mockUser);
 
@@ -440,14 +484,36 @@ describe('AuthService', () => {
                 expect.objectContaining({
                     externalAuthProvider: 'entra',
                     externalAuthId: 'entra-oid-123',
+                    externalTenantId: 'test-tenant',
                     roleNames: ['Viewer'],
                 }),
             );
             expect(result.user.username).toBe('john');
         });
 
-        it('should throw when user not found and auto-provision is disabled', async () => {
-            mockUsersService.findByExternalAuthId.mockResolvedValue(null);
+        it('should create pending user when mode is pending and user not found', async () => {
+            mockUsersService.findByExternalIdentity.mockResolvedValue(null);
+            mockUsersService.findByEmail.mockResolvedValue(null);
+            mockEntraIdService.getConfig.mockReturnValue({
+                tenantId: 'tid',
+                clientId: 'cid',
+                authority: 'https://login.microsoftonline.com/tid',
+                redirectUri: '',
+                postLogoutRedirectUri: '',
+                apiAudience: 'api://cid',
+                autoProvision: false,
+                defaultRole: 'Viewer',
+                unknownUserMode: 'pending',
+            });
+
+            await expect(service.loginWithEntra('valid-token'))
+                .rejects.toThrow('pending administrator approval');
+
+            expect(mockUsersService.createPendingExternalUser).toHaveBeenCalled();
+        });
+
+        it('should throw when user not found and mode is deny', async () => {
+            mockUsersService.findByExternalIdentity.mockResolvedValue(null);
             mockUsersService.findByEmail.mockResolvedValue(null);
 
             await expect(service.loginWithEntra('valid-token'))
@@ -455,7 +521,7 @@ describe('AuthService', () => {
         });
 
         it('should throw when user is deactivated', async () => {
-            mockUsersService.findByExternalAuthId.mockResolvedValue({
+            mockUsersService.findByExternalIdentity.mockResolvedValue({
                 ...mockUser,
                 isActive: false,
             });
@@ -465,8 +531,8 @@ describe('AuthService', () => {
         });
 
         it('should throw when token validation fails', async () => {
-            mockEntraIdService.validateIdToken.mockRejectedValue(
-                new UnauthorizedException('Invalid or expired ID token'),
+            mockEntraIdService.validateAccessToken.mockRejectedValue(
+                new UnauthorizedException('Invalid or expired Entra access token'),
             );
 
             await expect(service.loginWithEntra('bad-token'))
@@ -474,7 +540,7 @@ describe('AuthService', () => {
         });
 
         it('should set refresh token cookie data', async () => {
-            mockUsersService.findByExternalAuthId.mockResolvedValue(mockUser);
+            mockUsersService.findByExternalIdentity.mockResolvedValue(mockUser);
 
             const result = await service.loginWithEntra('valid-token');
 
@@ -483,7 +549,7 @@ describe('AuthService', () => {
         });
 
         it('should log audit event for Entra login', async () => {
-            mockUsersService.findByExternalAuthId.mockResolvedValue(mockUser);
+            mockUsersService.findByExternalIdentity.mockResolvedValue(mockUser);
 
             await service.loginWithEntra('valid-token', 'Mozilla/5.0', '127.0.0.1');
 

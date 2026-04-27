@@ -70,7 +70,7 @@ const entities = [
                 database: configService.get<string>('DB_DATABASE', 'migdal_db'),
                 schema: 'dbo',
                 entities,
-                synchronize: false,
+                synchronize: true,
                 logging: configService.get<string>('APP_ENV') === 'development',
                 options: {
                     encrypt: false, // Set true for Azure SQL

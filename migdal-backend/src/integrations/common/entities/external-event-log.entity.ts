@@ -40,7 +40,7 @@ export class ExternalEventLog {
     @Column({ type: 'datetime2', nullable: true })
     processedAt!: Date | null;
 
-    @Column({ type: 'nvarchar', length: 20, default: "'received'" })
+    @Column({ type: 'nvarchar', length: 20, default: 'received' })
     status!: string;
 
     @Column({ type: 'nvarchar', length: 2000, nullable: true })

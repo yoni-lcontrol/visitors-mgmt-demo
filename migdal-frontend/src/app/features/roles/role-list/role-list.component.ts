@@ -166,12 +166,14 @@ import { Role, Permission } from '@core/models/entities.model';
                       <label class="perm-item" [class.selected]="selectedPermIds.has(perm.id)">
                         <input type="checkbox" [checked]="selectedPermIds.has(perm.id)" (change)="togglePerm(perm.id)" />
                         <div class="perm-info">
-                          <span class="perm-name">{{ 'PERMISSIONS.NAMES.' + perm.key | translate }}</span>
+                          <span class="perm-name">{{ getPermissionNameKey(perm.key) | translate }}</span>
                           @if (perm.description) {
-                            <span class="perm-desc">{{ 'PERMISSIONS.DESCRIPTIONS.' + perm.key | translate }}</span>
+                            <span class="perm-desc">{{ getPermissionDescriptionKey(perm.key) | translate }}</span>
                           }
                         </div>
-                        <span class="perm-action-badge" [attr.data-action]="getActionType(perm.action)">{{ perm.action }}</span>
+                        <span class="perm-action-badge" [attr.data-action]="getActionType(perm.action)">
+                          {{ ('ROLES_FORM.ACTION_' + getActionType(perm.action).toUpperCase()) | translate }}
+                        </span>
                       </label>
                     }
                   </div>
@@ -433,7 +435,9 @@ export class RoleListComponent implements OnInit {
           p.name.toLowerCase().includes(term) ||
           p.key.toLowerCase().includes(term) ||
           (p.description ?? '').toLowerCase().includes(term) ||
-          p.action.toLowerCase().includes(term)
+          this.translate.instant(this.getPermissionNameKey(p.key)).toLowerCase().includes(term) ||
+          this.translate.instant(this.getPermissionDescriptionKey(p.key)).toLowerCase().includes(term) ||
+          this.translate.instant('ROLES_FORM.ACTION_' + this.getActionType(p.action).toUpperCase()).toLowerCase().includes(term)
       );
       if (matching.length > 0) {
         filtered[key] = matching;
@@ -460,6 +464,48 @@ export class RoleListComponent implements OnInit {
     if (a.includes('delete') || a.includes('remove')) return 'delete';
     if (a.includes('manage') || a.includes('admin') || a.includes('assign')) return 'manage';
     return 'other';
+  }
+
+  getPermissionNameKey(permissionKey: string): string {
+    switch (permissionKey) {
+      case 'visits.on-behalf-only':
+        return 'PERMISSIONS.NAMES.visits.on-behalf-only';
+      case 'visits.escort.required':
+        return 'PERMISSIONS.NAMES.visits.escort.required.label';
+      case 'visits.escort.required.self-requester':
+        return 'PERMISSIONS.NAMES.visits.escort.required.self-requester';
+      case 'visits.scope.own':
+        return 'PERMISSIONS.NAMES.visits.scope.own';
+      case 'visits.scope.training-center':
+        return 'PERMISSIONS.NAMES.visits.scope.training-center';
+      case 'visits.delete.own-only':
+        return 'PERMISSIONS.NAMES.visits.delete-own-only';
+      case 'visitors.scope.own':
+        return 'PERMISSIONS.NAMES.visitors.scope.own';
+      default:
+        return 'PERMISSIONS.NAMES.' + permissionKey;
+    }
+  }
+
+  getPermissionDescriptionKey(permissionKey: string): string {
+    switch (permissionKey) {
+      case 'visits.on-behalf-only':
+        return 'PERMISSIONS.DESCRIPTIONS.visits.on-behalf-only';
+      case 'visits.escort.required':
+        return 'PERMISSIONS.DESCRIPTIONS.visits.escort.required.label';
+      case 'visits.escort.required.self-requester':
+        return 'PERMISSIONS.DESCRIPTIONS.visits.escort.required.self-requester';
+      case 'visits.scope.own':
+        return 'PERMISSIONS.DESCRIPTIONS.visits.scope.own';
+      case 'visits.scope.training-center':
+        return 'PERMISSIONS.DESCRIPTIONS.visits.scope.training-center';
+      case 'visits.delete.own-only':
+        return 'PERMISSIONS.DESCRIPTIONS.visits.delete-own-only';
+      case 'visitors.scope.own':
+        return 'PERMISSIONS.DESCRIPTIONS.visitors.scope.own';
+      default:
+        return 'PERMISSIONS.DESCRIPTIONS.' + permissionKey;
+    }
   }
 
   saveDialog(): void {

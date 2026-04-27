@@ -64,6 +64,15 @@ describe('VisitorPrintService', () => {
         expect(service.currentState.errorMessage).toBe('No printer');
     });
 
+    it('should use translation key fallback on API error without message', () => {
+        mockApi.post.and.returnValue(throwError(() => ({})));
+
+        service.requestPrint({ visitId: 'v1', visitorId: 'vis1' });
+
+        expect(service.currentState.status).toBe('failed');
+        expect(service.currentState.errorMessage).toBe('VISITS.PRINT_CARD_FAILED');
+    });
+
     it('should report isProcessing correctly', () => {
         expect(service.isProcessing).toBe(false);
         mockApi.post.and.returnValue(of({ correlationId: 'corr-1', status: 'queued' }));

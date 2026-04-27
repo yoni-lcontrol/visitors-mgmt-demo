@@ -943,7 +943,7 @@ import { AuthService } from '@core/auth/auth.service';
   `],
 })
 export class VisitDialogComponent implements OnDestroy {
-  private static readonly ON_BEHALF_ONLY_ROLES = ['דלפקים', 'קב"ט'];
+  private static readonly ON_BEHALF_ONLY_PERMISSION = 'visits.on-behalf-only';
 
   private el = inject(ElementRef);
   private api = inject(ApiService);
@@ -1058,7 +1058,7 @@ export class VisitDialogComponent implements OnDestroy {
     this.loadEscortSectorOptions();
     this.resetDialogState();
     this.canRequestParking = this.permissionService.hasPermission('parking.request');
-    this.requesterLockedToOnBehalf = this.permissionService.hasAnyRole(VisitDialogComponent.ON_BEHALF_ONLY_ROLES);
+    this.requesterLockedToOnBehalf = this.permissionService.hasPermission(VisitDialogComponent.ON_BEHALF_ONLY_PERMISSION);
     this.editing = visit ?? null;
     if (visit) {
       const startDate = visit.plannedStartTimeUtc ? new Date(visit.plannedStartTimeUtc) : null;

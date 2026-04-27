@@ -36,7 +36,6 @@ import {
     isOnBehalfOnlyRole,
     resolveCreatorScopeRequirements,
     shouldRestrictDeletionToOwnVisits,
-    VisitRoleName,
 } from './visit-role-policy';
 
 @Injectable()
@@ -219,9 +218,9 @@ export class VisitsService {
         await this.escortRepo.save(escort);
     }
 
-    private async resolveScopedCreatorUserIds(currentUserId?: string, userRoles?: string[]): Promise<string[] | null> {
+    private async resolveScopedCreatorUserIds(currentUserId?: string, userPermissions?: string[]): Promise<string[] | null> {
         const creatorIds = new Set<string>();
-        const scopeRequirements = resolveCreatorScopeRequirements(userRoles);
+        const scopeRequirements = resolveCreatorScopeRequirements(userPermissions);
 
         if (scopeRequirements?.includeCurrentUser && currentUserId) {
             creatorIds.add(currentUserId);
@@ -232,8 +231,14 @@ export class VisitsService {
                 .createQueryBuilder('user')
                 .leftJoin('user.role', 'primaryRole')
                 .leftJoin('user.roles', 'secondaryRole')
-                .where('primaryRole.name = :roleName', { roleName: VisitRoleName.TrainingCenter })
-                .orWhere('secondaryRole.name = :roleName', { roleName: VisitRoleName.TrainingCenter })
+                .leftJoin('primaryRole.permissions', 'primaryRolePermission')
+                .leftJoin('secondaryRole.permissions', 'secondaryRolePermission')
+                .where('primaryRolePermission.key = :scopePermission', {
+                    scopePermission: PermissionKey.VisitsScopeTrainingCenter,
+                })
+                .orWhere('secondaryRolePermission.key = :scopePermission', {
+                    scopePermission: PermissionKey.VisitsScopeTrainingCenter,
+                })
                 .select('user.id', 'id')
                 .getRawMany<{ id: string }>();
 
@@ -269,14 +274,14 @@ export class VisitsService {
 
     // â”€â”€ Today Summary â”€â”€
 
-    async getTodaySummary(currentUserId?: string, userRoles?: string[]): Promise<{
+    async getTodaySummary(currentUserId?: string, userPermissions?: string[]): Promise<{
         totalVisitsToday: number;
         arrivedToday: number;
         checkedInToday: number;
         completedToday: number;
     }> {
         const { dayStart, dayEnd } = getDayBoundsUtc();
-        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userRoles);
+        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userPermissions);
 
         // Count today's visits
         const totalVisitsToday = this.visitRepo
@@ -335,9 +340,9 @@ export class VisitsService {
         rangeEnd: string,
         search?: string,
         currentUserId?: string,
-        userRoles?: string[],
+        userPermissions?: string[],
     ): Promise<any[]> {
-        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userRoles);
+        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userPermissions);
         const qb = this.visitRepo
             .createQueryBuilder('v')
             .leftJoinAndSelect('v.sector', 'sector')
@@ -372,9 +377,9 @@ export class VisitsService {
         }));
     }
 
-    async findAllVisits(query: VisitsQueryDto, currentUserId?: string, userRoles?: string[]): Promise<PaginatedResult<any>> {
+    async findAllVisits(query: VisitsQueryDto, currentUserId?: string, userPermissions?: string[]): Promise<PaginatedResult<any>> {
         const { page, limit } = query;
-        const qb = await this.buildVisitsQuery(query, currentUserId, userRoles);
+        const qb = await this.buildVisitsQuery(query, currentUserId, userPermissions);
 
         const total = await qb.getCount();
         const items = await qb.skip((page - 1) * limit).take(limit).getMany();
@@ -394,8 +399,8 @@ export class VisitsService {
         return { items: result, total, page, limit, totalPages: Math.ceil(total / limit) };
     }
 
-    async exportVisitsToExcel(query: VisitsQueryDto, currentUserId?: string, userRoles?: string[]): Promise<Buffer> {
-        const qb = await this.buildVisitsQuery(query, currentUserId, userRoles);
+    async exportVisitsToExcel(query: VisitsQueryDto, currentUserId?: string, userPermissions?: string[]): Promise<Buffer> {
+        const qb = await this.buildVisitsQuery(query, currentUserId, userPermissions);
         qb.leftJoinAndSelect('v.visitVisitors', 'vv')
             .leftJoinAndSelect('vv.visitor', 'visitor')
             .leftJoinAndSelect('vv.status', 'vvStatus')
@@ -469,9 +474,9 @@ export class VisitsService {
         return toExcelBuffer(rows, 'Visits');
     }
 
-    private async buildVisitsQuery(query: VisitsQueryDto, currentUserId?: string, userRoles?: string[]) {
+    private async buildVisitsQuery(query: VisitsQueryDto, currentUserId?: string, userPermissions?: string[]) {
         const { search, sortBy, sortOrder, filters, timeFilter } = query;
-        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userRoles);
+        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userPermissions);
         const qb = this.visitRepo
             .createQueryBuilder('v')
             .leftJoinAndSelect('v.sector', 'sector')
@@ -571,8 +576,8 @@ export class VisitsService {
         return map;
     }
 
-    async findVisitById(id: string, currentUserId?: string, userRoles?: string[]): Promise<any> {
-        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userRoles);
+    async findVisitById(id: string, currentUserId?: string, userPermissions?: string[]): Promise<any> {
+        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userPermissions);
         const visit = await this.visitRepo.findOne({
             where: { id, isActive: true },
             relations: ['sector', 'building', 'visitRequesterUser'],
@@ -597,7 +602,6 @@ export class VisitsService {
         dto: CreateVisitDto,
         currentUserId?: string,
         userPermissions?: string[],
-        userRoles?: string[],
     ): Promise<any> {
         if (!dto.visitors || dto.visitors.length === 0) {
             throw new BadRequestException('A visit must have at least one visitor');
@@ -609,11 +613,11 @@ export class VisitsService {
             throw new BadRequestException('visitRequester is required');
         }
 
-        if (isOnBehalfOnlyRole(userRoles) && isSelfRequester) {
+        if (isOnBehalfOnlyRole(userPermissions) && isSelfRequester) {
             throw new BadRequestException('This role must create visits on behalf of another requester');
         }
 
-        if (isEscortRequiredForVisit(userRoles, isSelfRequester) && (!dto.escorts || dto.escorts.length === 0)) {
+        if (isEscortRequiredForVisit(userPermissions, isSelfRequester) && (!dto.escorts || dto.escorts.length === 0)) {
             throw new BadRequestException('At least one escort is required for the current user');
         }
 
@@ -773,7 +777,7 @@ export class VisitsService {
                 .then(() => this.checkInCodeService.sendCodeNotifications(savedVisit.id, currentUserId))
                 .catch(() => { });
 
-            return this.findVisitById(savedVisit.id, currentUserId, userRoles);
+            return this.findVisitById(savedVisit.id, currentUserId, userPermissions);
         } catch (err) {
             await qr.rollbackTransaction();
             throw err;
@@ -856,11 +860,11 @@ export class VisitsService {
         return this.findVisitById(id, currentUserId);
     }
 
-    async removeVisit(id: string, currentUserId?: string, userRoles?: string[]): Promise<void> {
+    async removeVisit(id: string, currentUserId?: string, userPermissions?: string[]): Promise<void> {
         const visit = await this.visitRepo.findOne({ where: { id, isActive: true } });
         if (!visit) throw new NotFoundException('Visit not found');
 
-        if (shouldRestrictDeletionToOwnVisits(userRoles) && visit.createdByUserId !== currentUserId) {
+        if (shouldRestrictDeletionToOwnVisits(userPermissions) && visit.createdByUserId !== currentUserId) {
             throw new NotFoundException('Visit not found');
         }
 

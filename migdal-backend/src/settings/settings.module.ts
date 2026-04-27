@@ -25,6 +25,10 @@ import { SmsTemplateController } from './sms-template.controller';
 import { EmailTemplateController } from './email-template.controller';
 import { PermanentEscortsController } from './permanent-escorts.controller';
 import { PermanentEscortsService } from './permanent-escorts.service';
+import { VehicleManufacturer } from './entities/vehicle-manufacturer.entity';
+import { VehicleModel } from './entities/vehicle-model.entity';
+import { VehicleModelsController } from './vehicle-models.controller';
+import { VehicleModelsService } from './vehicle-models.service';
 
 @Module({
     imports: [
@@ -38,6 +42,8 @@ import { PermanentEscortsService } from './permanent-escorts.service';
             DeviceCommandLog,
             User,
             Sector,
+            VehicleManufacturer,
+            VehicleModel,
         ]),
         WebsocketModule,
         PrintingModule,
@@ -50,6 +56,7 @@ import { PermanentEscortsService } from './permanent-escorts.service';
         AdConfigurationController,
         CardTemplateController,
         PermanentEscortsController,
+        VehicleModelsController,
         SettingsController,
     ],
     providers: [
@@ -59,6 +66,7 @@ import { PermanentEscortsService } from './permanent-escorts.service';
         RetentionCleanupService,
         CardTemplateService,
         PermanentEscortsService,
+        VehicleModelsService,
     ],
     exports: [
         SettingsService,
@@ -66,6 +74,7 @@ import { PermanentEscortsService } from './permanent-escorts.service';
         AdSearchService,
         RetentionCleanupService,
         CardTemplateService,
+        VehicleModelsService,
         NotificationsModule,
     ],
 })

@@ -22,13 +22,13 @@ import { AuditService } from '../audit/audit.service';
 import { VisitorPersistenceService } from './visitor-persistence.service';
 import { shouldRestrictVisitorsToOwn } from './visitor-role-policy';
 
-interface VisitorDirectoryContext {
+export interface VisitorDirectoryContext {
     hostName: string | null;
     buildingName: string | null;
     floor: number | null;
 }
 
-type VisitorDirectoryItem = Visitor & VisitorDirectoryContext;
+export type VisitorDirectoryItem = Visitor & VisitorDirectoryContext;
 
 @Injectable()
 export class VisitorsService {
@@ -43,9 +43,9 @@ export class VisitorsService {
     async findAll(
         query: PaginationQueryDto,
         currentUserId?: string,
-        userRoles?: string[],
+        userPermissions?: string[],
     ): Promise<PaginatedResult<VisitorDirectoryItem>> {
-        const result = await paginateQuery(this.buildFindAllQuery(query, currentUserId, userRoles), query.page, query.limit);
+        const result = await paginateQuery(this.buildFindAllQuery(query, currentUserId, userPermissions), query.page, query.limit);
         const items = await this.enrichVisitorsWithLatestVisitContext(result.items);
         return { ...result, items };
     }
@@ -53,9 +53,9 @@ export class VisitorsService {
     async exportToExcel(
         query: PaginationQueryDto,
         currentUserId?: string,
-        userRoles?: string[],
+        userPermissions?: string[],
     ): Promise<Buffer> {
-        const qb = this.buildFindAllQuery(query, currentUserId, userRoles);
+        const qb = this.buildFindAllQuery(query, currentUserId, userPermissions);
         const items = await qb.getMany();
         const withContext = await this.enrichVisitorsWithLatestVisitContext(items);
         const contextById = new Map(withContext.map((item) => [item.id, item]));
@@ -75,14 +75,14 @@ export class VisitorsService {
     private buildFindAllQuery(
         query: PaginationQueryDto,
         currentUserId?: string,
-        userRoles?: string[],
+        userPermissions?: string[],
     ) {
         const { search, sortBy, sortOrder, filters } = query;
         const qb = this.visitorRepo
             .createQueryBuilder('v')
             .where('v.isActive = :active', { active: true });
 
-        this.applyOwnershipScope(qb, currentUserId, userRoles);
+        this.applyOwnershipScope(qb, currentUserId, userPermissions);
 
         if (search) {
             qb.andWhere(
@@ -120,7 +120,7 @@ export class VisitorsService {
     async searchByPersonId(
         prefix: string,
         currentUserId?: string,
-        userRoles?: string[],
+        userPermissions?: string[],
     ): Promise<Pick<Visitor, 'id' | 'firstName' | 'lastName' | 'personId' | 'phone' | 'email' | 'carNumber' | 'vehicleType'>[]> {
         if (!prefix || prefix.trim().length < 4) return [];
 
@@ -133,20 +133,20 @@ export class VisitorsService {
             .orderBy('v.personId', 'ASC')
             .take(10);
 
-        this.applyOwnershipScope(qb, currentUserId, userRoles);
+        this.applyOwnershipScope(qb, currentUserId, userPermissions);
 
         const visitors = await qb.getMany();
 
         return visitors;
     }
 
-    async findById(id: string, currentUserId?: string, userRoles?: string[]): Promise<Visitor> {
+    async findById(id: string, currentUserId?: string, userPermissions?: string[]): Promise<Visitor> {
         const qb = this.visitorRepo
             .createQueryBuilder('v')
             .where('v.id = :id', { id })
             .andWhere('v.isActive = :active', { active: true });
 
-        this.applyOwnershipScope(qb, currentUserId, userRoles);
+        this.applyOwnershipScope(qb, currentUserId, userPermissions);
 
         const visitor = await qb.getOne();
         if (!visitor) throw new NotFoundException('Visitor not found');
@@ -175,8 +175,8 @@ export class VisitorsService {
         return result;
     }
 
-    async update(id: string, dto: UpdateVisitorDto, currentUserId?: string, userRoles?: string[]): Promise<Visitor> {
-        const visitor = await this.findById(id, currentUserId, userRoles);
+    async update(id: string, dto: UpdateVisitorDto, currentUserId?: string, userPermissions?: string[]): Promise<Visitor> {
+        const visitor = await this.findById(id, currentUserId, userPermissions);
         const oldValue = { firstName: visitor.firstName, lastName: visitor.lastName, personId: visitor.personId, email: visitor.email, phone: visitor.phone };
         const normalizedPersonId = dto.personId !== undefined
             ? this.visitorPersistence.normalizePersonId(dto.personId)
@@ -197,7 +197,7 @@ export class VisitorsService {
         if (dto.vehicleType !== undefined) visitor.vehicleType = dto.vehicleType?.trim() ? dto.vehicleType.trim() : null;
         visitor.updatedBy = currentUserId ?? null;
         await this.visitorRepo.save(visitor);
-        const result = await this.findById(id, currentUserId, userRoles);
+        const result = await this.findById(id, currentUserId, userPermissions);
         this.wsGateway.broadcastToAll('visitors:visitor:updated', { id: result.id, firstName: result.firstName, lastName: result.lastName });
 
         this.auditService.log({
@@ -214,8 +214,8 @@ export class VisitorsService {
         return result;
     }
 
-    async remove(id: string, currentUserId?: string, userRoles?: string[]): Promise<void> {
-        const visitor = await this.findById(id, currentUserId, userRoles);
+    async remove(id: string, currentUserId?: string, userPermissions?: string[]): Promise<void> {
+        const visitor = await this.findById(id, currentUserId, userPermissions);
         visitor.isActive = false;
         visitor.updatedBy = currentUserId ?? null;
         await this.visitorRepo.save(visitor);
@@ -234,9 +234,9 @@ export class VisitorsService {
     private applyOwnershipScope(
         qb: SelectQueryBuilder<Visitor>,
         currentUserId?: string,
-        userRoles?: string[],
+        userPermissions?: string[],
     ): void {
-        if (!shouldRestrictVisitorsToOwn(userRoles)) {
+        if (!shouldRestrictVisitorsToOwn(userPermissions)) {
             return;
         }
 

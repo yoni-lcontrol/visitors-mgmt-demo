@@ -26,8 +26,8 @@ User
 | `roles` | create, read, update, delete | `roles.create`, `roles.read`, `roles.update`, `roles.delete` |
 | `permissions` | read | `permissions.read` |
 | `access-control` | create, read, update, delete, import, sync | `access-control.create`, `access-control.read`, `access-control.update`, `access-control.delete`, `access-control.import`, `access-control.sync` |
-| `visits` | create, read, update, delete, print-card, check-in-code.send, check-in-code.regenerate | `visits.create`, `visits.read`, `visits.update`, `visits.delete`, `visits.print-card`, `visits.check-in-code.send`, `visits.check-in-code.regenerate` |
-| `visitors` | create, read, update, delete, export | `visitors.create`, `visitors.read`, `visitors.update`, `visitors.delete`, `visitors.export` |
+| `visits` | create, read, update, delete, print-card, check-in-code.send, check-in-code.regenerate, on-behalf-only, escort.required, escort.required.self-requester, scope.own, scope.training-center, delete.own-only | `visits.create`, `visits.read`, `visits.update`, `visits.delete`, `visits.print-card`, `visits.check-in-code.send`, `visits.check-in-code.regenerate`, `visits.on-behalf-only`, `visits.escort.required`, `visits.escort.required.self-requester`, `visits.scope.own`, `visits.scope.training-center`, `visits.delete.own-only` |
+| `visitors` | create, read, update, delete, export, scope.own | `visitors.create`, `visitors.read`, `visitors.update`, `visitors.delete`, `visitors.export`, `visitors.scope.own` |
 | `settings` | read, update | `settings.read`, `settings.update` |
 | `settings.permanent-escorts` | read, manage | `settings.permanent-escorts.read`, `settings.permanent-escorts.manage` |
 | `settings.card-templates` | create, read, update, delete | `settings.card-templates.create`, `settings.card-templates.read`, `settings.card-templates.update`, `settings.card-templates.delete` |
@@ -36,10 +36,11 @@ User
 | `scanner` | execute | `scanner.execute` |
 | `workstations` | create, read, update, delete, assign-users, assign-roles, enroll-agents | `workstations.create`, `workstations.read`, `workstations.update`, `workstations.delete`, `workstations.assign-users`, `workstations.assign-roles`, `workstations.enroll-agents` |
 | `buildings` | create, read, update | `buildings.create`, `buildings.read`, `buildings.update` |
+| `vehicle-models` | view, create, update, delete, export | `vehicle-models.view`, `vehicle-models.create`, `vehicle-models.update`, `vehicle-models.delete`, `vehicle-models.export` |
 | `blacklist` | create, read, update, delete, check | `blacklist.create`, `blacklist.read`, `blacklist.update`, `blacklist.delete`, `blacklist.check` |
 | `parking` | request, auto-approve, approve | `parking.request`, `parking.auto-approve`, `parking.approve` |
 
-**Total: 54 permissions**
+**Total: 70 permissions**
 
 ## Default Roles
 
@@ -170,6 +171,40 @@ if (this.permissionService.hasPermission('users.update')) {
 
 Menu items are filtered based on user permissions. The sidebar component checks permissions before rendering each nav item. The Visitors Management submenu can render for visit workflows, the standalone visitor directory, or both, depending on the user's effective permissions.
 
+## Implementation Guidelines
+
+Authorization must be implemented by permission keys only.
+
+- Backend route access: use `@RequirePermissions(...)` on controllers.
+- Backend business/data scope: pass `@CurrentUser('permissions')` into services and evaluate policy from `request.user.permissions`.
+- Frontend routes: use `permissionGuard` with route `data.permission`.
+- Frontend UI controls: use `*hasPermission` and `PermissionService.hasPermission(...)`.
+- Never use role name/code/ID checks (for example, `roles.includes('Admin')`) for authorization decisions.
+
+### Backend Example
+
+```typescript
+@Get('visitors')
+@RequirePermissions(PermissionKey.VisitorsRead)
+findAll(
+  @Query() query: PaginationQueryDto,
+  @CurrentUser('sub') userId: string,
+  @CurrentUser('permissions') permissions: string[],
+) {
+  return this.visitorsService.findAll(query, userId, permissions);
+}
+```
+
+### Frontend Example
+
+```typescript
+canDeleteVisit(visit: Visit): boolean {
+  if (!this.permissionService.hasPermission('visits.delete')) return false;
+  if (!this.permissionService.hasPermission('visits.delete.own-only')) return true;
+  return visit.createdByUserId === this.permissionService.getCurrentUserId();
+}
+```
+
 ## Important Design Decisions
 
 1. **Permissions in JWT**: Avoids DB lookup on every request. Tradeoff: changes take effect on next token refresh (max 15 min).
@@ -184,9 +219,22 @@ Menu items are filtered based on user permissions. The sidebar component checks 
 
 ## Visitor Directory Scope Rules
 
-The `visitors.*` permissions control operation availability (read/update/delete/export), while backend role policy also controls **record scope** for the Visitors Directory:
+The Visitors Directory is controlled only by permissions from `request.user.permissions`:
 
-- **Own-only scope**: regular users and secretary/domain-manager-like roles can see and edit only visitors that belong to them (created by them, or linked to visits they created/requested).
-- **Full scope**: desk/security/Kabat roles can see and edit all visitors.
+- **Own-only scope**: users with `visitors.scope.own` can see and edit only visitors that belong to them (created by them, or linked to visits they created/requested).
+- **Full scope**: users without `visitors.scope.own` can access all visitors (subject to endpoint permission guards).
 
 Scope enforcement is backend-side and applies consistently to list, search, export, read-by-id, update, and delete endpoints under `/visitors`.
+
+## Visit Policy Permissions
+
+Visit workflow constraints are also permission-driven (not role-name-driven):
+
+- `visits.on-behalf-only`: requester must be "on behalf of someone else" (self requester is blocked).
+- `visits.escort.required`: escort is required for all new visits.
+- `visits.escort.required.self-requester`: escort is required only when requester is self.
+- `visits.scope.own`: visit lists/details are scoped to visits created by the current user.
+- `visits.scope.training-center`: visit lists/details are scoped to creators whose effective permissions include `visits.scope.training-center`.
+- `visits.delete.own-only`: visit deletion is allowed only for visits created by the current user.
+
+These permissions can be assigned/removed in Role Permissions management screens, and behavior changes without code changes.

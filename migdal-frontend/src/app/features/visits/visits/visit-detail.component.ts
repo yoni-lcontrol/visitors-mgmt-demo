@@ -1887,7 +1887,12 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
         this.notify.success(this.translateService.instant('VISITS.PRINT_CARD_SUCCESS'));
         this.printingVisitorId = null;
       } else if (state.status === 'failed') {
-        this.notify.error(state.errorMessage || this.translateService.instant('VISITS.PRINT_CARD_FAILED'));
+        const message = state.errorMessage
+          ? (/^[A-Z][A-Z0-9_.]+$/.test(state.errorMessage)
+              ? this.translateService.instant(state.errorMessage)
+              : state.errorMessage)
+          : this.translateService.instant('VISITS.PRINT_CARD_FAILED');
+        this.notify.error(message);
         this.printingVisitorId = null;
       }
     });

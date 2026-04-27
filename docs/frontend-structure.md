@@ -120,10 +120,18 @@ frontend/src/
         Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ settings/
             Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ settings.routes.ts
             Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ settings-list/
+          Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ vehicle-models/
             Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ permanent-escorts/
             Ã¢â€Å“Ã¢â€â‚¬Ã¢â€â‚¬ setting-form/
             Ã¢â€â€Ã¢â€â‚¬Ã¢â€â‚¬ services/
 ```
+
+    ### Vehicle Models (Settings)
+
+    - Route: `/settings/vehicle-models` (guarded by `vehicle-models.view`)
+    - Component: `VehicleModelListComponent` (PrimeNG lazy table with server pagination/sort/filter, create/update dialog, delete, export)
+    - Service: `VehicleModelsApiService` (`/settings/vehicle-models`, `/manufacturers`, `/export`)
+    - UI permissions: `vehicle-models.view/create/update/delete/export`
 
 ## Notification Settings
 
@@ -254,7 +262,7 @@ The standalone visitors feature adds a dedicated `/visitors` page for the shared
 - Reuses the shared vehicle-type helpers and keeps create/update in the same dialog because backend writes are upsert-by-person-ID.
 - Appears under the Visitors Management sidebar group even when the user only has visitor-directory permissions.
 - Table columns include visitor name, person ID, phone, vehicle type, license number, building, floor, and host name.
-- Data scope is role-based and enforced by backend policy (own-only for regular/secretary-like roles, full access for desk/security/Kabat roles).
+- Data scope is permission-based and enforced by backend policy (`visitors.scope.own` and visit scope policy permissions from the authenticated permission set).
 
 ### Parking Requests
 

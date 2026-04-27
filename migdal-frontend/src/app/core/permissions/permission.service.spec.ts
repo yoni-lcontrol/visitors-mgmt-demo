@@ -108,36 +108,6 @@ describe('PermissionService', () => {
         expect(service.hasAllPermissions(['users.read', 'users.update'])).toBeFalse();
     });
 
-    it('hasRole should match normalized role names', () => {
-        (Object.getOwnPropertyDescriptor(authServiceSpy, 'currentUser')!
-            .get as jasmine.Spy).and.returnValue({
-                id: 'u1',
-                username: 'security',
-                firstName: 'S',
-                lastName: 'U',
-                roles: ['קב"ט'],
-                permissions: ['visits.read'],
-            });
-
-        expect(service.hasRole(' קב"ט ')).toBeTrue();
-        expect(service.hasRole('דלפקים')).toBeFalse();
-    });
-
-    it('hasAnyRole should return true when one role matches', () => {
-        (Object.getOwnPropertyDescriptor(authServiceSpy, 'currentUser')!
-            .get as jasmine.Spy).and.returnValue({
-                id: 'u1',
-                username: 'desk',
-                firstName: 'D',
-                lastName: 'U',
-                roles: ['דלפקים'],
-                permissions: ['visits.read'],
-            });
-
-        expect(service.hasAnyRole(['קב"ט', 'דלפקים'])).toBeTrue();
-        expect(service.hasAnyRole(['עובד מגדל', 'מרכז הדרכות'])).toBeFalse();
-    });
-
     it('getCurrentUserId should return current user id', () => {
         (Object.getOwnPropertyDescriptor(authServiceSpy, 'currentUser')!
             .get as jasmine.Spy).and.returnValue({

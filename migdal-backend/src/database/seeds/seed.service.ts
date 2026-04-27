@@ -11,10 +11,12 @@ import { adminUserSeed } from './data/admin-user.seed';
 import { smsTemplatesSeed } from './data/sms-templates.seed';
 import { emailTemplatesSeed } from './data/email-templates.seed';
 import { settingsSeed } from './data/settings.seed';
+import { vehicleManufacturersSeed } from './data/vehicle-manufacturers.seed';
 import { hashPassword } from '../../common/utils/hash.util';
 import { SmsTemplate } from '../../settings/entities/sms-template.entity';
 import { EmailTemplate } from '../../settings/entities/email-template.entity';
 import { Setting } from '../../settings/entities/setting.entity';
+import { VehicleManufacturer } from '../../settings/entities/vehicle-manufacturer.entity';
 
 @Injectable()
 export class SeedService implements OnModuleInit {
@@ -258,6 +260,21 @@ export class SeedService implements OnModuleInit {
                     await settingRepo.save(setting);
                 }
                 this.logger.log(`Seeded ${newSettings.length} setting(s)`);
+            }
+
+            // 8. Seed vehicle manufacturers (upsert by unique name)
+            const vehicleManufacturerRepo = queryRunner.manager.getRepository(VehicleManufacturer);
+            const existingManufacturers = await vehicleManufacturerRepo.find();
+            const existingManufacturerNames = new Set(existingManufacturers.map((m) => m.name));
+            const newManufacturers = vehicleManufacturersSeed.filter((name) => !existingManufacturerNames.has(name));
+
+            if (newManufacturers.length > 0) {
+                this.logger.log(`Seeding ${newManufacturers.length} vehicle manufacturer(s)...`);
+                for (const name of newManufacturers) {
+                    const manufacturer = vehicleManufacturerRepo.create({ name });
+                    await vehicleManufacturerRepo.save(manufacturer);
+                }
+                this.logger.log(`Seeded ${newManufacturers.length} vehicle manufacturer(s)`);
             }
 
             await queryRunner.commitTransaction();

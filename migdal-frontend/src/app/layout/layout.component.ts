@@ -8,6 +8,7 @@ import { WorkstationSessionService } from '../core/services/workstation-session.
 import { DeviceStatusService } from '../core/services/device-status.service';
 import { ScannerEventService } from '../core/services/scanner-event.service';
 import { AdSyncProgressService } from '../core/services/ad-sync-progress.service';
+import { AcImportProgressService } from '../core/services/ac-import-progress.service';
 import { ToastModule } from 'primeng/toast';
 import { ProgressBarModule } from 'primeng/progressbar';
 import { TranslateModule } from '@ngx-translate/core';
@@ -18,6 +19,39 @@ import { TranslateModule } from '@ngx-translate/core';
   imports: [RouterOutlet, HeaderComponent, SidebarComponent, AsyncPipe, ToastModule, ProgressBarModule, TranslateModule],
   template: `
     <p-toast position="top-right" />
+    @if ((acImport.progress$ | async); as importProgress) {
+      @if (importProgress.phase !== 'idle') {
+        <div class="ac-import-bar" [class.completed]="importProgress.phase === 'completed'" [class.failed]="importProgress.phase === 'failed'">
+          <div class="ad-sync-bar-content">
+            <div class="ad-sync-bar-info">
+              @if (importProgress.phase === 'fetching' || importProgress.phase === 'processing') {
+                <i class="pi pi-spin pi-spinner"></i>
+              } @else if (importProgress.phase === 'completed') {
+                <i class="pi pi-check-circle"></i>
+              } @else if (importProgress.phase === 'failed') {
+                <i class="pi pi-exclamation-triangle"></i>
+              }
+              <span class="ad-sync-bar-label">{{ 'AC_IMPORT.TITLE' | translate }}</span>
+              @if (importProgress.phase === 'fetching') {
+                <span class="ad-sync-bar-msg">{{ 'AC_IMPORT.FETCHING' | translate }}</span>
+              } @else if (importProgress.phase === 'processing') {
+                <span class="ad-sync-bar-msg">{{ importProgress.current }}/{{ importProgress.total }} — {{ 'ACCESS_CONTROL.CREATED' | translate }}: {{ importProgress.created }}, {{ 'ACCESS_CONTROL.UPDATED' | translate }}: {{ importProgress.updated }}</span>
+              } @else if (importProgress.phase === 'completed') {
+                <span class="ad-sync-bar-msg">{{ 'ACCESS_CONTROL.CREATED' | translate }}: {{ importProgress.created }}, {{ 'ACCESS_CONTROL.UPDATED' | translate }}: {{ importProgress.updated }}, {{ 'ACCESS_CONTROL.SKIPPED' | translate }}: {{ importProgress.skipped }}</span>
+              } @else if (importProgress.phase === 'failed') {
+                <span class="ad-sync-bar-msg">{{ importProgress.message }}</span>
+              }
+            </div>
+            <button class="ad-sync-bar-close" (click)="acImport.dismiss()" [title]="'COMMON.CLOSE' | translate">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+          @if (importProgress.phase === 'processing' || importProgress.phase === 'fetching') {
+            <p-progressBar [value]="importProgress.percent" [showValue]="false" [style]="{height: '3px'}"></p-progressBar>
+          }
+        </div>
+      }
+    }
     @if ((adSync.progress$ | async); as syncProgress) {
       @if (syncProgress.phase !== 'idle') {
         <div class="ad-sync-bar" [class.completed]="syncProgress.phase === 'completed'" [class.failed]="syncProgress.phase === 'failed'">
@@ -63,6 +97,33 @@ import { TranslateModule } from '@ngx-translate/core';
     </div>
   `,
   styles: [`
+      .ac-import-bar {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        z-index: 1100;
+        min-width: 360px;
+        max-width: 520px;
+        background: var(--color-surface, #fff);
+        border-radius: 10px;
+        box-shadow: 0 4px 24px rgba(2, 1, 64, 0.16);
+        border: 1.5px solid #1565c0;
+        overflow: hidden;
+        animation: adSyncSlideIn 0.3s ease;
+      }
+      .ac-import-bar.completed { border-color: #2e7d32; }
+      .ac-import-bar.failed { border-color: #c62828; }
+      .ac-import-bar .ad-sync-bar-info > i { color: #1565c0; }
+      .ac-import-bar.completed .ad-sync-bar-info > i { color: #2e7d32; }
+      .ac-import-bar.failed .ad-sync-bar-info > i { color: #c62828; }
+      :host ::ng-deep .ac-import-bar .p-progressbar {
+        border-radius: 0;
+        background: transparent;
+      }
+      :host ::ng-deep .ac-import-bar .p-progressbar .p-progressbar-value {
+        background: #1565c0;
+        border-radius: 0;
+      }
       .ad-sync-bar {
         position: fixed;
         bottom: 1.5rem;
@@ -181,6 +242,7 @@ import { TranslateModule } from '@ngx-translate/core';
 export class LayoutComponent implements OnInit {
   translation = inject(TranslationService);
   adSync = inject(AdSyncProgressService);
+  acImport = inject(AcImportProgressService);
   private wsSession = inject(WorkstationSessionService);
   private deviceStatus = inject(DeviceStatusService);
   private scannerEvent = inject(ScannerEventService);
@@ -191,6 +253,7 @@ export class LayoutComponent implements OnInit {
     this.deviceStatus.initListeners();
     this.scannerEvent.initListeners();
     this.adSync.initListeners();
+    this.acImport.initListeners();
     this.wsSession.restoreSession();
   }
 

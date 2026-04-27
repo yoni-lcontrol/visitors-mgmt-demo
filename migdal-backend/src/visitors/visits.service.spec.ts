@@ -11,6 +11,7 @@ import { Visitor } from './entities/visitor.entity';
 import { User } from '../users/entities/user.entity';
 import { VisitorStatus } from './enums/visitor-status.enum';
 import { UsersGateway } from '../websocket/gateways/users.gateway';
+import { PermissionKey } from '../common/enums/permission-key.enum';
 
 import { SmsNotificationService } from '../settings/sms-notification.service';
 import { EmailNotificationService } from '../settings/email-notification.service';
@@ -204,11 +205,11 @@ describe('VisitsService', () => {
             );
         });
 
-        it('should scope visits list to current user for עובד מגדל', async () => {
+        it('should scope visits list to current user for own-scope permission', async () => {
             const visitQb = createMockQueryBuilder([], 0);
             mockVisitRepo.createQueryBuilder.mockReturnValue(visitQb);
 
-            await service.findAllVisits({ page: 1, limit: 10 }, 'user-1', ['עובד מגדל']);
+            await service.findAllVisits({ page: 1, limit: 10 }, 'user-1', [PermissionKey.VisitsScopeOwn]);
 
             expect(visitQb.andWhere).toHaveBeenCalledWith(
                 'v.createdByUserId IN (:...creatorUserIds)',
@@ -216,13 +217,13 @@ describe('VisitsService', () => {
             );
         });
 
-        it('should scope visits list to creators in מרכז הדרכות role', async () => {
+        it('should scope visits list to creators with training-center scope permission', async () => {
             const visitQb = createMockQueryBuilder([], 0);
             const usersQb = createMockQueryBuilder([{ id: 'user-2' }, { id: 'user-3' }]);
             mockVisitRepo.createQueryBuilder.mockReturnValue(visitQb);
             mockUserRepo.createQueryBuilder.mockReturnValue(usersQb);
 
-            await service.findAllVisits({ page: 1, limit: 10 }, 'user-1', ['מרכז הדרכות']);
+            await service.findAllVisits({ page: 1, limit: 10 }, 'user-1', [PermissionKey.VisitsScopeTrainingCenter]);
 
             expect(visitQb.andWhere).toHaveBeenCalledWith(
                 'v.createdByUserId IN (:...creatorUserIds)',
@@ -400,7 +401,7 @@ describe('VisitsService', () => {
             };
             mockVisitRepo.findOne.mockResolvedValue(visit);
 
-            await expect(service.findVisitById('v1', 'user-1', ['עובד מגדל'])).rejects.toThrow(NotFoundException);
+            await expect(service.findVisitById('v1', 'user-1', [PermissionKey.VisitsScopeOwn])).rejects.toThrow(NotFoundException);
         });
 
         it('should hide visit created outside מרכז הדרכות scope', async () => {
@@ -417,7 +418,7 @@ describe('VisitsService', () => {
             mockVisitRepo.findOne.mockResolvedValue(visit);
             mockUserRepo.createQueryBuilder.mockReturnValue(usersQb);
 
-            await expect(service.findVisitById('v1', 'user-1', ['מרכז הדרכות'])).rejects.toThrow(NotFoundException);
+            await expect(service.findVisitById('v1', 'user-1', [PermissionKey.VisitsScopeTrainingCenter])).rejects.toThrow(NotFoundException);
         });
     });
 
@@ -603,48 +604,48 @@ describe('VisitsService', () => {
                 .rejects.toThrow(BadRequestException);
         });
 
-        it('should require escort for עובד מגדל', async () => {
+        it('should require escort when escort-required permission exists', async () => {
             const dtoWithoutEscorts = { ...validDto, escorts: [] };
 
-            await expect(service.createVisit(dtoWithoutEscorts as any, 'user-1', [], ['עובד מגדל']))
+            await expect(service.createVisit(dtoWithoutEscorts as any, 'user-1', [PermissionKey.VisitsEscortRequired]))
                 .rejects.toThrow(new BadRequestException('At least one escort is required for the current user'));
         });
 
-        it('should require escort for מוקד ביטחון only when inviting as self requester', async () => {
+        it('should require escort for self requester when self-requester escort permission exists', async () => {
             const dtoSelfRequesterNoEscorts = { ...validDto, visitRequester: undefined, escorts: [] };
 
-            await expect(service.createVisit(dtoSelfRequesterNoEscorts as any, 'user-1', [], ['מוקד ביטחון']))
+            await expect(service.createVisit(dtoSelfRequesterNoEscorts as any, 'user-1', [PermissionKey.VisitsEscortRequiredSelfRequester]))
                 .rejects.toThrow(new BadRequestException('At least one escort is required for the current user'));
         });
 
-        it('should not require escort for מוקד ביטחון when inviting on behalf (manual requester)', async () => {
+        it('should not require escort for manual requester with self-requester escort permission', async () => {
             const dtoNoEscorts = { ...validDto, escorts: [] };
 
-            await expect(service.createVisit(dtoNoEscorts as any, 'user-1', [], ['מוקד ביטחון']))
+            await expect(service.createVisit(dtoNoEscorts as any, 'user-1', [PermissionKey.VisitsEscortRequiredSelfRequester]))
                 .resolves.toBeDefined();
         });
 
-        it('should forbid דלפקים from inviting as self requester', async () => {
+        it('should forbid self requester when on-behalf-only permission exists', async () => {
             const dtoSelfRequester = { ...validDto, visitRequester: undefined };
 
-            await expect(service.createVisit(dtoSelfRequester as any, 'user-1', [], ['דלפקים']))
+            await expect(service.createVisit(dtoSelfRequester as any, 'user-1', [PermissionKey.VisitsOnBehalfOnly]))
                 .rejects.toThrow(new BadRequestException('This role must create visits on behalf of another requester'));
         });
 
-        it('should allow דלפקים to invite on behalf of another requester', async () => {
-            await expect(service.createVisit(validDto as any, 'user-1', [], ['דלפקים']))
+        it('should allow on-behalf invitation when on-behalf-only permission exists', async () => {
+            await expect(service.createVisit(validDto as any, 'user-1', [PermissionKey.VisitsOnBehalfOnly]))
                 .resolves.toBeDefined();
         });
 
-        it('should forbid קב"ט from inviting as self requester', async () => {
+        it('should forbid self requester with on-behalf-only permission regardless of role name', async () => {
             const dtoSelfRequester = { ...validDto, visitRequester: undefined };
 
-            await expect(service.createVisit(dtoSelfRequester as any, 'user-1', [], ['קב"ט']))
+            await expect(service.createVisit(dtoSelfRequester as any, 'user-1', [PermissionKey.VisitsOnBehalfOnly]))
                 .rejects.toThrow(new BadRequestException('This role must create visits on behalf of another requester'));
         });
 
-        it('should allow קב"ט to invite on behalf of another requester', async () => {
-            await expect(service.createVisit(validDto as any, 'user-1', [], ['קב"ט']))
+        it('should allow on-behalf invitation with on-behalf-only permission', async () => {
+            await expect(service.createVisit(validDto as any, 'user-1', [PermissionKey.VisitsOnBehalfOnly]))
                 .resolves.toBeDefined();
         });
 
@@ -906,7 +907,7 @@ describe('VisitsService', () => {
             await expect(service.removeVisit('bad')).rejects.toThrow(NotFoundException);
         });
 
-        it('should allow דלפקים to remove only their own visit', async () => {
+        it('should allow own-only delete permission to remove own visit', async () => {
             mockVisitRepo.findOne.mockResolvedValue({
                 id: 'v1',
                 title: 'Own Visit',
@@ -914,12 +915,12 @@ describe('VisitsService', () => {
                 createdByUserId: 'user-1',
             });
 
-            await service.removeVisit('v1', 'user-1', ['דלפקים']);
+            await service.removeVisit('v1', 'user-1', [PermissionKey.VisitsDeleteOwnOnly]);
 
             expect(mockVisitRepo.save).toHaveBeenCalledWith(expect.objectContaining({ isActive: false }));
         });
 
-        it('should hide other users visits from דלפקים deletion', async () => {
+        it('should hide other users visits when own-only delete permission exists', async () => {
             mockVisitRepo.findOne.mockResolvedValue({
                 id: 'v1',
                 title: 'Foreign Visit',
@@ -927,7 +928,7 @@ describe('VisitsService', () => {
                 createdByUserId: 'user-2',
             });
 
-            await expect(service.removeVisit('v1', 'user-1', ['דלפקים'])).rejects.toThrow(NotFoundException);
+            await expect(service.removeVisit('v1', 'user-1', [PermissionKey.VisitsDeleteOwnOnly])).rejects.toThrow(NotFoundException);
         });
     });
 

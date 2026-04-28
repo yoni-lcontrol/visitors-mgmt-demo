@@ -22,7 +22,9 @@
         "migration:generate": "npm run typeorm -- migration:generate -d src/database/data-source.ts",
         "migration:run": "npm run typeorm -- migration:run -d src/database/data-source.ts",
         "migration:revert": "npm run typeorm -- migration:revert -d src/database/data-source.ts",
-        "seed": "ts-node -r tsconfig-paths/register src/database/seeds/run-seed.ts"
+        "seed": "ts-node -r tsconfig-paths/register src/database/seeds/run-seed.ts",
+        "service:install": "node service/install-service.js",
+        "service:uninstall": "node service/uninstall-service.js"
     },
     "dependencies": {
         "@nestjs/axios": "^4.0.1",
@@ -50,6 +52,7 @@
         "ldapts": "^8.1.7",
         "mssql": "^10.0.0",
         "nestjs-pino": "^3.5.0",
+        "node-windows": "^1.0.0-beta.8",
         "nodemailer": "^8.0.4",
         "passport": "^0.7.0",
         "passport-jwt": "^4.0.1",

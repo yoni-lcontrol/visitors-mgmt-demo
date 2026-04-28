@@ -28,7 +28,7 @@ export class DeviceCommandLog extends BaseEntity {
     @Column({ type: 'nvarchar', length: 255 })
     correlationId!: string;
 
-    @Column({ type: 'nvarchar', length: 50, default: `'${DeviceCommandStatus.Pending}'` })
+    @Column({ type: 'nvarchar', length: 50, default: DeviceCommandStatus.Pending })
     status!: DeviceCommandStatus;
 
     @Column({ type: 'nvarchar', length: 'MAX', nullable: true })

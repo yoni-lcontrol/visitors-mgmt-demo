@@ -417,6 +417,8 @@ backend/src/settings/
 ├── email-provider.service.ts       # Email provider integration
 ├── permanent-escorts.service.ts    # Permanent escort mapping CRUD + domain-filtered user lookup
 ├── permanent-escorts.controller.ts # /settings/permanent-escorts endpoints
+├── vehicle-models.service.ts       # Vehicle models CRUD + manufacturers lookup + export
+├── vehicle-models.controller.ts    # /settings/vehicle-models endpoints
 └── notification-settings.service.ts # Per-event notification configuration
 ```
 

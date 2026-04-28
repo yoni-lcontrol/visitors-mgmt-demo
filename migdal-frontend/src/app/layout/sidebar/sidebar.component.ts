@@ -170,6 +170,12 @@ import { TranslateModule } from '@ngx-translate/core';
                 <span>{{ 'NAV.BUILDINGS' | translate }}</span>
               </a>
             </li>
+            <li *hasPermission="'vehicle-models.view'">
+              <a routerLink="/settings/vehicle-models" routerLinkActive="active" (click)="menuItemClicked.emit()">
+                <i class="pi pi-car"></i>
+                <span>{{ 'NAV.VEHICLE_MODELS' | translate }}</span>
+              </a>
+            </li>
             <li *hasPermission="'settings.permanent-escorts.read'">
               <a routerLink="/settings/permanent-escorts" routerLinkActive="active" (click)="menuItemClicked.emit()">
                 <i class="pi pi-user-plus"></i>

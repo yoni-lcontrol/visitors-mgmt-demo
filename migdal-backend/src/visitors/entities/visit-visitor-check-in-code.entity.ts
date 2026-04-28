@@ -40,7 +40,7 @@ export class VisitVisitorCheckInCode extends BaseEntity {
     @JoinColumn({ name: 'visitVisitorId' })
     visitVisitor!: VisitVisitor;
 
-    @ManyToOne(() => Visit, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Visit, { onDelete: 'NO ACTION' })
     @JoinColumn({ name: 'visitId' })
     visit!: Visit;
 

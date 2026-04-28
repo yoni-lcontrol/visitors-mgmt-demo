@@ -211,6 +211,6 @@ export class VisitVisitorsTableComponent {
     }
 
     getPrintCardTooltip(): string {
-        return this.printerConnected ? 'VISITS.PRINT_CARD' : 'VISITS.PRINTER_NOT_CONNECTED';
+      return this.printerConnected ? 'VISITS.PRINT_CARD' : 'VISITS.PRINT_CARD_NO_PRINTER';
     }
 }

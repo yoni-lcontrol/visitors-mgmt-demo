@@ -430,7 +430,7 @@ export class VisitListComponent implements OnInit {
       return false;
     }
 
-    if (!this.permissionService.hasRole('דלפקים')) {
+    if (!this.permissionService.hasPermission('visits.delete.own-only')) {
       return true;
     }
 

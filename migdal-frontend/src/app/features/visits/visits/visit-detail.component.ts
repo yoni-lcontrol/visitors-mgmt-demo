@@ -19,7 +19,7 @@ import { VisitorSearchService, VisitorSuggestion } from '@core/services/visitor-
 import { AdSearchService, AdPersonSuggestion } from '@core/services/ad-search.service';
 import { SectorsLookupService, SectorLookupItem } from '@core/services/sectors-lookup.service';
 import { VisitsApiService } from '../services/visits-api.service';
-import { buildVehicleTypeOptions } from '@core/utils/vehicle-type.util';
+import { VehicleModelsApiService } from '../../settings/services/vehicle-models-api.service';
 import { VisitorPrintService } from '../services/visitor-print.service';
 import { DeviceStatusService } from '@core/services/device-status.service';
 import { WorkstationSessionService } from '@core/services/workstation-session.service';
@@ -298,8 +298,11 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                   <div class="field">
                     <label><i class="pi pi-car"></i> {{ 'VISITORS.VEHICLE_TYPE' | translate }} <span class="required">*</span></label>
                     <p-dropdown [options]="vehicleTypeOptions" [(ngModel)]="v.vehicleType"
+                      [group]="true" optionGroupLabel="label" optionGroupChildren="items"
                       optionLabel="label" optionValue="value"
                       [placeholder]="'VISITORS.SELECT_VEHICLE_TYPE' | translate"
+                      [filter]="true" filterBy="label"
+                      panelStyleClass="vehicle-type-panel"
                       [style]="{width: '100%'}" appendTo="body"
                       [class.input-invalid]="v.hasVehicle && !v.vehicleType"></p-dropdown>
                     @if (v.hasVehicle && !v.vehicleType) {
@@ -602,8 +605,11 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                   <div class="field">
                     <label><i class="pi pi-car"></i> {{ 'VISITORS.VEHICLE_TYPE' | translate }} <span class="required">*</span></label>
                     <p-dropdown [options]="vehicleTypeOptions" [(ngModel)]="editingVisitor.vehicleType"
+                      [group]="true" optionGroupLabel="label" optionGroupChildren="items"
                       optionLabel="label" optionValue="value"
                       [placeholder]="'VISITORS.SELECT_VEHICLE_TYPE' | translate"
+                      [filter]="true" filterBy="label"
+                      panelStyleClass="vehicle-type-panel"
                       [style]="{width: '100%'}" appendTo="body"
                       [class.input-invalid]="editingVisitor.hasVehicle && !editingVisitor.vehicleType"></p-dropdown>
                     @if (editingVisitor.hasVehicle && !editingVisitor.vehicleType) {
@@ -1016,6 +1022,70 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
 
     .card { margin-bottom: 1.25rem; }
     :host ::ng-deep .p-dropdown { width: 100%; }
+    ::ng-deep .vehicle-type-panel .p-dropdown-header {
+      padding: 0.5rem;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+    ::ng-deep .vehicle-type-panel .p-dropdown-filter-container {
+      width: 100%;
+      max-width: 100%;
+      position: relative;
+      box-sizing: border-box;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+    }
+    ::ng-deep .vehicle-type-panel .p-dropdown-filter {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      margin: 0 !important;
+      display: block;
+      height: 2.5rem;
+      direction: ltr;
+      text-align: left;
+      padding-right: 0.75rem;
+      padding-left: 2rem;
+      font-size: 0.9rem;
+      border: 1px solid var(--color-border, #e4e2f0);
+      border-radius: 8px;
+      outline: none;
+    }
+    ::ng-deep .vehicle-type-panel .p-dropdown-filter:focus {
+      border-color: var(--color-accent, #6c63ff);
+      box-shadow: 0 0 0 2px rgba(108,99,255,0.12);
+    }
+    ::ng-deep .vehicle-type-panel .p-dropdown-filter-icon {
+      position: absolute !important;
+      left: 0.75rem !important;
+      right: auto !important;
+      inset-inline-start: 0.75rem !important;
+      inset-inline-end: auto !important;
+      top: 0 !important;
+      bottom: 0 !important;
+      margin: auto !important;
+      transform: none !important;
+      height: fit-content;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      line-height: 1;
+    }
+    ::ng-deep .vehicle-type-panel .p-dropdown-item-group {
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--color-accent, #6c63ff);
+      padding: 0.6rem 0.85rem 0.3rem;
+      background: var(--color-surface, #fff);
+      position: sticky;
+      top: 0;
+    }
+    ::ng-deep .vehicle-type-panel .p-dropdown-items .p-dropdown-item {
+      text-align: right;
+      padding-inline-end: 1.5rem;
+    }
   `],
 })
 export class VisitDetailComponent implements OnInit, OnDestroy {
@@ -1058,7 +1128,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   eventCheckedIn = VisitorAccessEventType.CheckedIn;
   eventCheckedOut = VisitorAccessEventType.CheckedOut;
 
-  vehicleTypeOptions: { label: string; value: string }[] = [];
+  vehicleTypeOptions: { label: string; items: { label: string; value: string }[] }[] = [];
   escortSectorOptions: SectorLookupItem[] = [];
 
   // Add visitor dialog
@@ -1143,12 +1213,15 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   private printSub: Subscription | null = null;
   private deviceSub: Subscription | null = null;
 
+  private readonly vehicleModelsApi = inject(VehicleModelsApiService);
   private destroyRef = inject(DestroyRef);
 
   ngOnInit(): void {
-    this.vehicleTypeOptions = buildVehicleTypeOptions(this.translateService);
+    this.vehicleModelsApi.lookup().subscribe({
+      next: (options) => this.vehicleTypeOptions = options,
+      error: () => this.vehicleTypeOptions = [],
+    });
     this.canRequestParking = this.permissionService.hasPermission('parking.request');
-    this.translateService.onLangChange.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.vehicleTypeOptions = buildVehicleTypeOptions(this.translateService));
     this.visitId = this.route.snapshot.paramMap.get('visitId') ?? '';
     this.loadEscortSectorOptions();
     this.loadVisit();
@@ -1887,7 +1960,12 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
         this.notify.success(this.translateService.instant('VISITS.PRINT_CARD_SUCCESS'));
         this.printingVisitorId = null;
       } else if (state.status === 'failed') {
-        this.notify.error(state.errorMessage || this.translateService.instant('VISITS.PRINT_CARD_FAILED'));
+        const message = state.errorMessage
+          ? (/^[A-Z][A-Z0-9_.]+$/.test(state.errorMessage)
+              ? this.translateService.instant(state.errorMessage)
+              : state.errorMessage)
+          : this.translateService.instant('VISITS.PRINT_CARD_FAILED');
+        this.notify.error(message);
         this.printingVisitorId = null;
       }
     });

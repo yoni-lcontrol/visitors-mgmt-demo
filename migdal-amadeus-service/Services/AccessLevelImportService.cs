@@ -79,7 +79,7 @@ public class AccessLevelImportService : IAccessLevelImportService
         await ImportPagedAsync(
             sourceType: AccessGroupSourceType,
             fetchPage: (skip, top, ct) => _apiClient.GetAccessGroupsPagedAsync(skip, top, ct),
-            map: g => new SourceGroupRecord(g.Id, g.ApiKey, g.Name, g.Description),
+            map: g => new SourceGroupRecord(g.Id, g.ApiKey, g.Name, g.Description, g.ExternalId),
             result,
             cancellationToken);
     }
@@ -89,7 +89,7 @@ public class AccessLevelImportService : IAccessLevelImportService
         await ImportPagedAsync(
             sourceType: SecurityGroupSourceType,
             fetchPage: (skip, top, ct) => _apiClient.GetSecurityGroupsPagedAsync(skip, top, ct),
-            map: g => new SourceGroupRecord(g.Id, g.ApiKey, g.Name, g.Description),
+            map: g => new SourceGroupRecord(g.Id, g.ApiKey, g.Name, g.Description, g.ExternalId),
             result,
             cancellationToken);
     }
@@ -202,6 +202,7 @@ public class AccessLevelImportService : IAccessLevelImportService
                 ApiKey = source.ApiKey,
                 Name = source.Name ?? source.AmadeusUid,
                 Description = source.Description,
+                ExternalId = source.ExternalId,
                 IsActive = true,
                 CreatedUtc = DateTime.UtcNow,
                 UpdatedUtc = DateTime.UtcNow
@@ -216,6 +217,8 @@ public class AccessLevelImportService : IAccessLevelImportService
         if (existing.Name != mappedName) { existing.Name = mappedName; changed = true; }
         if (existing.ApiKey != source.ApiKey) { existing.ApiKey = source.ApiKey; changed = true; }
         if (existing.Description != source.Description) { existing.Description = source.Description; changed = true; }
+        if (existing.ExternalId != source.ExternalId) { existing.ExternalId = source.ExternalId; changed = true; }
+        // Note: IsActive is intentionally NOT overwritten during import — it is managed locally.
 
         if (changed)
         {
@@ -243,5 +246,6 @@ public class AccessLevelImportService : IAccessLevelImportService
         string AmadeusUid,
         string? ApiKey,
         string? Name,
-        string? Description);
+        string? Description,
+        string? ExternalId);
 }

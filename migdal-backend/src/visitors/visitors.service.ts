@@ -22,13 +22,13 @@ import { AuditService } from '../audit/audit.service';
 import { VisitorPersistenceService } from './visitor-persistence.service';
 import { shouldRestrictVisitorsToOwn } from './visitor-role-policy';
 
-interface VisitorDirectoryContext {
+export interface VisitorDirectoryContext {
     hostName: string | null;
     buildingName: string | null;
     floor: number | null;
 }
 
-type VisitorDirectoryItem = Visitor & VisitorDirectoryContext;
+export type VisitorDirectoryItem = Visitor & VisitorDirectoryContext;
 
 @Injectable()
 export class VisitorsService {

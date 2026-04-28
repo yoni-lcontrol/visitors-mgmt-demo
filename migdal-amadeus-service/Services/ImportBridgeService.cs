@@ -176,7 +176,7 @@ public class ImportBridgeService : IImportBridgeService
                 Name = al.Name,
                 Active = al.IsActive,
                 VisitorAccess = false,
-                ExternalId = al.AmadeusUid,
+                ExternalId = al.ExternalId ?? al.AmadeusUid,
             }).ToList(),
         };
     }

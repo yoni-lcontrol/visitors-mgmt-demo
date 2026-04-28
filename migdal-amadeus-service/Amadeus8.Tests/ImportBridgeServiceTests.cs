@@ -45,6 +45,7 @@ public class ImportBridgeServiceTests
             AmadeusUid = "al-1",
             SourceType = "AccessGroup",
             Name = "Level 1",
+            ExternalId = "ext-al-1",
             IsActive = true,
             CreatedUtc = DateTime.UtcNow,
             UpdatedUtc = DateTime.UtcNow
@@ -60,7 +61,7 @@ public class ImportBridgeServiceTests
         var payload = await sut.ImportAccessLevelsAsync(CancellationToken.None);
 
         Assert.Single(payload.AccessLevels);
-        Assert.Equal("al-1", payload.AccessLevels[0].ExternalId);
+        Assert.Equal("ext-al-1", payload.AccessLevels[0].ExternalId);
         Assert.Equal("Level 1", payload.AccessLevels[0].Name);
     }
 

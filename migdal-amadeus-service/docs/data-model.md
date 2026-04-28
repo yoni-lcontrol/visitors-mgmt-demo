@@ -20,6 +20,7 @@ Suggested `access_levels` columns:
 - `api_key`
 - `name`
 - `description`
+- `external_id` (the externalId from Amadeus OData, nullable)
 - `is_active`
 - `created_utc`
 - `updated_utc`

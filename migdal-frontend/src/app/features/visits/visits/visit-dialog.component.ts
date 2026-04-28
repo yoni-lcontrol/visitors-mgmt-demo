@@ -18,7 +18,7 @@ import { SectorsLookupService, SectorLookupItem } from '@core/services/sectors-l
 import { Subject, Subscription, EMPTY } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError, finalize } from 'rxjs/operators';
 import { Visit, InlineVisitor, InlineEscort } from '@core/models/entities.model';
-import { buildVehicleTypeOptions } from '@core/utils/vehicle-type.util';
+import { VehicleModelsApiService } from '../../settings/services/vehicle-models-api.service';
 import { Building as BuildingItem } from '../../settings/services/buildings-api.service';
 import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
 import { PermissionService } from '@core/permissions/permission.service';
@@ -385,9 +385,15 @@ import { AuthService } from '@core/auth/auth.service';
                       <p-dropdown
                         [(ngModel)]="v.vehicleType"
                         [options]="vehicleTypeOptions"
+                        [group]="true"
+                        optionGroupLabel="label"
+                        optionGroupChildren="items"
                         optionLabel="label"
                         optionValue="value"
                         [placeholder]="'VISITORS.SELECT_VEHICLE_TYPE' | translate"
+                        [filter]="true"
+                        filterBy="label"
+                        panelStyleClass="vehicle-type-panel"
                         appendTo="body"
                         [style]="{'width':'100%'}"
                         required
@@ -938,6 +944,70 @@ import { AuthService } from '@core/auth/auth.service';
     :host ::ng-deep .p-calendar .p-inputtext { width: 100%; padding: 0.55rem 0.85rem; font-size: 0.9rem; }
     :host ::ng-deep .p-calendar .p-datepicker-trigger { padding: 0.55rem 0.65rem; }
     :host ::ng-deep .p-dropdown { width: 100%; }
+    ::ng-deep .vehicle-type-panel .p-dropdown-header {
+      padding: 0.5rem;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+    ::ng-deep .vehicle-type-panel .p-dropdown-filter-container {
+      width: 100%;
+      max-width: 100%;
+      position: relative;
+      box-sizing: border-box;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+    }
+    ::ng-deep .vehicle-type-panel .p-dropdown-filter {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      margin: 0 !important;
+      display: block;
+      height: 2.5rem;
+      direction: ltr;
+      text-align: left;
+      padding-right: 0.75rem;
+      padding-left: 2rem;
+      font-size: 0.9rem;
+      border: 1px solid var(--color-border, #e4e2f0);
+      border-radius: 8px;
+      outline: none;
+    }
+    ::ng-deep .vehicle-type-panel .p-dropdown-filter:focus {
+      border-color: var(--color-accent, #6c63ff);
+      box-shadow: 0 0 0 2px rgba(108,99,255,0.12);
+    }
+    ::ng-deep .vehicle-type-panel .p-dropdown-filter-icon {
+      position: absolute !important;
+      left: 0.75rem !important;
+      right: auto !important;
+      inset-inline-start: 0.75rem !important;
+      inset-inline-end: auto !important;
+      top: 0 !important;
+      bottom: 0 !important;
+      margin: auto !important;
+      transform: none !important;
+      height: fit-content;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      line-height: 1;
+    }
+    ::ng-deep .vehicle-type-panel .p-dropdown-item-group {
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--color-accent, #6c63ff);
+      padding: 0.6rem 0.85rem 0.3rem;
+      background: var(--color-surface, #fff);
+      position: sticky;
+      top: 0;
+    }
+    ::ng-deep .vehicle-type-panel .p-dropdown-items .p-dropdown-item {
+      text-align: right;
+      padding-inline-end: 1.5rem;
+    }
     :host ::ng-deep .p-autocomplete { width: 100%; }
     :host ::ng-deep .p-autocomplete-input { width: 100% !important; }
   `],
@@ -982,11 +1052,16 @@ export class VisitDialogComponent implements OnDestroy {
   today = new Date();
   emailPattern = EMAIL_PATTERN.source;
   saving = false;
-  vehicleTypeOptions: { label: string; value: string }[] = [];
+  vehicleTypeOptions: { label: string; items: { label: string; value: string }[] }[] = [];
   escortSectorOptions: SectorLookupItem[] = [];
 
+  private readonly vehicleModelsApi = inject(VehicleModelsApiService);
+
   private buildVehicleTypeOptions(): void {
-    this.vehicleTypeOptions = buildVehicleTypeOptions(this.translate);
+    this.vehicleModelsApi.lookup().subscribe({
+      next: (options) => this.vehicleTypeOptions = options,
+      error: () => this.vehicleTypeOptions = [],
+    });
   }
 
   form: {

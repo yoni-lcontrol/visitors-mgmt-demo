@@ -274,10 +274,10 @@ export class LoginComponent {
     });
 
     // TO REMOVE: Pre-fill credentials for easier testing during development
-    this.loginForm = this.fb.group({
-      username: ['admin', [Validators.required]],
-      password: ['Admin@123456', [Validators.required, Validators.minLength(6)]],
-    });
+    // this.loginForm = this.fb.group({
+    //   username: ['admin', [Validators.required]],
+    //   password: ['Admin@123456', [Validators.required, Validators.minLength(6)]],
+    // });
 
     // Check if Entra ID login is available
     this.authService.getEntraConfig().subscribe({

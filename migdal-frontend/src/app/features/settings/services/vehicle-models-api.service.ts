@@ -47,6 +47,10 @@ export class VehicleModelsApiService {
         return this.api.get<string[]>(`${this.basePath}/manufacturers`);
     }
 
+    lookup(): Observable<{ label: string; items: { label: string; value: string }[] }[]> {
+        return this.api.get<{ label: string; items: { label: string; value: string }[] }[]>(`${this.basePath}/lookup`);
+    }
+
     export(params: Record<string, string | number>): Observable<Blob> {
         return this.api.download(`${this.basePath}/export`, params);
     }

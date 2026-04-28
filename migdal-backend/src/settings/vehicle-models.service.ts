@@ -205,6 +205,26 @@ export class VehicleModelsService {
         return normalized;
     }
 
+    async lookup(): Promise<{ label: string; items: { label: string; value: string }[] }[]> {
+        const models = await this.vehicleModelRepo.find({
+            order: { manufacturer: 'ASC', model: 'ASC' },
+        });
+        const groups = new Map<string, { label: string; value: string }[]>();
+        for (const m of models) {
+            if (!groups.has(m.manufacturer)) {
+                groups.set(m.manufacturer, []);
+            }
+            groups.get(m.manufacturer)!.push({
+                label: m.model,
+                value: `${m.manufacturer} ${m.model}`,
+            });
+        }
+        return Array.from(groups.entries()).map(([manufacturer, items]) => ({
+            label: manufacturer,
+            items,
+        }));
+    }
+
     private async ensureManufacturerExists(manufacturer: string): Promise<void> {
         const exists = await this.manufacturerRepo.findOne({ where: { name: manufacturer } });
         if (!exists) {

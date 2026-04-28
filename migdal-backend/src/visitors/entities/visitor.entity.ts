@@ -23,6 +23,6 @@ export class Visitor extends BaseEntity {
     @Column({ type: 'nvarchar', length: 50, nullable: true })
     carNumber!: string | null;
 
-    @Column({ type: 'nvarchar', length: 20, nullable: true })
+    @Column({ type: 'nvarchar', length: 250, nullable: true })
     vehicleType!: string | null;
 }

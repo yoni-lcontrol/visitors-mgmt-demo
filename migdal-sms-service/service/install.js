@@ -2,7 +2,7 @@ const exec = require('child_process').exec;
 const path = require('path');
 const scriptPath = path.resolve('index.js');
 const isWin = process.platform === "win32";
-const serviceName = "sms-service";
+const serviceName = "Migdal sms-service";
 
 console.log(`install ${serviceName}....`);
 

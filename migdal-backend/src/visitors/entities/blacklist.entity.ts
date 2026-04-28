@@ -22,7 +22,7 @@ export class BlacklistEntry extends BaseEntity {
     @Column({ type: 'nvarchar', length: 50, nullable: true })
     carNumber!: string | null;
 
-    @Column({ type: 'nvarchar', length: 20, default: '' })
+    @Column({ type: 'nvarchar', length: 250, default: '' })
     vehicleType!: string;
 
     @Column({ type: 'nvarchar', length: 500 })

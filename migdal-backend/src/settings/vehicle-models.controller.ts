@@ -43,6 +43,12 @@ export class VehicleModelsController {
         return this.vehicleModelsService.getManufacturers();
     }
 
+    @Get('lookup')
+    @ApiOperation({ summary: 'Get all vehicle models as flat list for dropdowns' })
+    lookup() {
+        return this.vehicleModelsService.lookup();
+    }
+
     @Get('export')
     @RequirePermissions(PermissionKey.VehicleModelsExport)
     @ApiOperation({ summary: 'Export vehicle models as Excel' })

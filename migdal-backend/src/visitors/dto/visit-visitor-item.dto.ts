@@ -4,13 +4,11 @@ import {
     IsString,
     IsEmail,
     IsBoolean,
-    IsEnum,
     ValidateIf,
     Matches,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { VehicleType } from '../enums/vehicle-type.enum';
 
 export class VisitVisitorItemDto {
     @ApiProperty({ example: 'John' })
@@ -51,11 +49,11 @@ export class VisitVisitorItemDto {
     @IsNotEmpty({ message: 'carNumber is required when hasVehicle is true' })
     carNumber?: string;
 
-    @ApiPropertyOptional({ enum: VehicleType, example: VehicleType.Private })
+    @ApiPropertyOptional({ example: 'Toyota Corolla' })
     @ValidateIf((o) => o.hasVehicle === true)
-    @IsEnum(VehicleType, { message: 'vehicleType must be a valid vehicle type' })
+    @IsString()
     @IsNotEmpty({ message: 'vehicleType is required when hasVehicle is true' })
-    vehicleType?: VehicleType;
+    vehicleType?: string;
 
     @ApiPropertyOptional()
     @IsOptional()

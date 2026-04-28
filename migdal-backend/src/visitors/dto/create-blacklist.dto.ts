@@ -11,7 +11,6 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { GUID_REGEX } from '../../common/constants/regex.constants';
-import { VehicleType } from '../enums/vehicle-type.enum';
 
 export class CreateBlacklistDto {
     @ApiProperty({ example: 'person', enum: ['person', 'vehicle'] })
@@ -50,11 +49,10 @@ export class CreateBlacklistDto {
     @IsNotEmpty()
     carNumber?: string;
 
-    @ApiPropertyOptional({ example: 'private', enum: VehicleType })
+    @ApiPropertyOptional({ example: 'Toyota Corolla' })
     @ValidateIf((o) => o.blacklistType === 'vehicle')
     @IsString()
     @IsNotEmpty()
-    @IsIn(Object.values(VehicleType))
     vehicleType?: string;
 
     @ApiProperty({ example: 'Security violation' })

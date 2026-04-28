@@ -12,11 +12,13 @@ import { smsTemplatesSeed } from './data/sms-templates.seed';
 import { emailTemplatesSeed } from './data/email-templates.seed';
 import { settingsSeed } from './data/settings.seed';
 import { vehicleManufacturersSeed } from './data/vehicle-manufacturers.seed';
+import { vehicleModelsSeed } from './data/vehicle-models.seed';
 import { hashPassword } from '../../common/utils/hash.util';
 import { SmsTemplate } from '../../settings/entities/sms-template.entity';
 import { EmailTemplate } from '../../settings/entities/email-template.entity';
 import { Setting } from '../../settings/entities/setting.entity';
 import { VehicleManufacturer } from '../../settings/entities/vehicle-manufacturer.entity';
+import { VehicleModel } from '../../settings/entities/vehicle-model.entity';
 
 @Injectable()
 export class SeedService implements OnModuleInit {
@@ -275,6 +277,20 @@ export class SeedService implements OnModuleInit {
                     await vehicleManufacturerRepo.save(manufacturer);
                 }
                 this.logger.log(`Seeded ${newManufacturers.length} vehicle manufacturer(s)`);
+            }
+
+            // 9. Seed vehicle models (upsert by unique manufacturer+model)
+            const vehicleModelRepo = queryRunner.manager.getRepository(VehicleModel);
+            const existingModels = await vehicleModelRepo.find();
+            const existingModelKeys = new Set(existingModels.map((m) => `${m.manufacturer}|${m.model}`));
+            const newModels = vehicleModelsSeed.filter((m) => !existingModelKeys.has(`${m.manufacturer}|${m.model}`));
+            if (newModels.length > 0) {
+                this.logger.log(`Seeding ${newModels.length} vehicle model(s)...`);
+                for (const m of newModels) {
+                    const vehicleModel = vehicleModelRepo.create(m);
+                    await vehicleModelRepo.save(vehicleModel);
+                }
+                this.logger.log(`Seeded ${newModels.length} vehicle model(s)`);
             }
 
             await queryRunner.commitTransaction();

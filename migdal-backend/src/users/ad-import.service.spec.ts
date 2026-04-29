@@ -3,12 +3,14 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { AdImportService } from './ad-import.service';
 import { User } from './entities/user.entity';
 import { AdConfiguration } from '../settings/entities/ad-configuration.entity';
+import { AdGroupRoleMapping } from '../ad-group-role-mappings/entities/ad-group-role-mapping.entity';
 import { SectorsService } from '../sectors/sectors.service';
 
 describe('AdImportService', () => {
     let service: AdImportService;
     let mockUserRepo: any;
     let mockAdConfigRepo: any;
+    let mockAdGroupRoleMappingRepo: any;
     let mockSectorsService: any;
 
     beforeEach(async () => {
@@ -20,6 +22,9 @@ describe('AdImportService', () => {
         mockAdConfigRepo = {
             find: jest.fn(),
         };
+        mockAdGroupRoleMappingRepo = {
+            find: jest.fn().mockResolvedValue([]),
+        };
         mockSectorsService = {
             findOrCreateByName: jest.fn().mockResolvedValue({ id: 'sector-1', name: 'Test' }),
         };
@@ -29,6 +34,7 @@ describe('AdImportService', () => {
                 AdImportService,
                 { provide: getRepositoryToken(User), useValue: mockUserRepo },
                 { provide: getRepositoryToken(AdConfiguration), useValue: mockAdConfigRepo },
+                { provide: getRepositoryToken(AdGroupRoleMapping), useValue: mockAdGroupRoleMappingRepo },
                 { provide: SectorsService, useValue: mockSectorsService },
             ],
         }).compile();

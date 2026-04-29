@@ -15,6 +15,8 @@ import { DeviceAgent } from '../../agents/entities/device-agent.entity';
 import { Role } from '../../roles/entities/role.entity';
 import { CreateWorkstationDto } from '../dto/create-workstation.dto';
 import { UpdateWorkstationDto } from '../dto/update-workstation.dto';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
+import { PaginatedResult } from '../../common/interfaces/paginated-result.interface';
 import { AuditService } from '../../audit/audit.service';
 
 const ENROLLMENT_TOKEN_EXPIRY_HOURS = 24;
@@ -46,26 +48,35 @@ export class WorkstationsService {
         });
     }
 
-    async findAllWithDeviceStatus(): Promise<
-        Array<{
-            id: string;
-            code: string;
-            displayName: string;
-            description: string | null;
-            siteId: string | null;
-            machineId: string | null;
-            hostname: string | null;
-            isActive: boolean;
-            devices: Array<{ providerType: string; isConnected: boolean; deviceConnected: boolean | null; agentVersion: string | null }>;
-            assignedUsers: number;
-            assignedRoles: number;
-        }>
-    > {
-        const workstations = await this.workstationRepo.find({
-            where: { isActive: true },
-            relations: ['defaultCardTemplate'],
-            order: { displayName: 'ASC' },
-        });
+    async findAllWithDeviceStatus(query: PaginationQueryDto): Promise<PaginatedResult<any>> {
+        const { search, sortBy, sortOrder, page, limit } = query;
+
+        const qb = this.workstationRepo
+            .createQueryBuilder('ws')
+            .leftJoinAndSelect('ws.defaultCardTemplate', 'tpl')
+            .where('ws.isActive = :active', { active: true });
+
+        if (search) {
+            qb.andWhere(
+                '(ws.displayName LIKE :s OR ws.code LIKE :s OR ws.description LIKE :s)',
+                { s: `%${search}%` },
+            );
+        }
+
+        const sortable: Record<string, string> = {
+            displayName: 'ws.displayName',
+            code: 'ws.code',
+            description: 'ws.description',
+            createdAt: 'ws.createdAt',
+        };
+        const sortColumn = sortBy ? sortable[sortBy] : undefined;
+        qb.orderBy(sortColumn ?? 'ws.displayName', sortOrder ?? 'ASC');
+
+        const total = await qb.getCount();
+        const workstations = await qb
+            .skip((page - 1) * limit)
+            .take(limit)
+            .getMany();
 
         const deviceAgents = await this.deviceAgentRepo.find({
             where: { isActive: true, isEnabled: true },
@@ -90,7 +101,7 @@ export class WorkstationsService {
         const userCountMap = new Map(userCounts.map((r) => [r.workstationId, parseInt(r.count, 10)]));
         const roleCountMap = new Map(roleCounts.map((r) => [r.workstationId, parseInt(r.count, 10)]));
 
-        return workstations.map((ws) => {
+        const items = workstations.map((ws) => {
             const wsAgents = deviceAgents.filter((a) => a.workstationId === ws.id);
             const devices = wsAgents.map((agent) => ({
                 providerType: agent.providerType,
@@ -115,6 +126,8 @@ export class WorkstationsService {
                 assignedRoles: roleCountMap.get(ws.id) || 0,
             };
         });
+
+        return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
     }
 
     async findById(id: string): Promise<Workstation> {

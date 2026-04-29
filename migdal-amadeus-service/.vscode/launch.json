@@ -2,21 +2,29 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug Amadeus8",
+      "name": "Amadeus Service: Debug",
       "type": "coreclr",
       "request": "launch",
-      "program": "${workspaceFolder}/bin/Debug/net9.0/Amadeus8.dll",
+      "program": "${workspaceFolder}/migdal-amadeus-service/bin/Debug/net9.0/Amadeus8.dll",
       "args": [],
-      "cwd": "${workspaceFolder}",
-      "stopAtEntry": false,
-      "console": "internalConsole",
+      "cwd": "${workspaceFolder}/migdal-amadeus-service",
       "env": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "https://localhost:5051;http://localhost:5050"
       },
-      "serverReadyAction": {
-        "action": "openExternally",
-        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
-      }
+      "preLaunchTask": "build-amadeus"
+    }
+  ],
+  "tasks": [
+    {
+      "label": "build-amadeus",
+      "command": "dotnet",
+      "type": "process",
+      "args": [
+        "build",
+        "${workspaceFolder}/migdal-amadeus-service/Amadeus8.csproj"
+      ],
+      "problemMatcher": "$msCompile"
     }
   ]
 }

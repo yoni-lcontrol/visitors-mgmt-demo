@@ -13,18 +13,24 @@ describe('WorkstationsController', () => {
 
     beforeEach(async () => {
         workstationsService = {
-            findAllWithDeviceStatus: jest.fn().mockResolvedValue([
-                {
-                    id: 'ws-1',
-                    code: 'WS-001',
-                    displayName: 'WS 01',
-                    machineId: 'm1',
-                    hostname: 'host1',
-                    devices: [{ providerType: 'printer', isConnected: true }],
-                    assignedUsers: 2,
-                    assignedRoles: 1,
-                },
-            ]),
+            findAllWithDeviceStatus: jest.fn().mockResolvedValue({
+                items: [
+                    {
+                        id: 'ws-1',
+                        code: 'WS-001',
+                        displayName: 'WS 01',
+                        machineId: 'm1',
+                        hostname: 'host1',
+                        devices: [{ providerType: 'printer', isConnected: true }],
+                        assignedUsers: 2,
+                        assignedRoles: 1,
+                    },
+                ],
+                total: 1,
+                page: 1,
+                limit: 25,
+                totalPages: 1,
+            }),
             findByIdWithDetails: jest.fn().mockResolvedValue({
                 workstation: { id: 'ws-1', code: 'WS-001', displayName: 'WS 01' },
                 assignedUserIds: ['u1'],
@@ -80,22 +86,27 @@ describe('WorkstationsController', () => {
     });
 
     describe('findAll', () => {
-        it('should return workstations with device status', async () => {
-            const result = await controller.findAll();
+        it('should return paginated workstations with device status', async () => {
+            const query = { page: 1, limit: 25 };
+            const result = await controller.findAll(query as any);
 
-            expect(result).toHaveLength(1);
-            expect(result[0].id).toBe('ws-1');
-            expect(result[0].code).toBe('WS-001');
-            expect(result[0].devices).toHaveLength(1);
-            expect(workstationsService.findAllWithDeviceStatus).toHaveBeenCalled();
+            expect(result.items).toHaveLength(1);
+            expect(result.items[0].id).toBe('ws-1');
+            expect(result.items[0].code).toBe('WS-001');
+            expect(result.items[0].devices).toHaveLength(1);
+            expect(result.total).toBe(1);
+            expect(workstationsService.findAllWithDeviceStatus).toHaveBeenCalledWith(query);
         });
 
-        it('should return empty array when no workstations', async () => {
-            workstationsService.findAllWithDeviceStatus.mockResolvedValue([]);
+        it('should return empty items when no workstations', async () => {
+            workstationsService.findAllWithDeviceStatus.mockResolvedValue({
+                items: [], total: 0, page: 1, limit: 25, totalPages: 0,
+            });
+            const query = { page: 1, limit: 25 };
+            const result = await controller.findAll(query as any);
 
-            const result = await controller.findAll();
-
-            expect(result).toEqual([]);
+            expect(result.items).toEqual([]);
+            expect(result.total).toBe(0);
         });
     });
 

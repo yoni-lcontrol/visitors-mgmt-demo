@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, ParseUUIDPipe, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, ParseUUIDPipe, HttpCode, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PermissionKey } from '../common/enums/permission-key.enum';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { WorkstationsService } from './services/workstations.service';
 import { WorkstationSessionService } from './services/workstation-session.service';
 import {
@@ -47,8 +48,8 @@ export class WorkstationsController {
     @ApiBearerAuth()
     @RequirePermissions(PermissionKey.WorkstationsRead)
     @ApiOperation({ summary: 'List all workstations with device status' })
-    findAll() {
-        return this.workstationsService.findAllWithDeviceStatus();
+    findAll(@Query() query: PaginationQueryDto) {
+        return this.workstationsService.findAllWithDeviceStatus(query);
     }
 
     @Get('available-roles')

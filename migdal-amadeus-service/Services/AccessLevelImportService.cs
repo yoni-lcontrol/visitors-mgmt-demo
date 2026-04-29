@@ -79,7 +79,7 @@ public class AccessLevelImportService : IAccessLevelImportService
         await ImportPagedAsync(
             sourceType: AccessGroupSourceType,
             fetchPage: (skip, top, ct) => _apiClient.GetAccessGroupsPagedAsync(skip, top, ct),
-            map: g => new SourceGroupRecord(g.Id, g.ApiKey, g.Name, g.Description, g.ExternalId),
+            map: g => new SourceGroupRecord(g.Id, g.ApiKey, g.Name, g.Description, g.Id),
             result,
             cancellationToken);
     }
@@ -89,7 +89,7 @@ public class AccessLevelImportService : IAccessLevelImportService
         await ImportPagedAsync(
             sourceType: SecurityGroupSourceType,
             fetchPage: (skip, top, ct) => _apiClient.GetSecurityGroupsPagedAsync(skip, top, ct),
-            map: g => new SourceGroupRecord(g.Id, g.ApiKey, g.Name, g.Description, g.ExternalId),
+            map: g => new SourceGroupRecord(g.Id, g.ApiKey, g.Name, g.Description, g.Id),
             result,
             cancellationToken);
     }

@@ -40,8 +40,8 @@ public class AccessLevelImportServiceTests
 
         var rows = await db.AccessLevels.AsNoTracking().OrderBy(x => x.SourceType).ToListAsync();
         Assert.Equal(2, rows.Count);
-        Assert.Contains(rows, x => x.SourceType == "AccessGroup" && x.AmadeusUid == "ag-1" && x.ExternalId == "ext-ag-1");
-        Assert.Contains(rows, x => x.SourceType == "SecurityGroup" && x.AmadeusUid == "sg-1" && x.ExternalId == "ext-sg-1");
+        Assert.Contains(rows, x => x.SourceType == "AccessGroup" && x.AmadeusUid == "ag-1" && x.ExternalId == "ag-1");
+        Assert.Contains(rows, x => x.SourceType == "SecurityGroup" && x.AmadeusUid == "sg-1" && x.ExternalId == "sg-1");
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public class AccessLevelImportServiceTests
         var updated = await db.AccessLevels.AsNoTracking().SingleAsync(x => x.SourceType == "AccessGroup" && x.AmadeusUid == "ag-1");
         Assert.Equal("New Name", updated.Name);
         Assert.Equal("new-key", updated.ApiKey);
-        Assert.Equal("new-ext", updated.ExternalId);
+        Assert.Equal("ag-1", updated.ExternalId);
     }
 
     [Fact]

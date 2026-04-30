@@ -95,6 +95,7 @@
         "AD_GROUP_ROLE_MAPPINGS": "AD Group-Role Mapping",
         "CARD_TEMPLATES": "Card Templates",
         "BUILDINGS": "Buildings",
+        "VEHICLE_MODELS": "Vehicle Models",
         "PERMANENT_ESCORTS": "Permanent Escorts",
         "WORKSTATIONS": "Workstations",
         "AUDIT_LOGS": "Audit Logs"
@@ -556,7 +557,13 @@
         "SEARCH_PERMISSIONS": "Search permissions...",
         "EXPAND_ALL": "Expand all",
         "COLLAPSE_ALL": "Collapse all",
-        "NO_PERMISSIONS_FOUND": "No permissions found"
+        "NO_PERMISSIONS_FOUND": "No permissions found",
+        "ACTION_READ": "Read",
+        "ACTION_CREATE": "Create",
+        "ACTION_UPDATE": "Update",
+        "ACTION_DELETE": "Delete",
+        "ACTION_MANAGE": "Manage",
+        "ACTION_OTHER": "Other"
     },
     "PERMISSIONS": {
         "MODULES": {
@@ -571,6 +578,7 @@
             "scanner": "Scanner",
             "workstations": "Workstations",
             "buildings": "Buildings",
+            "vehicle-models": "Vehicle Models",
             "blacklist": "Blacklist",
             "parking": "Parking",
             "permissions": "Permissions"
@@ -601,6 +609,18 @@
                 "read": "View Visits",
                 "update": "Update Visits",
                 "delete": "Delete Visits",
+                "delete-own-only": "Delete Only Own Visits",
+                "on-behalf-only": "Create Visits Only On Behalf Of Others",
+                "escort": {
+                    "required": {
+                        "label": "Require Escort For Visits",
+                        "self-requester": "Require Escort For Self-Requested Visits"
+                    }
+                },
+                "scope": {
+                    "own": "View Only Own Visits",
+                    "training-center": "View Training Center Visits"
+                },
                 "print-card": "Print Visitor Card",
                 "check-in-code": {
                     "send": "Send Check-In Code",
@@ -612,11 +632,18 @@
                 "read": "View Visitors",
                 "update": "Update Visitors",
                 "delete": "Delete Visitors",
-                "export": "Export Visitors"
+                "export": "Export Visitors",
+                "scope": {
+                    "own": "View Only Own Visitors"
+                }
             },
             "settings": {
                 "read": "View Settings",
                 "update": "Update Settings",
+                    "permanent-escorts": {
+                        "read": "View Permanent Escorts",
+                        "manage": "Manage Permanent Escorts"
+                    },
                 "card-templates": {
                     "read": "View Card Templates",
                     "create": "Create Card Templates",
@@ -648,6 +675,13 @@
                 "read": "View Buildings",
                 "create": "Create Buildings",
                 "update": "Update Buildings"
+            },
+            "vehicle-models": {
+                "view": "View Vehicle Models",
+                "create": "Create Vehicle Models",
+                "update": "Update Vehicle Models",
+                "delete": "Delete Vehicle Models",
+                "export": "Export Vehicle Models"
             },
             "blacklist": {
                 "read": "View Blacklist",
@@ -691,6 +725,18 @@
                 "read": "View visit list and details",
                 "update": "Update visit details and visitor status",
                 "delete": "Delete visits and visitors",
+                "delete-own-only": "Restricts visit deletion to visits created by the current user",
+                "on-behalf-only": "Allows creating visits only for another requester and not as self-requested visits",
+                "escort": {
+                    "required": {
+                        "label": "Requires at least one escort for every created visit",
+                        "self-requester": "Requires an escort only when the current user is also the visit requester"
+                    }
+                },
+                "scope": {
+                    "own": "Restricts visit visibility to visits created by the current user",
+                    "training-center": "Allows viewing visits created by users with training center scope"
+                },
                 "print-card": "Print visitor card via connected printer",
                 "check-in-code": {
                     "send": "Send or resend check-in code to visitor",
@@ -702,11 +748,18 @@
                 "read": "View the visitor directory and visitor details",
                 "update": "Update existing visitor records",
                 "delete": "Delete visitor records",
-                "export": "Export visitor directory data"
+                "export": "Export visitor directory data",
+                "scope": {
+                    "own": "Restricts visitor directory visibility to visitors related to the current user's scope"
+                }
             },
             "settings": {
                 "read": "View system settings",
                 "update": "Update system settings",
+                    "permanent-escorts": {
+                        "read": "View the permanent escorts list",
+                        "manage": "Add or remove permanent escorts"
+                    },
                 "card-templates": {
                     "read": "View card design templates",
                     "create": "Create card design templates",
@@ -738,6 +791,13 @@
                 "read": "View building list and details",
                 "create": "Create new buildings",
                 "update": "Update building details"
+            },
+            "vehicle-models": {
+                "view": "View vehicle models list and details",
+                "create": "Create new vehicle models",
+                "update": "Update vehicle models",
+                "delete": "Delete vehicle models",
+                "export": "Export vehicle models data"
             },
             "blacklist": {
                 "read": "View blacklisted persons and vehicles",
@@ -846,6 +906,10 @@
         "TARGET_GROUPS_HELP": "Optional. One group per line (or comma-separated). When configured, AD sync imports users only from these groups.",
         "DELETE_CONFIRM": "Are you sure you want to delete this AD configuration?",
         "TEST_CONNECTION": "Test Connection"
+    },
+    "AC_IMPORT": {
+        "TITLE": "Controllers Import",
+        "FETCHING": "Fetching controllers from remote server..."
     },
     "AD_SYNC": {
         "TITLE": "AD Sync",
@@ -1140,6 +1204,17 @@
         "EDIT": "Edit Building",
         "SELECT_BUILDING": "Select building",
         "SELECT_ACCESS_LEVELS": "Select access levels"
+    },
+    "VEHICLE_MODELS": {
+        "TITLE": "Vehicle Models",
+        "DESCRIPTION": "Manage vehicle manufacturers and models",
+        "CREATE": "Create Vehicle Model",
+        "EDIT": "Edit Vehicle Model",
+        "MANUFACTURER": "Manufacturer",
+        "MODEL": "Model",
+        "SELECT_MANUFACTURER": "Select manufacturer",
+        "MODEL_PLACEHOLDER": "Enter model name",
+        "DELETE_CONFIRM": "Are you sure you want to delete {{value}}?"
     },
     "PERMANENT_ESCORTS": {
         "TITLE": "Permanent Escorts Management",

@@ -40,6 +40,8 @@ import { Building } from '../buildings/entities/building.entity';
 import { ParkingRequest } from '../visitors/entities/parking-request.entity';
 import { Sector } from '../sectors/entities/sector.entity';
 import { AdGroupRoleMapping } from '../ad-group-role-mappings/entities/ad-group-role-mapping.entity';
+import { VehicleManufacturer } from '../settings/entities/vehicle-manufacturer.entity';
+import { VehicleModel } from '../settings/entities/vehicle-model.entity';
 
 const entities = [
     User, Role, Permission, RefreshToken,
@@ -47,6 +49,7 @@ const entities = [
     Visitor, BlacklistEntry,
     Visit, VisitVisitor, VisitEscort, VisitorAccessLog, VisitVisitorStatus, VisitVisitorCheckInCode, ParkingRequest,
     Setting, NotificationSetting, AdConfiguration, SmsTemplate, EmailTemplate, CardTemplate, PermanentEscort, AuditLog,
+    VehicleManufacturer, VehicleModel,
     Workstation, UserWorkstationSession, WorkstationUser, WorkstationRole, WorkstationEnrollmentToken,
     DeviceAgent, DeviceCommandLog, ExternalEventLog,
     Building,
@@ -70,8 +73,13 @@ const entities = [
                 synchronize: false,
                 logging: configService.get<string>('APP_ENV') === 'development',
                 options: {
-                    encrypt: false, // Set true for Azure SQL
+                    encrypt: configService.get<string>('DB_ENCRYPT', 'false') === 'true',
                     trustServerCertificate: true, // Dev only
+                },
+                extra: {
+                    ...(configService.get<string>('DB_DOMAIN') && {
+                        domain: configService.get<string>('DB_DOMAIN'),
+                    }),
                 },
             }),
         }),

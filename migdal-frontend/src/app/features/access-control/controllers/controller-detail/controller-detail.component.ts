@@ -319,8 +319,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
             <option [ngValue]="1">{{ 'ACCESS_CONTROL.ENTRY_IN' | translate }}</option>
             <option [ngValue]="2">{{ 'ACCESS_CONTROL.ENTRY_OUT' | translate }}</option>
           </select></div>
-        <div class="field"><label>{{ 'ACCESS_CONTROL.EXTERNAL_ID' | translate }}</label>
-          <input type="text" [(ngModel)]="doorForm.externalId" [placeholder]="'PLACEHOLDER.ENTER_EXTERNAL_ID' | translate" /></div>
       </div>
       }
       <ng-template pTemplate="footer">
@@ -344,8 +342,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
           <input type="number" [(ngModel)]="extForm.type" [placeholder]="'PLACEHOLDER.ENTER_TYPE' | translate" /></div>
         <div class="field"><label>{{ 'ACCESS_CONTROL.EXTENSION_INDEX' | translate }}</label>
           <input type="number" [(ngModel)]="extForm.extensionIndex" [placeholder]="'PLACEHOLDER.ENTER_EXTENSION_INDEX' | translate" /></div>
-        <div class="field"><label>{{ 'ACCESS_CONTROL.EXTERNAL_ID' | translate }}</label>
-          <input type="text" [(ngModel)]="extForm.externalId" [placeholder]="'PLACEHOLDER.ENTER_EXTERNAL_ID' | translate" /></div>
       </div>
       }
       <ng-template pTemplate="footer">
@@ -371,8 +367,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
           <input type="number" [(ngModel)]="doorIoForm.ioIndex" [placeholder]="'PLACEHOLDER.ENTER_IO_INDEX' | translate" /></div>
         <div class="field"><label>{{ 'ACCESS_CONTROL.IO_STATE' | translate }}</label>
           <input type="number" [(ngModel)]="doorIoForm.ioState" [placeholder]="'PLACEHOLDER.ENTER_IO_STATE' | translate" /></div>
-        <div class="field"><label>{{ 'ACCESS_CONTROL.EXTERNAL_ID' | translate }}</label>
-          <input type="text" [(ngModel)]="doorIoForm.externalId" [placeholder]="'PLACEHOLDER.ENTER_EXTERNAL_ID' | translate" /></div>
       </div>
       }
       <ng-template pTemplate="footer">
@@ -398,8 +392,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
           <input type="number" [(ngModel)]="extIoForm.ioIndex" [placeholder]="'PLACEHOLDER.ENTER_IO_INDEX' | translate" /></div>
         <div class="field"><label>{{ 'ACCESS_CONTROL.IO_STATE' | translate }}</label>
           <input type="number" [(ngModel)]="extIoForm.ioState" [placeholder]="'PLACEHOLDER.ENTER_IO_STATE' | translate" /></div>
-        <div class="field"><label>{{ 'ACCESS_CONTROL.EXTERNAL_ID' | translate }}</label>
-          <input type="text" [(ngModel)]="extIoForm.externalId" [placeholder]="'PLACEHOLDER.ENTER_EXTERNAL_ID' | translate" /></div>
       </div>
       }
       <ng-template pTemplate="footer">
@@ -427,8 +419,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
           <input type="text" [(ngModel)]="controllerForm.ip" [placeholder]="'PLACEHOLDER.ENTER_IP' | translate" /></div>
         <div class="field"><label>{{ 'ACCESS_CONTROL.PORT' | translate }}</label>
           <input type="number" [(ngModel)]="controllerForm.port" [placeholder]="'PLACEHOLDER.ENTER_PORT' | translate" /></div>
-        <div class="field"><label>{{ 'ACCESS_CONTROL.EXTERNAL_ID' | translate }}</label>
-          <input type="text" [(ngModel)]="controllerForm.externalId" [placeholder]="'PLACEHOLDER.ENTER_EXTERNAL_ID' | translate" /></div>
       </div>
       }
       <ng-template pTemplate="footer">
@@ -512,28 +502,28 @@ export class ControllerDetailComponent implements OnInit {
   // Door dialog
   showDoorDialog = false;
   editingDoor: Door | null = null;
-  doorForm = { name: '', doorsIndex: 0 as number, entryType: 0 as number, externalId: '' };
+  doorForm = { name: '', doorsIndex: 0 as number, entryType: 0 as number };
 
   // Extension dialog
   showExtDialog = false;
   editingExt: Extension | null = null;
-  extForm = { name: '', type: 0 as number, extensionIndex: 0 as number, externalId: '' };
+  extForm = { name: '', type: 0 as number, extensionIndex: 0 as number };
 
   // Door IO dialog
   showDoorIoDialog = false;
   editingDoorIo: DoorIo | null = null;
   doorIoParentId = '';
-  doorIoForm = { name: '', type: 0 as number, ioIndex: 0 as number, ioState: 0 as number, externalId: '' };
+  doorIoForm = { name: '', type: 0 as number, ioIndex: 0 as number, ioState: 0 as number };
 
   // Extension IO dialog
   showExtIoDialog = false;
   editingExtIo: ExtensionIo | null = null;
   extIoParentId = '';
-  extIoForm = { name: '', type: 0 as number, ioIndex: 0 as number, ioState: 0 as number, externalId: '' };
+  extIoForm = { name: '', type: 0 as number, ioIndex: 0 as number, ioState: 0 as number };
 
   // Edit controller dialog
   showEditControllerDialog = false;
-  controllerForm = { name: '', type: 0 as number, model: '', ip: '', port: 0 as number, externalId: '' };
+  controllerForm = { name: '', type: 0 as number, model: '', ip: '', port: 0 as number };
 
   ngOnInit(): void {
     this.controllerId = this.route.snapshot.params['id'];
@@ -548,7 +538,6 @@ export class ControllerDetailComponent implements OnInit {
       model: this.controller.model ?? '',
       ip: this.controller.ip ?? '',
       port: this.controller.port ?? 0,
-      externalId: this.controller.externalId ?? '',
     };
     this.showEditControllerDialog = true;
   }
@@ -667,8 +656,8 @@ export class ControllerDetailComponent implements OnInit {
   openDoorDialog(door?: Door): void {
     this.editingDoor = door ?? null;
     this.doorForm = door
-      ? { name: door.name, doorsIndex: door.doorsIndex, entryType: door.entryType, externalId: door.externalId ?? '' }
-      : { name: '', doorsIndex: 0, entryType: 0, externalId: '' };
+      ? { name: door.name, doorsIndex: door.doorsIndex, entryType: door.entryType }
+      : { name: '', doorsIndex: 0, entryType: 0 };
     this.showDoorDialog = true;
   }
 
@@ -696,8 +685,8 @@ export class ControllerDetailComponent implements OnInit {
   openExtDialog(ext?: Extension): void {
     this.editingExt = ext ?? null;
     this.extForm = ext
-      ? { name: ext.name, type: ext.type, extensionIndex: ext.extensionIndex, externalId: ext.externalId ?? '' }
-      : { name: '', type: 0, extensionIndex: 0, externalId: '' };
+      ? { name: ext.name, type: ext.type, extensionIndex: ext.extensionIndex }
+      : { name: '', type: 0, extensionIndex: 0 };
     this.showExtDialog = true;
   }
 
@@ -726,8 +715,8 @@ export class ControllerDetailComponent implements OnInit {
     this.doorIoParentId = doorId;
     this.editingDoorIo = io ?? null;
     this.doorIoForm = io
-      ? { name: io.name, type: io.type, ioIndex: io.ioIndex, ioState: io.ioState, externalId: io.externalId ?? '' }
-      : { name: '', type: 0, ioIndex: 0, ioState: 0, externalId: '' };
+      ? { name: io.name, type: io.type, ioIndex: io.ioIndex, ioState: io.ioState }
+      : { name: '', type: 0, ioIndex: 0, ioState: 0 };
     this.showDoorIoDialog = true;
   }
 
@@ -756,8 +745,8 @@ export class ControllerDetailComponent implements OnInit {
     this.extIoParentId = extId;
     this.editingExtIo = io ?? null;
     this.extIoForm = io
-      ? { name: io.name, type: io.type, ioIndex: io.ioIndex, ioState: io.ioState, externalId: io.externalId ?? '' }
-      : { name: '', type: 0, ioIndex: 0, ioState: 0, externalId: '' };
+      ? { name: io.name, type: io.type, ioIndex: io.ioIndex, ioState: io.ioState }
+      : { name: '', type: 0, ioIndex: 0, ioState: 0 };
     this.showExtIoDialog = true;
   }
 
@@ -782,26 +771,26 @@ export class ControllerDetailComponent implements OnInit {
   }
 
   onDoorDialogHide(): void {
-    this.doorForm = { name: '', doorsIndex: 0, entryType: 0, externalId: '' };
+    this.doorForm = { name: '', doorsIndex: 0, entryType: 0 };
     this.editingDoor = null;
   }
 
   onExtDialogHide(): void {
-    this.extForm = { name: '', type: 0, extensionIndex: 0, externalId: '' };
+    this.extForm = { name: '', type: 0, extensionIndex: 0 };
     this.editingExt = null;
   }
 
   onDoorIoDialogHide(): void {
-    this.doorIoForm = { name: '', type: 0, ioIndex: 0, ioState: 0, externalId: '' };
+    this.doorIoForm = { name: '', type: 0, ioIndex: 0, ioState: 0 };
     this.editingDoorIo = null;
   }
 
   onExtIoDialogHide(): void {
-    this.extIoForm = { name: '', type: 0, ioIndex: 0, ioState: 0, externalId: '' };
+    this.extIoForm = { name: '', type: 0, ioIndex: 0, ioState: 0 };
     this.editingExtIo = null;
   }
 
   onEditControllerDialogHide(): void {
-    this.controllerForm = { name: '', type: 0, model: '', ip: '', port: 0, externalId: '' };
+    this.controllerForm = { name: '', type: 0, model: '', ip: '', port: 0 };
   }
 }

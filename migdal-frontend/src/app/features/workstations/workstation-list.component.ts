@@ -1,8 +1,9 @@
-import { Component, OnInit, OnDestroy, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import { TableModule } from 'primeng/table';
+import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { HasPermissionDirective } from '@core/permissions/has-permission.directive';
 import { NotificationService } from '@core/notifications/notification.service';
@@ -17,7 +18,7 @@ import { CardTemplate } from '../settings/card-templates/models/card-template.mo
 @Component({
   selector: 'app-workstation-list',
   standalone: true,
-  imports: [TranslateModule, ReactiveFormsModule, HasPermissionDirective, TableModule, DialogModule],
+  imports: [TranslateModule, ReactiveFormsModule, HasPermissionDirective, TableModule, InputTextModule, DialogModule],
   template: `
     <div class="page-header">
       <h1>{{ 'WORKSTATIONS.TITLE' | translate }}</h1>
@@ -29,11 +30,30 @@ import { CardTemplate } from '../settings/card-templates/models/card-template.mo
     </div>
     <div class="card table-card">
       <p-table
+        #dt
         [value]="workstations"
+        [lazy]="true"
+        (onLazyLoad)="onLazyLoad($event)"
         [loading]="loading"
+        [totalRecords]="totalRecords"
+        [paginator]="true"
+        [rows]="rows"
+        [first]="first"
+        [showCurrentPageReport]="true"
+        [rowsPerPageOptions]="[10, 25, 50]"
         dataKey="id"
         styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines"
+        currentPageReportTemplate="{first}-{last} / {totalRecords}"
+        paginatorDropdownAppendTo="body"
       >
+        <ng-template pTemplate="caption">
+          <div class="table-header">
+            <span class="p-input-icon-left">
+              <i class="pi pi-search"></i>
+              <input pInputText type="text" (input)="dt.filterGlobal($any($event.target).value, 'contains')" [placeholder]="'COMMON.SEARCH' | translate" />
+            </span>
+          </div>
+        </ng-template>
         <ng-template pTemplate="header">
           <tr>
             <th>{{ 'WORKSTATIONS.CODE' | translate }}</th>
@@ -244,7 +264,11 @@ export class WorkstationListComponent implements OnInit, OnDestroy {
   private statusSub?: Subscription;
 
   workstations: WorkstationListItem[] = [];
+  totalRecords = 0;
+  rows = 25;
+  first = 0;
   loading = false;
+  private lastLazyEvent: any = { first: 0, rows: 25, sortField: 'displayName', sortOrder: 1, filters: {} };
 
   // Form dialog
   showFormDialog = false;
@@ -301,17 +325,38 @@ export class WorkstationListComponent implements OnInit, OnDestroy {
     this.statusSub?.unsubscribe();
   }
 
-  loadWorkstations(): void {
+  loadWorkstations(event: any = this.lastLazyEvent): void {
     this.loading = true;
-    this.wsApi.getAll().subscribe({
-      next: (list) => {
-        this.workstations = list;
+    this.lastLazyEvent = event;
+    this.first = event.first ?? 0;
+    this.rows = event.rows ?? 25;
+
+    const page = Math.floor(this.first / this.rows) + 1;
+    const sortField = event.sortField || 'displayName';
+    const params: Record<string, any> = {
+      page,
+      limit: this.rows,
+      sortBy: sortField,
+      sortOrder: (event.sortOrder || 1) === 1 ? 'ASC' : 'DESC',
+    };
+
+    const global = event.filters?.global?.value;
+    if (global) params['search'] = global;
+
+    this.wsApi.getAll(params).subscribe({
+      next: (res) => {
+        this.workstations = res.items;
+        this.totalRecords = res.total;
         this.loading = false;
       },
       error: () => {
         this.loading = false;
       },
     });
+  }
+
+  onLazyLoad(event: any): void {
+    this.loadWorkstations(event);
   }
 
   openCreateDialog(): void {

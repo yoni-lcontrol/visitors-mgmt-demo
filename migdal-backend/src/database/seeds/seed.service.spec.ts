@@ -6,6 +6,7 @@ import { User } from '../../users/entities/user.entity';
 import { SmsTemplate } from '../../settings/entities/sms-template.entity';
 import { EmailTemplate } from '../../settings/entities/email-template.entity';
 import { Setting } from '../../settings/entities/setting.entity';
+import { VehicleManufacturer } from '../../settings/entities/vehicle-manufacturer.entity';
 import { AdGroupRoleMapping } from '../../ad-group-role-mappings/entities/ad-group-role-mapping.entity';
 
 describe('SeedService', () => {
@@ -45,6 +46,7 @@ describe('SeedService', () => {
         const smsTemplateRepo = createRepositoryMock();
         const emailTemplateRepo = createRepositoryMock();
         const settingRepo = createRepositoryMock();
+        const vehicleManufacturerRepo = createRepositoryMock();
         const adGroupRoleMappingRepo = createRepositoryMock();
 
         const repositories = new Map<any, ReturnType<typeof createRepositoryMock>>([
@@ -54,6 +56,7 @@ describe('SeedService', () => {
             [SmsTemplate, smsTemplateRepo],
             [EmailTemplate, emailTemplateRepo],
             [Setting, settingRepo],
+            [VehicleManufacturer, vehicleManufacturerRepo],
             [AdGroupRoleMapping, adGroupRoleMappingRepo],
         ]);
 
@@ -165,6 +168,7 @@ describe('SeedService', () => {
         const smsTemplateRepo = createRepositoryMock();
         const emailTemplateRepo = createRepositoryMock();
         const settingRepo = createRepositoryMock();
+        const vehicleManufacturerRepo = createRepositoryMock();
         const adGroupRoleMappingRepo = createRepositoryMock();
 
         const repositories = new Map<any, ReturnType<typeof createRepositoryMock>>([
@@ -174,6 +178,7 @@ describe('SeedService', () => {
             [SmsTemplate, smsTemplateRepo],
             [EmailTemplate, emailTemplateRepo],
             [Setting, settingRepo],
+            [VehicleManufacturer, vehicleManufacturerRepo],
             [AdGroupRoleMapping, adGroupRoleMappingRepo],
         ]);
 
@@ -251,6 +256,7 @@ describe('SeedService', () => {
         const smsTemplateRepo = createRepositoryMock();
         const emailTemplateRepo = createRepositoryMock();
         const settingRepo = createRepositoryMock();
+        const vehicleManufacturerRepo = createRepositoryMock();
         const adGroupRoleMappingRepo = createRepositoryMock();
 
         const repositories = new Map<any, ReturnType<typeof createRepositoryMock>>([
@@ -260,6 +266,7 @@ describe('SeedService', () => {
             [SmsTemplate, smsTemplateRepo],
             [EmailTemplate, emailTemplateRepo],
             [Setting, settingRepo],
+            [VehicleManufacturer, vehicleManufacturerRepo],
             [AdGroupRoleMapping, adGroupRoleMappingRepo],
         ]);
 
@@ -329,6 +336,7 @@ describe('SeedService', () => {
         const smsTemplateRepo = createRepositoryMock();
         const emailTemplateRepo = createRepositoryMock();
         const settingRepo = createRepositoryMock();
+        const vehicleManufacturerRepo = createRepositoryMock();
         const adGroupRoleMappingRepo = createRepositoryMock();
         adGroupRoleMappingRepo.findOne.mockImplementation(async ({ where }: any) => {
             if (where?.groupName === 'Sniper_Kabat') {
@@ -350,6 +358,7 @@ describe('SeedService', () => {
             [SmsTemplate, smsTemplateRepo],
             [EmailTemplate, emailTemplateRepo],
             [Setting, settingRepo],
+            [VehicleManufacturer, vehicleManufacturerRepo],
             [AdGroupRoleMapping, adGroupRoleMappingRepo],
         ]);
 
@@ -411,6 +420,7 @@ describe('SeedService', () => {
         const smsTemplateRepo = createRepositoryMock();
         const emailTemplateRepo = createRepositoryMock();
         const settingRepo = createRepositoryMock();
+        const vehicleManufacturerRepo = createRepositoryMock();
         const adGroupRoleMappingRepo = createRepositoryMock();
 
         const repositories = new Map<any, ReturnType<typeof createRepositoryMock>>([
@@ -420,6 +430,7 @@ describe('SeedService', () => {
             [SmsTemplate, smsTemplateRepo],
             [EmailTemplate, emailTemplateRepo],
             [Setting, settingRepo],
+            [VehicleManufacturer, vehicleManufacturerRepo],
             [AdGroupRoleMapping, adGroupRoleMappingRepo],
         ]);
 

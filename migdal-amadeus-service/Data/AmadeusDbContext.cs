@@ -215,6 +215,7 @@ public class AmadeusDbContext : DbContext
             entity.Property(e => e.ApiKey).HasMaxLength(256);
             entity.Property(e => e.Name).HasMaxLength(512).IsRequired();
             entity.Property(e => e.Description).HasMaxLength(1024);
+            entity.Property(e => e.ExternalId).HasMaxLength(256);
 
             entity.HasIndex(e => new { e.SourceType, e.AmadeusUid }).IsUnique();
             entity.HasIndex(e => e.ApiKey);

@@ -165,6 +165,37 @@ If post-processing is needed (e.g., stripping sensitive fields), call `paginateQ
 
 ---
 
+## Serialization & Field Exclusion
+
+Use `class-transformer` decorators to control which entity fields are exposed in API responses.
+
+- Add `@Exclude()` on entity properties that must never be sent to the client (e.g., internal IDs like `externalId`).
+- Add `@UseInterceptors(ClassSerializerInterceptor)` on the controller class to activate serialization.
+- Do **not** manually strip fields in the service layer when `@Exclude()` handles it.
+
+### Example
+
+```ts
+import { Exclude } from 'class-transformer';
+
+@Entity('AcControllers')
+export class AcController {
+  @Exclude()
+  @Column({ nullable: true })
+  externalId: string;
+}
+```
+
+```ts
+import { ClassSerializerInterceptor, UseInterceptors } from '@nestjs/common';
+
+@UseInterceptors(ClassSerializerInterceptor)
+@Controller('access-control/controllers')
+export class AcControllerController { ... }
+```
+
+---
+
 ## Vehicle Type Presentation
 
 All vehicle-type translation maps and dropdown option builders must use the shared utilities from `@core/utils/vehicle-type.util.ts`. Never duplicate the `VehicleType → translation key` mapping in components.

@@ -10,6 +10,8 @@ import {
     HttpCode,
     HttpStatus,
     Res,
+    UseInterceptors,
+    ClassSerializerInterceptor,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -26,6 +28,7 @@ import { ParseUUIDPipe } from '../../common/pipes/parse-uuid.pipe';
 
 @ApiTags('Access Control - Controllers')
 @ApiBearerAuth()
+@UseInterceptors(ClassSerializerInterceptor)
 @Controller('access-control/controllers')
 export class AcControllerController {
     constructor(

@@ -14,7 +14,10 @@ export default new DataSource({
     migrations: [__dirname + '/migrations/*{.ts,.js}'],
     synchronize: false,
     options: {
-        encrypt: false,
+        encrypt: (process.env.DB_ENCRYPT || 'false') === 'true',
         trustServerCertificate: true,
+    },
+    extra: {
+        ...(process.env.DB_DOMAIN && { domain: process.env.DB_DOMAIN }),
     },
 });

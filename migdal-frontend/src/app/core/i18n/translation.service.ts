@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { TranslateService } from '@ngx-translate/core';
-import { PrimeNGConfig } from 'primeng/api';
+import { PrimeNG } from 'primeng/config';
 import { BehaviorSubject } from 'rxjs';
 
 export type AppLanguage = 'en' | 'he';
@@ -16,7 +16,7 @@ export class TranslationService {
     private currentLangSubject = new BehaviorSubject<AppLanguage>('en');
     currentLang$ = this.currentLangSubject.asObservable();
 
-    constructor(private translate: TranslateService, private primeNGConfig: PrimeNGConfig) {
+    constructor(private translate: TranslateService, private primeNGConfig: PrimeNG) {
         this.translate.addLangs(['en', 'he']);
         this.translate.setDefaultLang('en');
 

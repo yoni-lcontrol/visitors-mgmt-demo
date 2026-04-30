@@ -139,10 +139,6 @@ import { Subscription } from 'rxjs';
             <label>{{ 'ACCESS_CONTROL.PORT' | translate }}</label>
             <input type="number" formControlName="port" [placeholder]="'PLACEHOLDER.ENTER_PORT' | translate" />
           </div>
-          <div class="field">
-            <label>{{ 'ACCESS_CONTROL.EXTERNAL_ID' | translate }}</label>
-            <input type="text" formControlName="externalId" [placeholder]="'PLACEHOLDER.ENTER_EXTERNAL_ID' | translate" />
-          </div>
           </div>
         </form>
         }
@@ -370,7 +366,6 @@ export class ControllerListComponent implements OnInit, OnDestroy {
       model: [''],
       ip: [''],
       port: [0],
-      externalId: [''],
     });
     if (ctrl) {
       this.dialogLoading = true;
@@ -381,7 +376,6 @@ export class ControllerListComponent implements OnInit, OnDestroy {
           model: c.model ?? '',
           ip: c.ip ?? '',
           port: c.port ?? 0,
-          externalId: c.externalId ?? '',
         });
         this.dialogLoading = false;
       });

@@ -119,7 +119,7 @@ All major list endpoints accept an optional `siteId` query parameter to filter r
 | Audit | `buildFindAllQuery()` | AuditLogs |
 | Blacklist | `buildQuery()` | BlacklistEntries |
 | Access Control | `buildFindAllQuery()` | AcControllers |
-| Workstations | `findAllWithDeviceStatus()` | Workstations |
+| Workstations | `findAllWithDeviceStatus(query)` | Workstations (paginated) |
 | Buildings | (via frontend context) | Buildings |
 
 ### User-Site Assignment
@@ -417,6 +417,8 @@ backend/src/settings/
 ├── email-provider.service.ts       # Email provider integration
 ├── permanent-escorts.service.ts    # Permanent escort mapping CRUD + domain-filtered user lookup
 ├── permanent-escorts.controller.ts # /settings/permanent-escorts endpoints
+├── vehicle-models.service.ts       # Vehicle models CRUD + manufacturers lookup + export
+├── vehicle-models.controller.ts    # /settings/vehicle-models endpoints
 └── notification-settings.service.ts # Per-event notification configuration
 ```
 

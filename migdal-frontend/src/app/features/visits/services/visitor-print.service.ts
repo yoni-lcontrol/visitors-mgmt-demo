@@ -102,7 +102,7 @@ export class VisitorPrintService {
                 });
             },
             error: (err) => {
-                const message = err?.error?.error?.message || err?.message || 'Print request failed';
+                const message = err?.error?.error?.message || err?.message || 'VISITS.PRINT_CARD_FAILED';
                 this.stateSubject.next({
                     status: 'failed',
                     correlationId: null,

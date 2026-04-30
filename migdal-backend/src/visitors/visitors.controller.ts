@@ -35,9 +35,9 @@ export class VisitorsController {
     findAll(
         @Query() query: PaginationQueryDto,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        return this.visitorsService.findAll(query, currentUserId, roles);
+        return this.visitorsService.findAll(query, currentUserId, permissions);
     }
 
     @Get('search')
@@ -46,9 +46,9 @@ export class VisitorsController {
     searchByPersonId(
         @Query('personId') personId: string,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        return this.visitorsService.searchByPersonId(personId, currentUserId, roles);
+        return this.visitorsService.searchByPersonId(personId, currentUserId, permissions);
     }
 
     @Get('export')
@@ -57,10 +57,10 @@ export class VisitorsController {
     async export(
         @Query() query: PaginationQueryDto,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
         @Res() res: Response,
     ) {
-        const file = await this.visitorsService.exportToExcel(query, currentUserId, roles);
+        const file = await this.visitorsService.exportToExcel(query, currentUserId, permissions);
         sendExcelResponse(res, file, 'visitors.xlsx');
     }
 
@@ -70,9 +70,9 @@ export class VisitorsController {
     findOne(
         @Param('id', ParseUUIDPipe) id: string,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        return this.visitorsService.findById(id, currentUserId, roles);
+        return this.visitorsService.findById(id, currentUserId, permissions);
     }
 
     @Post()
@@ -92,9 +92,9 @@ export class VisitorsController {
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: UpdateVisitorDto,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        return this.visitorsService.update(id, dto, currentUserId, roles);
+        return this.visitorsService.update(id, dto, currentUserId, permissions);
     }
 
     @Delete(':id')
@@ -104,8 +104,8 @@ export class VisitorsController {
     remove(
         @Param('id', ParseUUIDPipe) id: string,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        return this.visitorsService.remove(id, currentUserId, roles);
+        return this.visitorsService.remove(id, currentUserId, permissions);
     }
 }

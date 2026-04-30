@@ -4,11 +4,9 @@ import {
     IsOptional,
     IsEmail,
     Matches,
-    IsEnum,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { VehicleType } from '../enums/vehicle-type.enum';
 
 export class CreateVisitorDto {
     @ApiProperty({ example: '12345678' })
@@ -43,8 +41,8 @@ export class CreateVisitorDto {
     @IsString()
     carNumber?: string;
 
-    @ApiPropertyOptional({ enum: VehicleType, example: VehicleType.Private })
+    @ApiPropertyOptional({ example: 'Toyota Corolla' })
     @IsOptional()
-    @IsEnum(VehicleType)
-    vehicleType?: VehicleType;
+    @IsString()
+    vehicleType?: string;
 }

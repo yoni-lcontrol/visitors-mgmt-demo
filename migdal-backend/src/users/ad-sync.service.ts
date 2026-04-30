@@ -157,6 +157,11 @@ export class AdSyncService {
             const groupRoleResolver = await this.loadGroupRoleResolver(config.id);
             const configuredTargetGroups = this.resolveTargetGroupsForConfig(config, groupRoleResolver);
 
+            this.logger.log(
+                `Config "${config.name}" target groups (${configuredTargetGroups.length}): ${configuredTargetGroups.length ? configuredTargetGroups.join(', ') : '(none — all-users mode)'}` +
+                ` | mapping group names: [${groupRoleResolver.mappingGroupNames.join(', ')}]`,
+            );
+
             // Fetch users from AD
             const fetchStart = Date.now();
             const adUsers = configuredTargetGroups.length

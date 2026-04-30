@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Res, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Res, HttpCode, HttpStatus, UseInterceptors, ClassSerializerInterceptor } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { Response } from 'express';
 import { DoorService } from '../services/door.service';
@@ -13,6 +13,7 @@ import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 @ApiTags('Access Control - Doors')
 @ApiBearerAuth()
+@UseInterceptors(ClassSerializerInterceptor)
 @Controller('access-control/doors')
 export class DoorController {
     constructor(private readonly doorService: DoorService) { }

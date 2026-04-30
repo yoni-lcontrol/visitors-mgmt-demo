@@ -55,9 +55,8 @@ export class VisitsController {
         @Body() dto: CreateVisitDto,
         @CurrentUser('sub') currentUserId: string,
         @CurrentUser('permissions') permissions: string[],
-        @CurrentUser('roles') roles: string[],
     ) {
-        return this.visitsService.createVisit(dto, currentUserId, permissions, roles);
+        return this.visitsService.createVisit(dto, currentUserId, permissions);
     }
 
     @Get()
@@ -66,9 +65,9 @@ export class VisitsController {
     findAll(
         @Query() query: VisitsQueryDto,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        return this.visitsService.findAllVisits(query, currentUserId, roles);
+        return this.visitsService.findAllVisits(query, currentUserId, permissions);
     }
 
     @Get('export')
@@ -77,10 +76,10 @@ export class VisitsController {
     async export(
         @Query() query: VisitsQueryDto,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
         @Res() res: Response,
     ) {
-        const file = await this.visitsService.exportVisitsToExcel(query, currentUserId, roles);
+        const file = await this.visitsService.exportVisitsToExcel(query, currentUserId, permissions);
         sendExcelResponse(res, file, 'visits.xlsx');
     }
 
@@ -92,9 +91,9 @@ export class VisitsController {
         @Query('end') end: string,
         @Query('search') search?: string,
         @CurrentUser('sub') currentUserId?: string,
-        @CurrentUser('roles') roles?: string[],
+        @CurrentUser('permissions') permissions?: string[],
     ) {
-        return this.visitsService.findVisitsByDateRange(start, end, search, currentUserId, roles);
+        return this.visitsService.findVisitsByDateRange(start, end, search, currentUserId, permissions);
     }
 
     @Get('on-site')
@@ -109,9 +108,9 @@ export class VisitsController {
     @ApiOperation({ summary: 'Get today\'s visit summary counts' })
     getTodaySummary(
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        return this.visitsService.getTodaySummary(currentUserId, roles);
+        return this.visitsService.getTodaySummary(currentUserId, permissions);
     }
 
     @Get(':visitId')
@@ -120,9 +119,9 @@ export class VisitsController {
     findOne(
         @Param('visitId', ParseUUIDPipe) visitId: string,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        return this.visitsService.findVisitById(visitId, currentUserId, roles);
+        return this.visitsService.findVisitById(visitId, currentUserId, permissions);
     }
 
     @Put(':visitId')
@@ -143,9 +142,9 @@ export class VisitsController {
     remove(
         @Param('visitId', ParseUUIDPipe) visitId: string,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        return this.visitsService.removeVisit(visitId, currentUserId, roles);
+        return this.visitsService.removeVisit(visitId, currentUserId, permissions);
     }
 
     // -- Visit Visitors --
@@ -168,9 +167,9 @@ export class VisitsController {
     async getVisitors(
         @Param('visitId', ParseUUIDPipe) visitId: string,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        await this.visitsService.findVisitById(visitId, currentUserId, roles);
+        await this.visitsService.findVisitById(visitId, currentUserId, permissions);
         return this.participantService.getVisitVisitors(visitId);
     }
 
@@ -218,9 +217,9 @@ export class VisitsController {
     async getEscorts(
         @Param('visitId', ParseUUIDPipe) visitId: string,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        await this.visitsService.findVisitById(visitId, currentUserId, roles);
+        await this.visitsService.findVisitById(visitId, currentUserId, permissions);
         return this.participantService.getVisitEscorts(visitId);
     }
 
@@ -256,9 +255,9 @@ export class VisitsController {
     async getStatuses(
         @Param('visitId', ParseUUIDPipe) visitId: string,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        await this.visitsService.findVisitById(visitId, currentUserId, roles);
+        await this.visitsService.findVisitById(visitId, currentUserId, permissions);
         return this.statusService.getVisitorStatuses(visitId);
     }
 
@@ -268,9 +267,9 @@ export class VisitsController {
     async getHistory(
         @Param('visitId', ParseUUIDPipe) visitId: string,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        await this.visitsService.findVisitById(visitId, currentUserId, roles);
+        await this.visitsService.findVisitById(visitId, currentUserId, permissions);
         return this.statusService.getVisitHistory(visitId);
     }
 
@@ -294,9 +293,9 @@ export class VisitsController {
     async getCheckInCodes(
         @Param('visitId', ParseUUIDPipe) visitId: string,
         @CurrentUser('sub') currentUserId: string,
-        @CurrentUser('roles') roles: string[],
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        await this.visitsService.findVisitById(visitId, currentUserId, roles);
+        await this.visitsService.findVisitById(visitId, currentUserId, permissions);
         return this.checkInCodeService.getCodesForVisit(visitId);
     }
 

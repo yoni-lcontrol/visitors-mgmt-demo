@@ -29,6 +29,7 @@ export class SystemUserSearchService {
             limit: 10,
             sortBy: 'firstName',
             sortOrder: 'ASC',
+            filters: JSON.stringify({ isActive: { value: true, matchMode: 'equals' } }),
         }).pipe(
             map((result) => result.items.map((user) => ({
                 id: user.id,

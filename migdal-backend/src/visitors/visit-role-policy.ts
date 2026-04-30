@@ -1,43 +1,33 @@
-export const VisitRoleName = {
-    TowerEmployee: 'עובד מגדל',
-    TrainingCenter: 'מרכז הדרכות',
-    SecurityDesk: 'מוקד ביטחון',
-    ReceptionDesk: 'דלפקים',
-    Kabat: 'קב"ט',
-} as const;
+import { PermissionKey } from '../common/enums/permission-key.enum';
 
 interface CreatorScopeRequirements {
     includeCurrentUser: boolean;
     includeTrainingCenterUsers: boolean;
 }
 
-function normalizeRoles(userRoles: string[] | undefined): Set<string> {
-    return new Set((userRoles ?? []).map((role) => role.trim().toLowerCase()));
+function hasPermission(userPermissions: string[] | undefined, permission: PermissionKey): boolean {
+    return (userPermissions ?? []).includes(permission);
 }
 
-function hasRole(userRoles: string[] | undefined, roleName: string): boolean {
-    return normalizeRoles(userRoles).has(roleName.trim().toLowerCase());
-}
-
-export function isEscortRequiredForVisit(userRoles: string[] | undefined, isSelfRequester: boolean): boolean {
-    if (hasRole(userRoles, VisitRoleName.TowerEmployee)) {
+export function isEscortRequiredForVisit(userPermissions: string[] | undefined, isSelfRequester: boolean): boolean {
+    if (hasPermission(userPermissions, PermissionKey.VisitsEscortRequired)) {
         return true;
     }
 
-    if (hasRole(userRoles, VisitRoleName.SecurityDesk) && isSelfRequester) {
+    if (hasPermission(userPermissions, PermissionKey.VisitsEscortRequiredSelfRequester) && isSelfRequester) {
         return true;
     }
 
     return false;
 }
 
-export function isOnBehalfOnlyRole(userRoles: string[] | undefined): boolean {
-    return hasRole(userRoles, VisitRoleName.ReceptionDesk) || hasRole(userRoles, VisitRoleName.Kabat);
+export function isOnBehalfOnlyRole(userPermissions: string[] | undefined): boolean {
+    return hasPermission(userPermissions, PermissionKey.VisitsOnBehalfOnly);
 }
 
-export function resolveCreatorScopeRequirements(userRoles: string[] | undefined): CreatorScopeRequirements | null {
-    const includeCurrentUser = hasRole(userRoles, VisitRoleName.TowerEmployee);
-    const includeTrainingCenterUsers = hasRole(userRoles, VisitRoleName.TrainingCenter);
+export function resolveCreatorScopeRequirements(userPermissions: string[] | undefined): CreatorScopeRequirements | null {
+    const includeCurrentUser = hasPermission(userPermissions, PermissionKey.VisitsScopeOwn);
+    const includeTrainingCenterUsers = hasPermission(userPermissions, PermissionKey.VisitsScopeTrainingCenter);
 
     if (!includeCurrentUser && !includeTrainingCenterUsers) {
         return null;
@@ -49,6 +39,6 @@ export function resolveCreatorScopeRequirements(userRoles: string[] | undefined)
     };
 }
 
-export function shouldRestrictDeletionToOwnVisits(userRoles: string[] | undefined): boolean {
-    return hasRole(userRoles, VisitRoleName.ReceptionDesk);
+export function shouldRestrictDeletionToOwnVisits(userPermissions: string[] | undefined): boolean {
+    return hasPermission(userPermissions, PermissionKey.VisitsDeleteOwnOnly);
 }

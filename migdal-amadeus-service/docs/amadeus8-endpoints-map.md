@@ -77,7 +77,14 @@ The app exposes a local unified `AccessLevel` read model, and persistence retain
 Normalized access-level import:
 - Reads from both `API_AccessGroups` and `API_SecurityGroups`
 - Upserts to local `AccessLevels` table using composite key (`SourceType`, `AmadeusUid`)
+- Captures `externalId` field from OData into `AccessLevelEntity.ExternalId`
 - Tracks and logs summary counts: total received, created, updated, unchanged, skipped, failed
+
+## Active status rules
+- Import/sync never overwrites the local `IsActive` flag on existing records
+- New records default to `IsActive = true`
+- Status changes are managed via `PUT /api/equipment-status` (see backend-api.md)
+- Events are only forwarded for equipment where `IsActive = true` (door + controller both active)
 
 ## Implementation note
 - Code-level route definitions used by services are centralized in `Services/BackendApiDefinitions.cs`.

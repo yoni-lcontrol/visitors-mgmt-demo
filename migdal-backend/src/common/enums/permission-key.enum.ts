@@ -33,6 +33,12 @@ export enum PermissionKey {
     VisitsDelete = 'visits.delete',
     VisitsCheckInCodeSend = 'visits.check-in-code.send',
     VisitsCheckInCodeRegenerate = 'visits.check-in-code.regenerate',
+    VisitsOnBehalfOnly = 'visits.on-behalf-only',
+    VisitsEscortRequired = 'visits.escort.required',
+    VisitsEscortRequiredSelfRequester = 'visits.escort.required.self-requester',
+    VisitsScopeOwn = 'visits.scope.own',
+    VisitsScopeTrainingCenter = 'visits.scope.training-center',
+    VisitsDeleteOwnOnly = 'visits.delete.own-only',
 
     // Visitors
     VisitorsCreate = 'visitors.create',
@@ -40,6 +46,7 @@ export enum PermissionKey {
     VisitorsUpdate = 'visitors.update',
     VisitorsDelete = 'visitors.delete',
     VisitorsExport = 'visitors.export',
+    VisitorsScopeOwn = 'visitors.scope.own',
 
     // Settings
     SettingsRead = 'settings.read',
@@ -88,4 +95,11 @@ export enum PermissionKey {
     BuildingsRead = 'buildings.read',
     BuildingsCreate = 'buildings.create',
     BuildingsUpdate = 'buildings.update',
+
+    // Vehicle Models
+    VehicleModelsView = 'vehicle-models.view',
+    VehicleModelsCreate = 'vehicle-models.create',
+    VehicleModelsUpdate = 'vehicle-models.update',
+    VehicleModelsDelete = 'vehicle-models.delete',
+    VehicleModelsExport = 'vehicle-models.export',
 }

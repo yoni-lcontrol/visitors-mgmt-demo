@@ -72,6 +72,15 @@ export const SETTINGS_ROUTES: Routes = [
             ),
     },
     {
+        path: 'vehicle-models',
+        canActivate: [permissionGuard],
+        data: { permission: 'vehicle-models.view' },
+        loadComponent: () =>
+            import('./vehicle-models/vehicle-model-list.component').then(
+                (m) => m.VehicleModelListComponent,
+            ),
+    },
+    {
         path: 'permanent-escorts',
         canActivate: [permissionGuard],
         data: { permission: 'settings.permanent-escorts.read' },

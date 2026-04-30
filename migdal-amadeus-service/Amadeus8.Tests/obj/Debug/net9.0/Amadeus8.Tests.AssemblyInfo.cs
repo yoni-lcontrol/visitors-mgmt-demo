@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Amadeus8.Tests")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6e2750ca6e62f9a092511d2e33130094deab3968")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+57b966fcd742a26fa3ce7fa60b8f63f47c873e8e")]
 [assembly: System.Reflection.AssemblyProductAttribute("Amadeus8.Tests")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Amadeus8.Tests")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

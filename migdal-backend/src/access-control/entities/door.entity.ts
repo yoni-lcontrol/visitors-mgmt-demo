@@ -1,4 +1,5 @@
 import { Entity, Column, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { Exclude } from 'class-transformer';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { AcController } from './ac-controller.entity';
 import { DoorIo } from './door-io.entity';
@@ -17,6 +18,7 @@ export class Door extends BaseEntity {
     @Column({ type: 'int', default: 0 })
     entryType!: number;
 
+    @Exclude()
     @Column({ type: 'nvarchar', length: 200, nullable: true, unique: true })
     externalId!: string | null;
 

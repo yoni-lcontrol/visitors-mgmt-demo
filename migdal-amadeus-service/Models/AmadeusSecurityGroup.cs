@@ -15,4 +15,7 @@ public class AmadeusSecurityGroup
 
     [JsonPropertyName("description")]
     public string? Description { get; set; }
+
+    [JsonPropertyName("externalId")]
+    public string? ExternalId { get; set; }
 }

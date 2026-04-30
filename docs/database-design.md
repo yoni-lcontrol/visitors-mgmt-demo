@@ -222,14 +222,6 @@ audit.read, audit.export
 | Operator | Most read/write except settings and user management | true |
 | Viewer | All .read permissions only | true |
 
-### Default Admin User
-
-```
-Email:    admin@migdal.local
-Password: Admin@123456 (bcrypt hashed)
-Roles:    [Admin]
-```
-
 ### Default AD Group to Role Mappings
 
 The seed creates global (`adSourceId = null`) AD group-role mappings in `AdGroupRoleMappings`.

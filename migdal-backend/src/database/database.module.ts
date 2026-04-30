@@ -73,8 +73,13 @@ const entities = [
                 synchronize: false,
                 logging: configService.get<string>('APP_ENV') === 'development',
                 options: {
-                    encrypt: false, // Set true for Azure SQL
+                    encrypt: configService.get<string>('DB_ENCRYPT', 'false') === 'true',
                     trustServerCertificate: true, // Dev only
+                },
+                extra: {
+                    ...(configService.get<string>('DB_DOMAIN') && {
+                        domain: configService.get<string>('DB_DOMAIN'),
+                    }),
                 },
             }),
         }),

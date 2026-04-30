@@ -1,4 +1,5 @@
 import { Entity, Column, OneToMany } from 'typeorm';
+import { Exclude } from 'class-transformer';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { Door } from './door.entity';
 import { Extension } from './extension.entity';
@@ -20,6 +21,7 @@ export class AcController extends BaseEntity {
     @Column({ type: 'int', default: 0 })
     port!: number;
 
+    @Exclude()
     @Column({ type: 'nvarchar', length: 200, nullable: true, unique: true })
     externalId!: string | null;
 

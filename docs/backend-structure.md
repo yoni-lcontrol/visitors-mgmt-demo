@@ -119,7 +119,7 @@ All major list endpoints accept an optional `siteId` query parameter to filter r
 | Audit | `buildFindAllQuery()` | AuditLogs |
 | Blacklist | `buildQuery()` | BlacklistEntries |
 | Access Control | `buildFindAllQuery()` | AcControllers |
-| Workstations | `findAllWithDeviceStatus()` | Workstations |
+| Workstations | `findAllWithDeviceStatus(query)` | Workstations (paginated) |
 | Buildings | (via frontend context) | Buildings |
 
 ### User-Site Assignment

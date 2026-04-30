@@ -5,6 +5,7 @@ import {
     WorkstationListItem,
     WorkstationDetail,
     CreateEnrollmentTokenResponse,
+    PaginatedResult,
 } from '../../core/models/entities.model';
 
 @Injectable({ providedIn: 'root' })
@@ -12,8 +13,8 @@ export class WorkstationsApiService {
     private readonly api = inject(ApiService);
     private readonly basePath = '/workstations';
 
-    getAll(): Observable<WorkstationListItem[]> {
-        return this.api.get<WorkstationListItem[]>(this.basePath);
+    getAll(params?: Record<string, any>): Observable<PaginatedResult<WorkstationListItem>> {
+        return this.api.get<PaginatedResult<WorkstationListItem>>(this.basePath, params);
     }
 
     getById(id: string): Observable<WorkstationDetail> {

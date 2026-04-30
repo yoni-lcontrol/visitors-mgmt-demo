@@ -16,6 +16,8 @@ public class AccessLevelEntity
 
     public string? Description { get; set; }
 
+    public string? ExternalId { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public DateTime CreatedUtc { get; set; }

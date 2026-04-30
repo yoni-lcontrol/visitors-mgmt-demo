@@ -222,6 +222,7 @@ If application complexity grows significantly (offline mode, complex undo/redo, 
 
 ### Workstation Admin (Settings)
 - `WorkstationListComponent` under Settings provides admin CRUD for workstations (requires `workstations.read`)
+- Uses PrimeNG lazy table with server-side pagination, sorting, and search
 - Table shows: code, display name, description, machine ID, device status, assigned roles count
 - Create/Edit dialog for workstation fields (edit mode includes inline role assignment toggles, default card template dropdown)
 - Agent enrollment dialog: select provider type → generate one-time token → display for agent installer
@@ -294,8 +295,8 @@ All major list pages inject `SiteContextService` and pass `siteId` in their API 
 | Page | Service Method | Behavior |
 |------|---------------|----------|
 | `VisitListComponent` | `visits.findAll({ siteId })` | Filters visits by site |
-| `BuildingListComponent` | `buildings.findAll({ siteId })` | Filters buildings by site |
-| `WorkstationListComponent` | `workstations.findAll(siteId)` | Filters workstations by site |
+| `BuildingListComponent` | `buildings.findAll({ siteId })` | Filters buildings by site (lazy paginated) |
+| `WorkstationListComponent` | `workstations.findAll({ siteId })` | Filters workstations by site (lazy paginated) |
 | `AuditLogListComponent` | `audit.findAll({ siteId })` | Filters audit logs by site |
 | `BlacklistListComponent` | `blacklist.findAll({ siteId })` | Filters blacklist entries by site |
 

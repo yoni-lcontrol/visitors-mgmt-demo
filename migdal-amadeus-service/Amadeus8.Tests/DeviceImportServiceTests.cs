@@ -200,6 +200,37 @@ public class DeviceImportServiceTests
         Assert.Equal("New Name", updated.Name);
     }
 
+    [Fact]
+    public async Task ImportControllersAsync_DoesNotOverwriteIsActive()
+    {
+        await using var db = CreateDbContext();
+        db.Controllers.Add(new ControllerEntity
+        {
+            ExternalId = "ctrl-1",
+            Name = "Controller 1",
+            IsActive = false,
+            CreatedUtc = DateTime.UtcNow,
+            UpdatedUtc = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var api = new FakeAmadeusApiClient
+        {
+            ControllerPages =
+            [
+                ([new AmadeusController { Id = "ctrl-1", Name = "Controller 1 Updated", IsActive = true }], 1)
+            ]
+        };
+
+        var sut = CreateSut(api, db);
+
+        await sut.ImportControllersAsync(CancellationToken.None);
+
+        var entity = await db.Controllers.AsNoTracking().SingleAsync(x => x.ExternalId == "ctrl-1");
+        Assert.False(entity.IsActive, "IsActive should not be overwritten during import");
+        Assert.Equal("Controller 1 Updated", entity.Name);
+    }
+
     private static DeviceImportService CreateSut(IAmadeusApiClient api, AmadeusDbContext db)
     {
         return new DeviceImportService(

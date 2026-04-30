@@ -1,9 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Client } from 'ldapts';
 import { User } from './entities/user.entity';
 import { AdConfiguration } from '../settings/entities/ad-configuration.entity';
+import { AdGroupRoleMapping } from '../ad-group-role-mappings/entities/ad-group-role-mapping.entity';
 import { SectorsService } from '../sectors/sectors.service';
 
 export interface AdImportResult {
@@ -33,6 +34,8 @@ export class AdImportService {
         private readonly userRepo: Repository<User>,
         @InjectRepository(AdConfiguration)
         private readonly adConfigRepo: Repository<AdConfiguration>,
+        @InjectRepository(AdGroupRoleMapping)
+        private readonly adGroupRoleMappingRepo: Repository<AdGroupRoleMapping>,
         private readonly sectorsService: SectorsService,
     ) { }
 
@@ -84,7 +87,22 @@ export class AdImportService {
             await client.bind(bindDn, config.password);
 
             const baseDn = config.baseDn ?? `DC=${config.domain.split('.').join(',DC=')}`;
-            const filter = '(&(objectClass=user)(objectCategory=person))';
+
+            // Build group-scoped filter from AdGroupRoleMappings
+            const targetGroups = await this.resolveTargetGroups(config.id);
+            let filter: string;
+            if (targetGroups.length) {
+                const groupDns = await this.resolveGroupDns(client, baseDn, targetGroups);
+                if (groupDns.length) {
+                    const memberOfClauses = groupDns.map(dn => `(memberOf=${this.escapeLdapFilterValue(dn)})`).join('');
+                    filter = `(&(objectClass=user)(objectCategory=person)(|${memberOfClauses}))`;
+                } else {
+                    this.logger.warn(`None of the configured AD groups were found for "${config.name}", fetching all users`);
+                    filter = '(&(objectClass=user)(objectCategory=person))';
+                }
+            } else {
+                filter = '(&(objectClass=user)(objectCategory=person))';
+            }
 
             const { searchEntries } = await client.search(baseDn, {
                 scope: 'sub',
@@ -189,6 +207,55 @@ export class AdImportService {
         }
 
         return { imported, updated, skipped };
+    }
+
+    private async resolveTargetGroups(configId: string): Promise<string[]> {
+        const mappings = await this.adGroupRoleMappingRepo.find({
+            where: [
+                { adSourceId: configId },
+                { adSourceId: IsNull() },
+            ],
+        });
+
+        const unique = new Map<string, string>();
+        for (const mapping of mappings) {
+            const name = mapping.groupName?.trim();
+            if (name) {
+                const key = name.toLowerCase();
+                if (!unique.has(key)) unique.set(key, name);
+            }
+        }
+        return [...unique.values()];
+    }
+
+    private async resolveGroupDns(client: Client, baseDn: string, groupNames: string[]): Promise<string[]> {
+        const dns: string[] = [];
+        for (const name of groupNames) {
+            const escaped = this.escapeLdapFilterValue(name);
+            const { searchEntries } = await client.search(baseDn, {
+                scope: 'sub',
+                filter: `(&(objectClass=group)(|(cn=${escaped})(name=${escaped})))`,
+                attributes: ['distinguishedName'],
+                sizeLimit: 5,
+                timeLimit: 15,
+            });
+            if (searchEntries.length) {
+                const dn = this.getAttr(searchEntries[0], 'distinguishedName');
+                if (dn) dns.push(dn);
+            } else {
+                this.logger.warn(`AD group "${name}" not found`);
+            }
+        }
+        return dns;
+    }
+
+    private escapeLdapFilterValue(value: string): string {
+        return value
+            .replace(/\\/g, '\\5c')
+            .replace(/\*/g, '\\2a')
+            .replace(/\(/g, '\\28')
+            .replace(/\)/g, '\\29')
+            .replace(/\u0000/g, '\\00');
     }
 
     private getAttr(entry: Record<string, unknown>, attr: string): string {

@@ -164,12 +164,6 @@ ng serve                     # Start in development mode
 
 App available at: `http://localhost:4200`
 
-### Default Admin Credentials (after seeding)
-
-```
-Username: admin
-Password: Admin@123456
-```
 
 > **Change these immediately in production.**
 

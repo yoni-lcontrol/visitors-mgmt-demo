@@ -19,11 +19,11 @@ public class AccessLevelImportServiceTests
         {
             AccessGroupPages =
             [
-                ([new AmadeusAccessGroup { Id = "ag-1", Name = "Access Group 1", ApiKey = "ag-key-1" }], 1)
+                ([new AmadeusAccessGroup { Id = "ag-1", Name = "Access Group 1", ApiKey = "ag-key-1", ExternalId = "ext-ag-1" }], 1)
             ],
             SecurityGroupPages =
             [
-                ([new AmadeusSecurityGroup { Id = "sg-1", Name = "Security Group 1", ApiKey = "sg-key-1" }], 1)
+                ([new AmadeusSecurityGroup { Id = "sg-1", Name = "Security Group 1", ApiKey = "sg-key-1", ExternalId = "ext-sg-1" }], 1)
             ]
         };
 
@@ -40,8 +40,8 @@ public class AccessLevelImportServiceTests
 
         var rows = await db.AccessLevels.AsNoTracking().OrderBy(x => x.SourceType).ToListAsync();
         Assert.Equal(2, rows.Count);
-        Assert.Contains(rows, x => x.SourceType == "AccessGroup" && x.AmadeusUid == "ag-1");
-        Assert.Contains(rows, x => x.SourceType == "SecurityGroup" && x.AmadeusUid == "sg-1");
+        Assert.Contains(rows, x => x.SourceType == "AccessGroup" && x.AmadeusUid == "ag-1" && x.ExternalId == "ag-1");
+        Assert.Contains(rows, x => x.SourceType == "SecurityGroup" && x.AmadeusUid == "sg-1" && x.ExternalId == "sg-1");
     }
 
     [Fact]
@@ -54,6 +54,7 @@ public class AccessLevelImportServiceTests
             AmadeusUid = "ag-1",
             Name = "Old Name",
             ApiKey = "old-key",
+            ExternalId = "old-ext",
             IsActive = true,
             CreatedUtc = DateTime.UtcNow,
             UpdatedUtc = DateTime.UtcNow
@@ -65,7 +66,7 @@ public class AccessLevelImportServiceTests
             AccessGroupPages =
             [
                 ([
-                    new AmadeusAccessGroup { Id = "ag-1", Name = "New Name", ApiKey = "new-key" },
+                    new AmadeusAccessGroup { Id = "ag-1", Name = "New Name", ApiKey = "new-key", ExternalId = "new-ext" },
                     new AmadeusAccessGroup { Id = "", Name = "Broken" }
                 ], 2)
             ],
@@ -89,6 +90,40 @@ public class AccessLevelImportServiceTests
         var updated = await db.AccessLevels.AsNoTracking().SingleAsync(x => x.SourceType == "AccessGroup" && x.AmadeusUid == "ag-1");
         Assert.Equal("New Name", updated.Name);
         Assert.Equal("new-key", updated.ApiKey);
+        Assert.Equal("ag-1", updated.ExternalId);
+    }
+
+    [Fact]
+    public async Task ImportAccessLevelsAsync_DoesNotOverwriteIsActive()
+    {
+        await using var db = CreateDbContext();
+        db.AccessLevels.Add(new AccessLevelEntity
+        {
+            SourceType = "AccessGroup",
+            AmadeusUid = "ag-1",
+            Name = "Level 1",
+            ApiKey = "key-1",
+            IsActive = false,
+            CreatedUtc = DateTime.UtcNow,
+            UpdatedUtc = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var api = new FakeAmadeusApiClient
+        {
+            AccessGroupPages =
+            [
+                ([new AmadeusAccessGroup { Id = "ag-1", Name = "Level 1 Updated", ApiKey = "key-1" }], 1)
+            ],
+            SecurityGroupPages = []
+        };
+
+        var sut = CreateSut(api, db, batchSize: 100);
+
+        await sut.ImportAccessLevelsAsync(CancellationToken.None);
+
+        var entity = await db.AccessLevels.AsNoTracking().SingleAsync(x => x.AmadeusUid == "ag-1");
+        Assert.False(entity.IsActive, "IsActive should not be overwritten during import");
     }
 
     private static AccessLevelImportService CreateSut(FakeAmadeusApiClient api, AmadeusDbContext db, int batchSize)

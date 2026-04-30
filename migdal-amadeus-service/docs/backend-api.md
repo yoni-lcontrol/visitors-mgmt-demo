@@ -49,6 +49,13 @@ Active event forwarding uses:
 - Throws on final failure so callers can persist `ForwardFailed` status.
 - Payload type: `DTOs/BackendAmadeusEventDto.cs`.
 
+## Equipment Status Change API
+- `PUT /api/equipment-status` — change the active status of any equipment type.
+- Request body: `{ "externalId": "...", "equipmentType": "controller|door|doorio|extension|extensionio|accesslevel", "isActive": true/false }`
+- Response: `{ "success": true/false, "errorMessage": "...", "externalId": "...", "equipmentType": "...", "isActive": ... }`
+- This is the only way to change `IsActive` — imports never overwrite it.
+- Called by the NestJS backend when users toggle equipment status in the UI.
+
 See also: `docs/event-processing.md` → Event Mapping.
 
 ## Startup Central Equipment Load

@@ -40,6 +40,7 @@ Purpose:
 - Log counts for created, updated, unchanged, and failed records.
 - Never compare against central DB using direct DB access from this service.
 - Central-system comparison data must be fetched through backend APIs only.
+- **Import must NOT overwrite the local `IsActive` status** on any existing record (controllers, doors, door IOs, extensions, extension IOs, access levels). The `IsActive` flag is managed locally via the status-change API. New records default to `IsActive = true`.
 
 ## Batch/Paged Import Strategy
 - Infrastructure and access-model imports run in pages using Amadeus OData paging parameters (`$skip`, `$top`, `$count=true`).

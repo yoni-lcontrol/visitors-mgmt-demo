@@ -410,7 +410,7 @@ public class DeviceImportService : IDeviceImportService
             if (existing.Name != (ext.Name ?? ext.Id)) { existing.Name = ext.Name ?? ext.Id; changed = true; }
             if (existing.ExternalApiKey != ext.ApiKey) { existing.ExternalApiKey = ext.ApiKey; changed = true; }
             if (existing.SiteExternalId != ext.SiteId) { existing.SiteExternalId = ext.SiteId; changed = true; }
-            if (existing.IsActive != (ext.IsActive ?? true)) { existing.IsActive = ext.IsActive ?? true; changed = true; }
+            // Note: IsActive is intentionally NOT overwritten during import — it is managed locally.
             if (existing.LastCommunicationStatus != ext.CommStatus) { existing.LastCommunicationStatus = ext.CommStatus; changed = true; }
 
             if (changed)
@@ -486,6 +486,7 @@ public class DeviceImportService : IDeviceImportService
             if (existing.ControllerId != controller.Id) { existing.ControllerId = controller.Id; changed = true; }
             if (existing.PrimaryOutputExternalId != reader.OutputId) { existing.PrimaryOutputExternalId = reader.OutputId; changed = true; }
             if (existing.DoorContactInputExternalId != reader.DoorContactInputId) { existing.DoorContactInputExternalId = reader.DoorContactInputId; changed = true; }
+            // Note: IsActive is intentionally NOT overwritten during import — it is managed locally.
 
             if (changed)
             {

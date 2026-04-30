@@ -4,6 +4,7 @@ import { TranslateModule } from '@ngx-translate/core';
 import { TableModule } from 'primeng/table';
 import { DialogModule } from 'primeng/dialog';
 import { MultiSelectModule } from 'primeng/multiselect';
+import { InputTextModule } from 'primeng/inputtext';
 import { HasPermissionDirective } from '@core/permissions/has-permission.directive';
 import { NotificationService } from '@core/notifications/notification.service';
 import { BuildingsApiService, Building } from '../../services/buildings-api.service';
@@ -12,7 +13,7 @@ import { AccessLevel } from '@core/models/entities.model';
 @Component({
     selector: 'app-building-list',
     standalone: true,
-    imports: [FormsModule, TranslateModule, TableModule, DialogModule, MultiSelectModule, HasPermissionDirective],
+    imports: [FormsModule, TranslateModule, TableModule, DialogModule, MultiSelectModule, InputTextModule, HasPermissionDirective],
     template: `
         <div class="page-header">
             <div class="header-info">
@@ -27,12 +28,21 @@ import { AccessLevel } from '@core/models/entities.model';
         </div>
 
         <div class="card table-card">
-            <p-table [value]="buildings" [loading]="loading" [paginator]="true" [rows]="20"
-                [showCurrentPageReport]="true" [rowsPerPageOptions]="[10, 20, 50]"
+            <p-table #dt [value]="buildings" [lazy]="true" (onLazyLoad)="onLazyLoad($event)"
+                [loading]="loading" [totalRecords]="totalRecords" [paginator]="true" [rows]="rows" [first]="first"
+                [showCurrentPageReport]="true" [rowsPerPageOptions]="[10, 25, 50]"
                 dataKey="id"
                 styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines"
                 currentPageReportTemplate="{first}-{last} / {totalRecords}"
                 paginatorDropdownAppendTo="body">
+                <ng-template pTemplate="caption">
+                    <div class="table-header">
+                        <span class="p-input-icon-left">
+                            <i class="pi pi-search"></i>
+                            <input pInputText type="text" (input)="dt.filterGlobal($any($event.target).value, 'contains')" [placeholder]="'COMMON.SEARCH' | translate" />
+                        </span>
+                    </div>
+                </ng-template>
                 <ng-template pTemplate="header">
                     <tr>
                         <th>{{ 'BUILDINGS.NAME' | translate }}</th>
@@ -140,7 +150,11 @@ export class BuildingListComponent implements OnInit {
 
     buildings: Building[] = [];
     accessLevelOptions: AccessLevel[] = [];
+    totalRecords = 0;
+    rows = 25;
+    first = 0;
     loading = false;
+    private lastLazyEvent: any = { first: 0, rows: 25, sortField: 'name', sortOrder: 1, filters: {} };
     showDialog = false;
     editing: Building | null = null;
     saving = false;
@@ -151,12 +165,32 @@ export class BuildingListComponent implements OnInit {
         this.loadAccessLevels();
     }
 
-    loadData(): void {
+    loadData(event: any = this.lastLazyEvent): void {
         this.loading = true;
-        this.buildingsApi.getAll({ limit: 100 }).subscribe({
-            next: (r) => { this.buildings = r.items; this.loading = false; },
+        this.lastLazyEvent = event;
+        this.first = event.first ?? 0;
+        this.rows = event.rows ?? 25;
+
+        const page = Math.floor(this.first / this.rows) + 1;
+        const sortField = event.sortField || 'name';
+        const params: Record<string, any> = {
+            page,
+            limit: this.rows,
+            sortBy: sortField,
+            sortOrder: (event.sortOrder || 1) === 1 ? 'ASC' : 'DESC',
+        };
+
+        const global = event.filters?.global?.value;
+        if (global) params['search'] = global;
+
+        this.buildingsApi.getAll(params).subscribe({
+            next: (r) => { this.buildings = r.items; this.totalRecords = r.total; this.loading = false; },
             error: () => { this.loading = false; },
         });
+    }
+
+    onLazyLoad(event: any): void {
+        this.loadData(event);
     }
 
     loadAccessLevels(): void {

@@ -69,6 +69,8 @@ export class AdSyncAdapterService {
                 ? await this.buildGroupScopedUserFilter(client, baseDn, resolvedTargetGroups)
                 : '(&(objectClass=user)(objectCategory=person))';
 
+            this.logger.log(`AD search baseDn="${baseDn}", filter="${searchFilter}"`);
+
             const { searchEntries } = await client.search(baseDn, {
                 scope: 'sub',
                 filter: searchFilter,
@@ -115,7 +117,6 @@ export class AdSyncAdapterService {
             'employeeID',
             'company',
             'memberOf',
-            'tokenGroups',
             'userAccountControl',
         ];
     }
@@ -164,6 +165,8 @@ export class AdSyncAdapterService {
                 `None of the configured AD groups were found: ${targetGroups.join(', ')}`,
             );
         }
+
+        this.logger.log(`Resolved ${resolvedDns.length} group DN(s): ${resolvedDns.join(' | ')}`);
 
         const groupMembershipFilter = resolvedDns
             .map((dn) => `(memberOf=${this.escapeLdapFilterValue(dn)})`)

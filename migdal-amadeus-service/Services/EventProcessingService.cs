@@ -54,9 +54,7 @@ public class EventProcessingService : IEventProcessingService
         var context = AmadeusEventContext.TryParse(rawPayloadJson, signalRMethodName);
         if (context is null)
         {
-            _logger.LogWarning("Malformed JSON payload from {Method}, persisting as failed", signalRMethodName);
-            await PersistFailedEventAsync(rawPayloadJson, signalRMethodName, "InvalidJson",
-                "JSON parse failed", cancellationToken);
+            _logger.LogWarning("No data in event payload from {Method}, skipping", signalRMethodName);
             return;
         }
 
@@ -82,37 +80,30 @@ public class EventProcessingService : IEventProcessingService
         // ── 3. Equipment resolution & active-status filter ────────────────────
         var resolution = await _equipmentResolver.ResolveAsync(context, cancellationToken);
 
-        string processingStatus;
-
         if (!resolution.IsFound)
         {
             _logger.LogDebug(
                 "Event {Method} uid={Uid} readerUID={ReaderUid}: " +
                 "no matching equipment found in local database — skipping",
                 signalRMethodName, context.EventUid ?? "N/A", context.ReaderUid ?? "(none)");
-
-            processingStatus = "SkippedEquipmentNotFound";
+            return;
         }
-        else if (!resolution.IsActive)
+
+        if (!resolution.IsActive)
         {
-            _logger.LogInformation(
+            _logger.LogDebug(
                 "Event {Method} uid={Uid} readerUID={ReaderUid}: " +
                 "equipment '{Equipment}' ({Kind}) is inactive — skipping",
                 signalRMethodName, context.EventUid ?? "N/A", context.ReaderUid ?? "(none)",
                 resolution.EquipmentName, resolution.EquipmentKind);
-
-            processingStatus = "SkippedInactiveEquipment";
+            return;
         }
-        else
-        {
-            _logger.LogDebug(
-                "Event {Method} uid={Uid} readerUID={ReaderUid}: " +
-                "equipment '{Equipment}' ({Kind}) matched and active — forwarding",
-                signalRMethodName, context.EventUid ?? "N/A", context.ReaderUid ?? "(none)",
-                resolution.EquipmentName, resolution.EquipmentKind);
 
-            processingStatus = "ReadyToForward";
-        }
+        _logger.LogDebug(
+            "Event {Method} uid={Uid} readerUID={ReaderUid}: " +
+            "equipment '{Equipment}' ({Kind}) matched and active — forwarding",
+            signalRMethodName, context.EventUid ?? "N/A", context.ReaderUid ?? "(none)",
+            resolution.EquipmentName, resolution.EquipmentKind);
 
         // ── 4. Persist event log ─────────────────────────────────────────────
         DateTime? sourceEventUtc = null;
@@ -136,16 +127,13 @@ public class EventProcessingService : IEventProcessingService
                                 ?? context.InputUid
                                 ?? context.OutputUid,
             RawPayloadJson   = rawPayloadJson,
-            ProcessingStatus = processingStatus
+            ProcessingStatus = "ReadyToForward"
         };
 
         _dbContext.EventLogs.Add(eventLog);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // ── 5. Forward to backend (only when equipment is known and active) ───
-        if (!resolution.ShouldForward)
-            return;
-
+        // ── 5. Forward to backend ─────────────────────────────────────────────
         var normalizedEvents = _eventMapper.Map(context, resolution, rawPayloadJson, eventLog.ReceivedUtc);
         if (normalizedEvents.Count == 0)
         {

@@ -1,7 +1,9 @@
+using Amadeus8.Configurations;
 using Amadeus8.Data;
 using Amadeus8.DTOs;
 using Amadeus8.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Amadeus8.Services;
 
@@ -9,15 +11,18 @@ public class CardholderCommandService : ICardholderCommandService
 {
     private readonly IAmadeusApiClient _apiClient;
     private readonly AmadeusDbContext _dbContext;
+    private readonly AmadeusOptions _options;
     private readonly ILogger<CardholderCommandService> _logger;
 
     public CardholderCommandService(
         IAmadeusApiClient apiClient,
         AmadeusDbContext dbContext,
+        IOptions<AmadeusOptions> options,
         ILogger<CardholderCommandService> logger)
     {
         _apiClient = apiClient;
         _dbContext = dbContext;
+        _options = options.Value;
         _logger = logger;
     }
 
@@ -85,6 +90,109 @@ public class CardholderCommandService : ICardholderCommandService
         }
 
         _logger.LogInformation("Cardholder {Uid} updated", amadeusUid);
+    }
+
+    public async Task<VisitorCreationResultDto> DeleteVisitorAsync(string amadeusUid, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Starting visitor deletion from Amadeus. AmadeusUid: {Uid}", amadeusUid);
+
+        if (string.IsNullOrWhiteSpace(amadeusUid))
+        {
+            _logger.LogWarning("DeleteVisitor called with empty AmadeusUid");
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                SyncStatus = "Failed",
+                ErrorMessage = "AmadeusUid is required",
+                IsRetryable = false
+            };
+        }
+
+        var entity = await _dbContext.Cardholders
+            .FirstOrDefaultAsync(c => c.AmadeusUid == amadeusUid, cancellationToken);
+
+        if (entity is null)
+        {
+            _logger.LogWarning("Visitor {Uid} not found locally", amadeusUid);
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                SyncStatus = "Failed",
+                ErrorMessage = "Visitor not found",
+                IsRetryable = false
+            };
+        }
+
+        if (string.IsNullOrWhiteSpace(_options.VisitorCardholderTypeUid))
+        {
+            _logger.LogError("VisitorCardholderTypeUid is not configured. Cannot verify visitor type");
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                SyncStatus = "Failed",
+                ErrorMessage = "Visitor cardholder type UID is not configured",
+                IsRetryable = false
+            };
+        }
+
+        if (entity.CardholderTypeUid != _options.VisitorCardholderTypeUid)
+        {
+            _logger.LogWarning("Cardholder {Uid} is not a visitor. CardholderTypeUid: {TypeUid}", amadeusUid, entity.CardholderTypeUid);
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                SyncStatus = "Failed",
+                ErrorMessage = "Cardholder is not a visitor",
+                IsRetryable = false
+            };
+        }
+
+        try
+        {
+            _logger.LogInformation("Sending delete visitor request to Amadeus. AmadeusUid: {Uid}", amadeusUid);
+            await _apiClient.DeleteCardholderAsync(amadeusUid, cancellationToken);
+
+            entity.IsDeleted = true;
+            entity.UpdatedUtc = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Visitor deleted successfully from Amadeus. AmadeusUid: {Uid}", amadeusUid);
+
+            return new VisitorCreationResultDto
+            {
+                Success = true,
+                AmadeusExternalId = amadeusUid,
+                SyncStatus = "Deleted",
+                LastSyncedAtUtc = DateTime.UtcNow
+            };
+        }
+        catch (HttpRequestException ex) when (ex.Message.Contains("404") || ex.Message.Contains("NotFound", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogWarning(ex, "Visitor {Uid} not found in Amadeus. Marking as deleted locally", amadeusUid);
+            entity.IsDeleted = true;
+            entity.UpdatedUtc = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return new VisitorCreationResultDto
+            {
+                Success = true,
+                AmadeusExternalId = amadeusUid,
+                SyncStatus = "Deleted",
+                LastSyncedAtUtc = DateTime.UtcNow
+            };
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Failed to delete visitor {Uid} from Amadeus", amadeusUid);
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                AmadeusExternalId = amadeusUid,
+                SyncStatus = "Failed",
+                ErrorMessage = $"Amadeus API error: {ex.Message}",
+                IsRetryable = true
+            };
+        }
     }
 
     public async Task DeleteCardholderAsync(string amadeusUid, CancellationToken cancellationToken)
@@ -170,6 +278,161 @@ public class CardholderCommandService : ICardholderCommandService
             CreatedUtc = entity.CreatedUtc,
             UpdatedUtc = entity.UpdatedUtc
         };
+    }
+
+    public async Task<VisitorCreationResultDto> CreateVisitorAsync(CreateAmadeusVisitorDto dto, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Starting visitor creation in Amadeus");
+
+        // Validate configuration
+        if (string.IsNullOrWhiteSpace(_options.VisitorCardholderTypeUid))
+        {
+            _logger.LogError("VisitorCardholderTypeUid is not configured. Cannot create visitor in Amadeus");
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                SyncStatus = "Failed",
+                ErrorMessage = "Visitor cardholder type UID is not configured",
+                IsRetryable = false
+            };
+        }
+
+        // Validate required fields
+        var validationError = ValidateVisitorDto(dto);
+        if (validationError is not null)
+        {
+            _logger.LogWarning("Visitor payload validation failed: {Reason}", validationError);
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                SyncStatus = "Failed",
+                ErrorMessage = validationError,
+                IsRetryable = false
+            };
+        }
+
+        _logger.LogInformation("Visitor payload validated. Sending create request to Amadeus");
+
+        try
+        {
+            var payload = BuildVisitorPayload(dto);
+            var created = await _apiClient.CreateCardholderAsync(payload, cancellationToken);
+
+            var entity = new CardholderEntity
+            {
+                AmadeusUid = created.Id,
+                CardholderIdNumber = created.CardholderIdNumber ?? dto.CardholderIdNumber,
+                FirstName = created.FirstName ?? dto.FirstName,
+                LastName = created.LastName ?? dto.LastName,
+                Description = created.Description ?? dto.Notes,
+                CardholderTypeUid = created.CardholderTypeId ?? _options.VisitorCardholderTypeUid,
+                DepartmentUid = created.DepartmentId ?? dto.DepartmentUid,
+                SecurityGroupUid = created.SecurityGroupId,
+                SecurityGroupApiKey = created.SecurityGroupApiKey ?? dto.SecurityGroupApiKey,
+                AccessGroupUidsRaw = created.AccessGroupIds,
+                AccessGroupApiKeysRaw = created.AccessGroupApiKeys ?? (dto.AccessGroupApiKeys != null ? string.Join(",", dto.AccessGroupApiKeys) : null),
+                Status = created.Status ?? "Active",
+                FromDateValidUtc = created.FromDateValid?.ToUniversalTime() ?? dto.FromDateValid.ToUniversalTime(),
+                ToDateValidUtc = created.ToDateValid?.ToUniversalTime() ?? dto.ToDateValid.ToUniversalTime(),
+                IsFromDateActive = created.IsFromDateActive ?? true,
+                IsToDateActive = created.IsToDateActive ?? true,
+                IsDeleted = false,
+                IsArchived = false,
+                CreatedUtc = DateTime.UtcNow,
+                UpdatedUtc = DateTime.UtcNow
+            };
+
+            _dbContext.Cardholders.Add(entity);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Amadeus visitor created successfully. AmadeusUid: {Uid}", entity.AmadeusUid);
+
+            return new VisitorCreationResultDto
+            {
+                Success = true,
+                AmadeusExternalId = entity.AmadeusUid,
+                SyncStatus = "Synced",
+                LastSyncedAtUtc = DateTime.UtcNow
+            };
+        }
+        catch (HttpRequestException ex) when (ex.Message.Contains("409") || ex.Message.Contains("Conflict", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogError(ex, "Failed to create visitor in Amadeus: duplicate cardholder or card number");
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                SyncStatus = "Failed",
+                ErrorMessage = "Duplicate cardholder or card number in Amadeus",
+                IsRetryable = false
+            };
+        }
+        catch (HttpRequestException ex) when (ex.Message.Contains("400") || ex.Message.Contains("BadRequest", StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogError(ex, "Failed to create visitor in Amadeus: invalid request payload");
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                SyncStatus = "Failed",
+                ErrorMessage = $"Invalid request: {ex.Message}",
+                IsRetryable = false
+            };
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Failed to create visitor in Amadeus: API communication error");
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                SyncStatus = "Failed",
+                ErrorMessage = $"Amadeus API error: {ex.Message}",
+                IsRetryable = true
+            };
+        }
+    }
+
+    private static string? ValidateVisitorDto(CreateAmadeusVisitorDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.FirstName))
+            return "FirstName is required";
+
+        if (string.IsNullOrWhiteSpace(dto.LastName))
+            return "LastName is required";
+
+        if (dto.FromDateValid == default)
+            return "FromDateValid is required";
+
+        if (dto.ToDateValid == default)
+            return "ToDateValid is required";
+
+        if (dto.ToDateValid <= dto.FromDateValid)
+            return "ToDateValid must be after FromDateValid";
+
+        if (dto.ToDateValid <= DateTime.UtcNow)
+            return "ToDateValid must be in the future";
+
+        return null;
+    }
+
+    private Dictionary<string, object?> BuildVisitorPayload(CreateAmadeusVisitorDto dto)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["firstName"] = dto.FirstName,
+            ["lastName"] = dto.LastName,
+            ["cardholderTypeUID"] = _options.VisitorCardholderTypeUid,
+            ["fromDateValid"] = dto.FromDateValid,
+            ["toDateValid"] = dto.ToDateValid,
+            ["isFromDateActive"] = true,
+            ["isToDateActive"] = true
+        };
+
+        if (dto.CardholderIdNumber is not null) payload["cardholderIdNumber"] = dto.CardholderIdNumber;
+        if (dto.SecurityGroupApiKey is not null) payload["securityGroupApiKey"] = dto.SecurityGroupApiKey;
+        if (dto.AccessGroupApiKeys is not null) payload["accessGroupApiKeys"] = string.Join(",", dto.AccessGroupApiKeys);
+        if (dto.DepartmentUid is not null) payload["departmentUID"] = dto.DepartmentUid;
+        if (dto.Notes is not null) payload["description"] = dto.Notes;
+
+        return payload;
     }
 
     private static object BuildCreatePayload(CardholderCreateDto dto)

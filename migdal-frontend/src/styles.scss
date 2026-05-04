@@ -250,7 +250,8 @@ a {
             padding: 0 0.5rem;
         }
 
-        .p-dropdown {
+        .p-dropdown,
+        .p-select {
             border-color: var(--color-border);
             border-radius: var(--radius-sm);
         }
@@ -486,17 +487,20 @@ a {
     }
 
     /* ── PrimeNG clear-icon RTL fix ── */
-    .p-dropdown .p-dropdown-clear-icon {
+    .p-dropdown .p-dropdown-clear-icon,
+    .p-select .p-select-clear-icon {
         right: auto;
         left: 3rem;
     }
 
-    .p-dropdown.p-dropdown-clearable .p-dropdown-label {
+    .p-dropdown.p-dropdown-clearable .p-dropdown-label,
+    .p-select.p-select-clearable .p-select-label {
         padding-right: 0.75rem;
         padding-left: 1.75rem;
     }
 
-    .p-dropdown .p-dropdown-trigger {
+    .p-dropdown .p-dropdown-trigger,
+    .p-select .p-select-dropdown {
         border-top-right-radius: 0;
         border-bottom-right-radius: 0;
         border-top-left-radius: 6px;
@@ -531,12 +535,14 @@ a {
 
 /* Permanent escorts user dropdown overlay (appendTo=body) */
 .permanent-escorts-user-panel {
-    .p-dropdown-header {
+    .p-dropdown-header,
+    .p-select-header {
         overflow: hidden;
         box-sizing: border-box;
     }
 
-    .p-dropdown-filter-container {
+    .p-dropdown-filter-container,
+    .p-select-filter-container {
         width: 100%;
         max-width: 100%;
         position: relative;
@@ -544,7 +550,8 @@ a {
         overflow: hidden;
     }
 
-    .p-dropdown-filter {
+    .p-dropdown-filter,
+    .p-select-filter {
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
@@ -556,7 +563,8 @@ a {
         padding-inline-end: 2rem;
     }
 
-    .p-dropdown-filter-icon {
+    .p-dropdown-filter-icon,
+    .p-select-filter-icon {
         position: absolute !important;
         inset-inline-start: auto;
         inset-inline-end: 0.75rem;
@@ -572,7 +580,8 @@ a {
         font-size: 0.95rem;
     }
 
-    .p-dropdown-filter-icon::before {
+    .p-dropdown-filter-icon::before,
+    .p-select-filter-icon::before {
         display: block;
         line-height: 1;
         transform: none;
@@ -1117,10 +1126,11 @@ a {
     background: var(--color-text-muted);
 }
 
-/* ========== PrimeNG Calendar ========== */
+/* ========== PrimeNG Calendar / DatePicker ========== */
 
 /* Base input styling */
-.p-calendar .p-inputtext {
+.p-calendar .p-inputtext,
+.p-datepicker .p-inputtext {
     padding: 0.55rem 0.85rem;
     border: 1.5px solid var(--color-border);
     border-radius: var(--radius-sm);
@@ -1132,23 +1142,27 @@ a {
 }
 
 /* When calendar has a trigger button, flatten the input's inline-end corners */
-.p-calendar-w-btn .p-inputtext {
+.p-calendar-w-btn .p-inputtext,
+.p-datepicker-fluid .p-inputtext {
     border-start-end-radius: 0;
     border-end-end-radius: 0;
     border-inline-end: none;
 }
 
-.p-calendar .p-inputtext:enabled:hover {
+.p-calendar .p-inputtext:enabled:hover,
+.p-datepicker .p-inputtext:enabled:hover {
     border-color: var(--color-accent);
 }
 
-.p-calendar .p-inputtext:enabled:focus {
+.p-calendar .p-inputtext:enabled:focus,
+.p-datepicker .p-inputtext:enabled:focus {
     outline: none;
     border-color: var(--color-accent);
     box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.12);
 }
 
-.p-calendar .p-inputtext:disabled {
+.p-calendar .p-inputtext:disabled,
+.p-datepicker .p-inputtext:disabled {
     background: var(--color-surface-alt);
     color: var(--color-text-muted);
     opacity: 0.65;
@@ -1156,7 +1170,8 @@ a {
 }
 
 /* Trigger button */
-.p-calendar .p-datepicker-trigger {
+.p-calendar .p-datepicker-trigger,
+.p-datepicker .p-datepicker-trigger {
     background: var(--color-primary-wash);
     border: 1.5px solid var(--color-border);
     border-inline-start: none;
@@ -1168,7 +1183,8 @@ a {
     transition: background var(--transition-speed), color var(--transition-speed);
 }
 
-.p-calendar .p-datepicker-trigger:enabled:hover {
+.p-calendar .p-datepicker-trigger:enabled:hover,
+.p-datepicker .p-datepicker-trigger:enabled:hover {
     background: var(--color-accent-subtle);
     color: var(--color-accent);
 }
@@ -1178,43 +1194,56 @@ a {
     border-color: var(--color-accent) !important;
 }
 
-.p-calendar .p-datepicker-trigger:focus {
+.p-calendar .p-datepicker-trigger:focus,
+.p-datepicker .p-datepicker-trigger:focus {
     box-shadow: none;
 }
 
 /* Validation states — invalid */
 .field p-calendar.ng-invalid.ng-touched .p-inputtext,
-.field p-calendar.ng-invalid.ng-dirty .p-inputtext {
+.field p-calendar.ng-invalid.ng-dirty .p-inputtext,
+.field p-datepicker.ng-invalid.ng-touched .p-inputtext,
+.field p-datepicker.ng-invalid.ng-dirty .p-inputtext {
     border-color: var(--color-danger) !important;
     background: rgba(229, 57, 53, 0.02);
 }
 
 .field p-calendar.ng-invalid.ng-touched .p-inputtext:focus,
-.field p-calendar.ng-invalid.ng-dirty .p-inputtext:focus {
+.field p-calendar.ng-invalid.ng-dirty .p-inputtext:focus,
+.field p-datepicker.ng-invalid.ng-touched .p-inputtext:focus,
+.field p-datepicker.ng-invalid.ng-dirty .p-inputtext:focus {
     border-color: var(--color-danger) !important;
     box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.10);
 }
 
 .field p-calendar.ng-invalid.ng-touched .p-datepicker-trigger,
-.field p-calendar.ng-invalid.ng-dirty .p-datepicker-trigger {
+.field p-calendar.ng-invalid.ng-dirty .p-datepicker-trigger,
+.field p-datepicker.ng-invalid.ng-touched .p-datepicker-trigger,
+.field p-datepicker.ng-invalid.ng-dirty .p-datepicker-trigger {
     border-color: var(--color-danger) !important;
     color: var(--color-danger);
 }
 
 /* Validation states — valid */
 .field p-calendar.ng-valid.ng-touched .p-inputtext,
-.field p-calendar.ng-valid.ng-dirty .p-inputtext {
+.field p-calendar.ng-valid.ng-dirty .p-inputtext,
+.field p-datepicker.ng-valid.ng-touched .p-inputtext,
+.field p-datepicker.ng-valid.ng-dirty .p-inputtext {
     border-color: var(--color-success) !important;
 }
 
 .field p-calendar.ng-valid.ng-touched .p-inputtext:focus,
-.field p-calendar.ng-valid.ng-dirty .p-inputtext:focus {
+.field p-calendar.ng-valid.ng-dirty .p-inputtext:focus,
+.field p-datepicker.ng-valid.ng-touched .p-inputtext:focus,
+.field p-datepicker.ng-valid.ng-dirty .p-inputtext:focus {
     border-color: var(--color-success) !important;
     box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.10);
 }
 
 .field p-calendar.ng-valid.ng-touched .p-datepicker-trigger,
-.field p-calendar.ng-valid.ng-dirty .p-datepicker-trigger {
+.field p-calendar.ng-valid.ng-dirty .p-datepicker-trigger,
+.field p-datepicker.ng-valid.ng-touched .p-datepicker-trigger,
+.field p-datepicker.ng-valid.ng-dirty .p-datepicker-trigger {
     border-color: var(--color-success) !important;
 }
 
@@ -1224,7 +1253,7 @@ a {
 }
 
 /* Datepicker panel styling */
-.p-datepicker {
+.p-datepicker-panel {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
@@ -1232,13 +1261,15 @@ a {
     font-family: inherit;
 }
 
-.p-datepicker .p-datepicker-header {
+.p-datepicker .p-datepicker-header,
+.p-datepicker-panel .p-datepicker-header {
     background: var(--color-surface-alt);
     border-bottom: 1px solid var(--color-border-light);
     padding: 0.65rem;
 }
 
-.p-datepicker .p-datepicker-header .p-datepicker-title {
+.p-datepicker .p-datepicker-header .p-datepicker-title,
+.p-datepicker-panel .p-datepicker-header .p-datepicker-title {
     font-weight: 600;
     color: var(--color-primary);
 }
@@ -1314,18 +1345,21 @@ a {
 [dir='rtl'] {
 
     /* Calendar wrapper */
-    .p-calendar {
+    .p-calendar,
+    .p-datepicker.p-inputwrapper {
         direction: rtl;
     }
 
     /* Input text — right-aligned */
-    .p-calendar .p-inputtext {
+    .p-calendar .p-inputtext,
+    .p-datepicker.p-inputwrapper .p-inputtext {
         text-align: right;
         direction: rtl;
     }
 
     /* Trigger button — swap from right side to left side */
-    .p-calendar .p-datepicker-trigger {
+    .p-calendar .p-datepicker-trigger,
+    .p-datepicker.p-inputwrapper .p-datepicker-trigger {
         border-inline-start: none;
         border-inline-end: 1.5px solid var(--color-border);
     }
@@ -1346,36 +1380,44 @@ a {
     }
 
     /* Datepicker panel — full RTL direction */
-    .p-datepicker {
+    .p-datepicker,
+    .p-datepicker-panel {
         direction: rtl;
         text-align: right;
     }
 
     /* Header — RTL layout for month/year title and nav arrows */
-    .p-datepicker .p-datepicker-header {
+    .p-datepicker .p-datepicker-header,
+    .p-datepicker-panel .p-datepicker-header {
         direction: rtl;
     }
 
     /* Swap prev/next arrow icons for RTL (works for both SVG component icons and pi-font icons) */
     .p-datepicker .p-datepicker-header .p-datepicker-prev-icon,
-    .p-datepicker .p-datepicker-header .p-datepicker-next-icon {
+    .p-datepicker .p-datepicker-header .p-datepicker-next-icon,
+    .p-datepicker-panel .p-datepicker-header .p-datepicker-prev-icon,
+    .p-datepicker-panel .p-datepicker-header .p-datepicker-next-icon {
         transform: scaleX(-1);
     }
 
     /* Calendar grid — day names and cells centered */
-    .p-datepicker table {
+    .p-datepicker table,
+    .p-datepicker-panel table {
         direction: rtl;
     }
 
-    .p-datepicker table th {
+    .p-datepicker table th,
+    .p-datepicker-panel table th {
         text-align: center;
     }
 
-    .p-datepicker table td {
+    .p-datepicker table td,
+    .p-datepicker-panel table td {
         text-align: center;
     }
 
-    .p-datepicker table td>span {
+    .p-datepicker table td>span,
+    .p-datepicker-panel table td>span {
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1384,23 +1426,29 @@ a {
 
     /* Month/year picker panels */
     .p-datepicker .p-monthpicker,
-    .p-datepicker .p-yearpicker {
+    .p-datepicker .p-yearpicker,
+    .p-datepicker-panel .p-monthpicker,
+    .p-datepicker-panel .p-yearpicker {
         direction: rtl;
     }
 
     .p-datepicker .p-monthpicker .p-monthpicker-month,
-    .p-datepicker .p-yearpicker .p-yearpicker-year {
+    .p-datepicker .p-yearpicker .p-yearpicker-year,
+    .p-datepicker-panel .p-monthpicker .p-monthpicker-month,
+    .p-datepicker-panel .p-yearpicker .p-yearpicker-year {
         text-align: center;
     }
 
     /* Time picker — fix reversed display in RTL */
-    .p-datepicker .p-timepicker {
+    .p-datepicker .p-timepicker,
+    .p-datepicker-panel .p-timepicker {
         direction: ltr;
         /* keep time reading left-to-right (HH:MM) */
     }
 
     /* AM/PM selector in RTL */
-    .p-datepicker .p-timepicker>div {
+    .p-datepicker .p-timepicker>div,
+    .p-datepicker-panel .p-timepicker>div {
         direction: ltr;
     }
 
@@ -1411,10 +1459,11 @@ a {
     }
 }
 
-/* ========== PrimeNG Dropdown ========== */
+/* ========== PrimeNG Dropdown / Select ========== */
 
 /* Base container */
-.p-dropdown {
+.p-dropdown,
+.p-select {
     border: 1.5px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: var(--color-surface);
@@ -1422,36 +1471,42 @@ a {
     transition: border-color var(--transition-speed), box-shadow var(--transition-speed);
 }
 
-.p-dropdown:not(.p-disabled):hover {
+.p-dropdown:not(.p-disabled):hover,
+.p-select:not(.p-disabled):hover {
     border-color: var(--color-accent);
 }
 
-.p-dropdown:not(.p-disabled).p-focus {
+.p-dropdown:not(.p-disabled).p-focus,
+.p-select:not(.p-disabled).p-focus {
     outline: none;
     border-color: var(--color-accent);
     box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.12);
 }
 
-.p-dropdown.p-disabled {
+.p-dropdown.p-disabled,
+.p-select.p-disabled {
     background: var(--color-surface-alt);
     opacity: 0.65;
     cursor: not-allowed;
 }
 
 /* Label / selected value */
-.p-dropdown .p-dropdown-label {
+.p-dropdown .p-dropdown-label,
+.p-select .p-select-label {
     padding: 0.55rem 0.85rem;
     font-size: 0.9rem;
     color: var(--color-text);
     font-family: inherit;
 }
 
-.p-dropdown .p-dropdown-label.p-placeholder {
+.p-dropdown .p-dropdown-label.p-placeholder,
+.p-select .p-select-label.p-placeholder {
     color: var(--color-text-muted);
 }
 
 /* Trigger arrow */
-.p-dropdown .p-dropdown-trigger {
+.p-dropdown .p-dropdown-trigger,
+.p-select .p-select-dropdown {
     width: 2.5rem;
     color: var(--color-text-secondary);
     background: transparent;
@@ -1459,53 +1514,68 @@ a {
     transition: color var(--transition-speed), background var(--transition-speed);
 }
 
-.p-dropdown:not(.p-disabled):hover .p-dropdown-trigger {
+.p-dropdown:not(.p-disabled):hover .p-dropdown-trigger,
+.p-select:not(.p-disabled):hover .p-select-dropdown {
     color: var(--color-accent);
 }
 
 /* Clear icon */
-.p-dropdown .p-dropdown-clear-icon {
+.p-dropdown .p-dropdown-clear-icon,
+.p-select .p-select-clear-icon {
     color: var(--color-text-muted);
 }
 
 /* Validation states — invalid */
 .field .p-dropdown.ng-invalid.ng-touched,
-.field .p-dropdown.ng-invalid.ng-dirty {
+.field .p-dropdown.ng-invalid.ng-dirty,
+.field .p-select.ng-invalid.ng-touched,
+.field .p-select.ng-invalid.ng-dirty {
     border-color: var(--color-danger);
     background: rgba(229, 57, 53, 0.02);
 }
 
 .field .p-dropdown.ng-invalid.ng-touched.p-focus,
-.field .p-dropdown.ng-invalid.ng-dirty.p-focus {
+.field .p-dropdown.ng-invalid.ng-dirty.p-focus,
+.field .p-select.ng-invalid.ng-touched.p-focus,
+.field .p-select.ng-invalid.ng-dirty.p-focus {
     border-color: var(--color-danger);
     box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.10);
 }
 
 .field .p-dropdown.ng-invalid.ng-touched .p-dropdown-trigger,
-.field .p-dropdown.ng-invalid.ng-dirty .p-dropdown-trigger {
+.field .p-dropdown.ng-invalid.ng-dirty .p-dropdown-trigger,
+.field .p-select.ng-invalid.ng-touched .p-select-dropdown,
+.field .p-select.ng-invalid.ng-dirty .p-select-dropdown {
     color: var(--color-danger);
     border-color: var(--color-danger);
 }
 
 /* Validation states — valid */
 .field .p-dropdown.ng-valid.ng-touched,
-.field .p-dropdown.ng-valid.ng-dirty {
+.field .p-dropdown.ng-valid.ng-dirty,
+.field .p-select.ng-valid.ng-touched,
+.field .p-select.ng-valid.ng-dirty {
     border-color: var(--color-success);
 }
 
 .field .p-dropdown.ng-valid.ng-touched.p-focus,
-.field .p-dropdown.ng-valid.ng-dirty.p-focus {
+.field .p-dropdown.ng-valid.ng-dirty.p-focus,
+.field .p-select.ng-valid.ng-touched.p-focus,
+.field .p-select.ng-valid.ng-dirty.p-focus {
     border-color: var(--color-success);
     box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.10);
 }
 
 .field .p-dropdown.ng-valid.ng-touched .p-dropdown-trigger,
-.field .p-dropdown.ng-valid.ng-dirty .p-dropdown-trigger {
+.field .p-dropdown.ng-valid.ng-dirty .p-dropdown-trigger,
+.field .p-select.ng-valid.ng-touched .p-select-dropdown,
+.field .p-select.ng-valid.ng-dirty .p-select-dropdown {
     border-color: var(--color-success);
 }
 
 /* Dropdown panel (overlay) */
-.p-dropdown-panel {
+.p-dropdown-panel,
+.p-select-overlay {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
@@ -1514,7 +1584,8 @@ a {
 }
 
 /* Filter input inside panel */
-.p-dropdown-panel .p-dropdown-filter {
+.p-dropdown-panel .p-dropdown-filter,
+.p-select-overlay .p-select-filter {
     padding: 0.5rem 0.75rem;
     border: 1.5px solid var(--color-border);
     border-radius: var(--radius-sm);
@@ -1524,19 +1595,22 @@ a {
     color: var(--color-text);
 }
 
-.p-dropdown-panel .p-dropdown-filter:focus {
+.p-dropdown-panel .p-dropdown-filter:focus,
+.p-select-overlay .p-select-filter:focus {
     outline: none;
     border-color: var(--color-accent);
     box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.12);
 }
 
 /* Items wrapper */
-.p-dropdown-panel .p-dropdown-items {
+.p-dropdown-panel .p-dropdown-items,
+.p-select-overlay .p-select-list {
     padding: 0.25rem 0;
 }
 
 /* Individual option */
-.p-dropdown-panel .p-dropdown-item {
+.p-dropdown-panel .p-dropdown-item,
+.p-select-overlay .p-select-option {
     padding: 0.55rem 0.85rem;
     font-size: 0.9rem;
     color: var(--color-text);
@@ -1544,51 +1618,60 @@ a {
     transition: background var(--transition-speed), color var(--transition-speed);
 }
 
-.p-dropdown-panel .p-dropdown-item:hover {
+.p-dropdown-panel .p-dropdown-item:hover,
+.p-select-overlay .p-select-option:hover {
     background: var(--color-primary-wash);
     color: var(--color-primary);
 }
 
-.p-dropdown-panel .p-dropdown-item.p-highlight {
+.p-dropdown-panel .p-dropdown-item.p-highlight,
+.p-select-overlay .p-select-option.p-select-option-selected {
     background: var(--color-accent);
     color: #fff;
 }
 
-.p-dropdown-panel .p-dropdown-item.p-highlight:hover {
+.p-dropdown-panel .p-dropdown-item.p-highlight:hover,
+.p-select-overlay .p-select-option.p-select-option-selected:hover {
     background: var(--color-accent-hover);
     color: #fff;
 }
 
 /* Empty message */
-.p-dropdown-panel .p-dropdown-empty-message {
+.p-dropdown-panel .p-dropdown-empty-message,
+.p-select-overlay .p-select-empty-message {
     padding: 0.75rem 0.85rem;
     font-size: 0.85rem;
     color: var(--color-text-muted);
     text-align: center;
 }
 
-/* ========== PrimeNG Dropdown RTL ========== */
+/* ========== PrimeNG Dropdown / Select RTL ========== */
 [dir='rtl'] {
 
-    .p-dropdown {
+    .p-dropdown,
+    .p-select {
         direction: rtl;
     }
 
-    .p-dropdown .p-dropdown-label {
+    .p-dropdown .p-dropdown-label,
+    .p-select .p-select-label {
         text-align: right;
     }
 
-    .p-dropdown .p-dropdown-trigger {
+    .p-dropdown .p-dropdown-trigger,
+    .p-select .p-select-dropdown {
         border-inline-start: 1px solid var(--color-border-light);
         border-inline-end: none;
     }
 
-    .p-dropdown-panel {
+    .p-dropdown-panel,
+    .p-select-overlay {
         direction: rtl;
         text-align: right;
     }
 
-    .p-dropdown-panel .p-dropdown-item {
+    .p-dropdown-panel .p-dropdown-item,
+    .p-select-overlay .p-select-option {
         text-align: right;
     }
 }

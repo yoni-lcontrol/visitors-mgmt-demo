@@ -15,6 +15,7 @@ import Lara from '@primeng/themes/lara';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
 import { apiUnwrapInterceptor } from './core/auth/api-unwrap.interceptor';
+import { errorInterceptor } from './core/interceptors/error.interceptor';
 import { AuthService } from './core/auth/auth.service';
 import { firstValueFrom } from 'rxjs';
 import { MSAL_INSTANCE, MsalBroadcastService, MsalService } from '@azure/msal-angular';
@@ -46,7 +47,7 @@ export const appConfig: ApplicationConfig = {
     providers: [
         provideZoneChangeDetection({ eventCoalescing: true }),
         provideRouter(routes, withComponentInputBinding()),
-        provideHttpClient(withFetch(), withInterceptors([authInterceptor, apiUnwrapInterceptor])),
+        provideHttpClient(withFetch(), withInterceptors([authInterceptor, errorInterceptor, apiUnwrapInterceptor])),
         provideAnimations(),
         providePrimeNG({
             theme: {

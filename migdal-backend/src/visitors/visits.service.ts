@@ -140,6 +140,7 @@ export class VisitsService {
         dto: CreateVisitDto,
         isSelfRequester: boolean,
         currentUser: User | null,
+        escortRequired: boolean,
     ): Array<{ firstName: string; lastName: string; phone: string; email: string; sector?: string | null }> {
         const explicitEscorts = dto.escorts ?? [];
         if (explicitEscorts.length > 0) {
@@ -147,10 +148,20 @@ export class VisitsService {
         }
 
         if (!isSelfRequester && dto.visitRequester) {
-            return [this.buildAutoEscortFromRequester(dto.visitRequester)];
+            try {
+                return [this.buildAutoEscortFromRequester(dto.visitRequester)];
+            } catch (e) {
+                if (!escortRequired) return [];
+                throw e;
+            }
         }
 
-        return [this.buildAutoEscortFromUser(currentUser, 'current user')];
+        try {
+            return [this.buildAutoEscortFromUser(currentUser, 'current user')];
+        } catch (e) {
+            if (!escortRequired) return [];
+            throw e;
+        }
     }
 
     private async resolveAutoEscortForUpdate(
@@ -617,14 +628,15 @@ export class VisitsService {
             throw new BadRequestException('This role must create visits on behalf of another requester');
         }
 
-        if (isEscortRequiredForVisit(userPermissions, isSelfRequester) && (!dto.escorts || dto.escorts.length === 0)) {
+        const escortRequired = isEscortRequiredForVisit(userPermissions, isSelfRequester);
+        if (escortRequired && (!dto.escorts || dto.escorts.length === 0)) {
             throw new BadRequestException('At least one escort is required for the current user');
         }
 
         const currentUser = currentUserId
             ? await this.userRepo.findOne({ where: { id: currentUserId }, relations: ['sector'] })
             : null;
-        const escortsToCreate = this.getCreateEscorts(dto, isSelfRequester, currentUser);
+        const escortsToCreate = this.getCreateEscorts(dto, isSelfRequester, currentUser, escortRequired);
 
         // Check blacklist for all visitors
         await this.participantService.validateVisitorsNotBlacklisted(dto.visitors);
@@ -643,6 +655,7 @@ export class VisitsService {
             const visit = qr.manager.create(Visit, {
                 title: dto.title,
                 purposeOfVisit: dto.purposeOfVisit ?? null,
+                nucleus: dto.nucleus ?? null,
                 siteId: dto.siteId ?? null,
                 sectorId: currentUser?.sectorId ?? null,
                 buildingId: dto.buildingId ?? null,
@@ -809,6 +822,7 @@ export class VisitsService {
         Object.assign(visit, {
             title: dto.title ?? visit.title,
             purposeOfVisit: dto.purposeOfVisit !== undefined ? dto.purposeOfVisit : visit.purposeOfVisit,
+            nucleus: dto.nucleus !== undefined ? (dto.nucleus ?? null) : visit.nucleus,
             siteId: dto.siteId !== undefined ? dto.siteId : visit.siteId,
             buildingId: dto.buildingId !== undefined ? dto.buildingId : visit.buildingId,
             floor: dto.floor !== undefined ? (dto.floor ?? null) : visit.floor,

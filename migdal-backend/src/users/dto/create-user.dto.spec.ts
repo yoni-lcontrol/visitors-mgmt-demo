@@ -51,16 +51,17 @@ describe('CreateUserDto', () => {
         expect(errors.length).toBeGreaterThan(0);
         const fields = errors.map(e => e.property);
         expect(fields).toContain('username');
+        expect(fields).toContain('password');
         expect(fields).toContain('firstName');
         expect(fields).toContain('lastName');
     });
 
-    it('should pass when password is omitted', async () => {
+    it('should reject when password is omitted', async () => {
         const { password, ...noPassword } = validPayload;
         const dto = plainToInstance(CreateUserDto, noPassword);
         const errors = await validate(dto);
         const passwordErrors = errors.filter(e => e.property === 'password');
-        expect(passwordErrors).toHaveLength(0);
+        expect(passwordErrors.length).toBeGreaterThan(0);
     });
 
     it('should reject password shorter than 8 characters', async () => {

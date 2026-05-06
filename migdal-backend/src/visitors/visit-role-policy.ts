@@ -26,6 +26,10 @@ export function isOnBehalfOnlyRole(userPermissions: string[] | undefined): boole
 }
 
 export function resolveCreatorScopeRequirements(userPermissions: string[] | undefined): CreatorScopeRequirements | null {
+    if (hasPermission(userPermissions, PermissionKey.VisitsScopeAll)) {
+        return null;
+    }
+
     const includeCurrentUser = hasPermission(userPermissions, PermissionKey.VisitsScopeOwn);
     const includeTrainingCenterUsers = hasPermission(userPermissions, PermissionKey.VisitsScopeTrainingCenter);
 

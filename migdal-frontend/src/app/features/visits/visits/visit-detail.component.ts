@@ -110,6 +110,12 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
               <span class="info-value">{{ visit.sector.name }}</span>
             </div>
           }
+          @if (visit.nucleus) {
+            <div class="info-item">
+              <span class="info-label">{{ 'VISITS.NUCLEUS' | translate }}</span>
+              <span class="info-value">{{ visit.nucleus }}</span>
+            </div>
+          }
           @if (visit.building) {
             <div class="info-item">
               <span class="info-label">{{ 'BUILDINGS.BUILDING' | translate }}</span>
@@ -1751,7 +1757,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
         debounceTime(400),
         distinctUntilChanged(),
         switchMap(prefix => {
-          if (prefix.length < 4) {
+          if (prefix.length < 3) {
             this.visitorSuggestions.delete(index);
             this.showNoResults.delete(index);
             this.searchLoading.delete(index);
@@ -1843,7 +1849,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
         debounceTime(400),
         distinctUntilChanged(),
         switchMap(prefix => {
-          if (prefix.length < 4) {
+          if (prefix.length < 3) {
             this.editVisitorSuggestions = [];
             this.editShowNoResults = false;
             this.editSearchLoading = false;

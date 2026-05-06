@@ -223,6 +223,7 @@ export interface Visit {
     floor: number | null;
     title: string;
     purposeOfVisit: string | null;
+    nucleus: string | null;
     plannedStartTimeUtc: string;
     plannedEndTimeUtc: string | null;
     createdByUserId: string | null;

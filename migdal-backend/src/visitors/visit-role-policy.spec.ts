@@ -58,6 +58,14 @@ describe('visit-role-policy', () => {
         it('returns null for unrestricted permissions', () => {
             expect(resolveCreatorScopeRequirements([PermissionKey.VisitsRead])).toBeNull();
         });
+
+        it('returns null when scope.all overrides scope.own', () => {
+            expect(resolveCreatorScopeRequirements([PermissionKey.VisitsScopeOwn, PermissionKey.VisitsScopeAll])).toBeNull();
+        });
+
+        it('returns null when scope.all overrides scope.training-center', () => {
+            expect(resolveCreatorScopeRequirements([PermissionKey.VisitsScopeTrainingCenter, PermissionKey.VisitsScopeAll])).toBeNull();
+        });
     });
 
     describe('shouldRestrictDeletionToOwnVisits', () => {

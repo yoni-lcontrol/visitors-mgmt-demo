@@ -40,7 +40,7 @@ builder.Services.AddOptions<AmadeusImportSettings>()
 
 // Database (per docs/database-guidelines.md)
 builder.Services.AddDbContext<AmadeusDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // HttpClientFactory (per docs - prefer HttpClientFactory, reuse connections)
 builder.Services.AddHttpClient("Amadeus");
@@ -83,6 +83,13 @@ builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+// Auto-create/migrate the SQLite database on startup
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AmadeusDbContext>();
+    db.Database.Migrate();
+}
 
 if (app.Environment.IsDevelopment())
 {

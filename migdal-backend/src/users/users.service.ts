@@ -151,9 +151,7 @@ export class UsersService {
             throw new ConflictException('Username already in use');
         }
 
-        const passwordHash = dto.password
-            ? await hashPassword(dto.password)
-            : null;
+        const passwordHash = await hashPassword(dto.password);
 
         const user = this.userRepo.create({
             username: dto.username,

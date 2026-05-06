@@ -122,7 +122,7 @@ export class VisitorsService {
         currentUserId?: string,
         userPermissions?: string[],
     ): Promise<Pick<Visitor, 'id' | 'firstName' | 'lastName' | 'personId' | 'phone' | 'email' | 'carNumber' | 'vehicleType'>[]> {
-        if (!prefix || prefix.trim().length < 4) return [];
+        if (!prefix || prefix.trim().length < 3) return [];
 
         const sanitized = prefix.trim();
         const qb = this.visitorRepo

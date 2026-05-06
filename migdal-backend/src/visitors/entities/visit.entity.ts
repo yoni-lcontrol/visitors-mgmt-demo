@@ -34,6 +34,9 @@ export class Visit extends BaseEntity {
     @Column({ type: 'nvarchar', length: 2000, nullable: true })
     purposeOfVisit!: string | null;
 
+    @Column({ type: 'nvarchar', length: 100, nullable: true })
+    nucleus!: string | null;
+
     @Column({ type: 'datetime2' })
     plannedStartTimeUtc!: Date;
 

@@ -290,14 +290,40 @@ public class AmadeusApiClient : IAmadeusApiClient
                 if (!fallbackResponse.IsSuccessStatusCode)
                 {
                     var fallbackErrorBody = await fallbackResponse.Content.ReadAsStringAsync(cancellationToken);
-                    _logger.LogError(
-                        "Amadeus paged API fallback call to {Endpoint} (without $count) failed. Status: {StatusCode}, Response: {ErrorBody}",
+                    _logger.LogWarning(
+                        "Amadeus paged API fallback call to {Endpoint} (without $count) also failed. Status: {StatusCode}. Attempting full fetch without paging. Response: {ErrorBody}",
                         endpointName,
                         fallbackResponse.StatusCode,
                         fallbackErrorBody);
 
-                    throw new HttpRequestException(
-                        $"Amadeus paged API call to {endpointName} failed with status {fallbackResponse.StatusCode} (fallback without $count)");
+                    // Final fallback: fetch all records without any OData query params
+                    var baseEntityPath = relativePath.Split('?')[0];
+                    var noPagingUrl = AmadeusApiDefinitions.ODataUrl(_options, baseEntityPath, endpointName + " (no paging)");
+                    using var noPagingResponse = await client.GetAsync(noPagingUrl, cancellationToken);
+
+                    if (!noPagingResponse.IsSuccessStatusCode)
+                    {
+                        var noPagingErrorBody = await noPagingResponse.Content.ReadAsStringAsync(cancellationToken);
+                        _logger.LogError(
+                            "Amadeus API call to {Endpoint} (no paging) also failed. Status: {StatusCode}, Response: {ErrorBody}",
+                            endpointName,
+                            noPagingResponse.StatusCode,
+                            noPagingErrorBody);
+
+                        throw new HttpRequestException(
+                            $"Amadeus paged API call to {endpointName} failed with status {noPagingResponse.StatusCode} (all fallbacks exhausted)");
+                    }
+
+                    var noPagingResult = await noPagingResponse.Content.ReadFromJsonAsync<ODataResponse<T>>(cancellationToken);
+                    var noPagingItems = noPagingResult?.Value ?? [];
+
+                    _logger.LogInformation(
+                        "Fetched {Count} records from {Endpoint} using full fetch (no paging). Only first page will be used.",
+                        noPagingItems.Count,
+                        endpointName);
+
+                    // Return all items — caller will break out of paging loop since count < batch size
+                    return (noPagingItems, noPagingItems.Count);
                 }
 
                 var fallbackResult = await fallbackResponse.Content.ReadFromJsonAsync<ODataResponse<T>>(cancellationToken);

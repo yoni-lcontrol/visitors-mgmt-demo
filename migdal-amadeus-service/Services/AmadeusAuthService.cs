@@ -68,21 +68,34 @@ public class AmadeusAuthService : IAmadeusAuthService
         var tokenUrl = AmadeusApiDefinitions.TokenUrl(_options);
 
         HttpResponseMessage response;
-        try
+        while (true)
         {
-            response = await client.PostAsJsonAsync(tokenUrl, requestBody, cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            _logger.LogInformation("Amadeus token request canceled by application request");
-            throw;
-        }
-        catch (TaskCanceledException ex)
-        {
-            _logger.LogWarning(ex, "Amadeus token request timed out or was aborted at transport level");
-            throw new InvalidOperationException(
-                "Amadeus token request timed out or was aborted by the transport layer.",
-                ex);
+            try
+            {
+                response = await client.PostAsJsonAsync(tokenUrl, requestBody, cancellationToken);
+                break;
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogInformation("Amadeus token request canceled by application request");
+                throw;
+            }
+            catch (HttpRequestException ex)
+            {
+                _logger.LogWarning(
+                    "Amadeus server unreachable at {TokenUrl}. Retrying in {Delay} seconds... Error: {Error}",
+                    tokenUrl,
+                    _options.ListenerReconnectDelaySeconds,
+                    ex.Message);
+                await Task.Delay(TimeSpan.FromSeconds(_options.ListenerReconnectDelaySeconds), cancellationToken);
+            }
+            catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogWarning(
+                    "Amadeus token request timed out. Retrying in {Delay} seconds...",
+                    _options.ListenerReconnectDelaySeconds);
+                await Task.Delay(TimeSpan.FromSeconds(_options.ListenerReconnectDelaySeconds), cancellationToken);
+            }
         }
 
         using (response)

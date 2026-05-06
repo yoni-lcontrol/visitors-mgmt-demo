@@ -1441,14 +1441,18 @@ a {
 
     /* Time picker — fix reversed display in RTL */
     .p-datepicker .p-timepicker,
-    .p-datepicker-panel .p-timepicker {
+    .p-datepicker-panel .p-timepicker,
+    .p-datepicker-panel .p-datepicker-time-picker,
+    .p-datepicker-timeonly .p-datepicker-time-picker {
         direction: ltr;
         /* keep time reading left-to-right (HH:MM) */
     }
 
     /* AM/PM selector in RTL */
     .p-datepicker .p-timepicker>div,
-    .p-datepicker-panel .p-timepicker>div {
+    .p-datepicker-panel .p-timepicker>div,
+    .p-datepicker-panel .p-datepicker-time-picker>div,
+    .p-datepicker-timeonly .p-datepicker-time-picker>div {
         direction: ltr;
     }
 

@@ -577,7 +577,7 @@ describe('VisitsService', () => {
             );
         });
 
-        it('should validate auto-assigned current user escort contact fields', async () => {
+        it('should skip auto-assigned escort when current user profile is incomplete and escort not required', async () => {
             mockUserRepo.findOne.mockResolvedValue({
                 id: 'user-1',
                 firstName: 'Current',
@@ -594,8 +594,12 @@ describe('VisitsService', () => {
                 escorts: [],
             };
 
-            await expect(service.createVisit(dtoWithoutRequesterAndEscort as any, 'user-1'))
-                .rejects.toThrow(new BadRequestException('Cannot auto-assign escort from current user: firstName, lastName, phone and email are required'));
+            const result = await service.createVisit(dtoWithoutRequesterAndEscort as any, 'user-1');
+            expect(result).toBeDefined();
+            expect(mockDs._qrManager.create).not.toHaveBeenCalledWith(
+                VisitEscort,
+                expect.anything(),
+            );
         });
 
         it('should throw if visitRequester not provided and no currentUserId', async () => {

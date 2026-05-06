@@ -9,12 +9,11 @@ export class CreateUserDto {
     @IsNotEmpty()
     username!: string;
 
-    @ApiPropertyOptional({ example: 'SecurePass@123' })
-    @Transform(({ value }) => (value === '' ? undefined : value))
-    @IsOptional()
+    @ApiProperty({ example: 'SecurePass@123' })
     @IsString()
+    @IsNotEmpty()
     @MinLength(8)
-    password?: string;
+    password!: string;
 
     @ApiProperty({ example: 'John' })
     @IsString()

@@ -36,6 +36,20 @@ public class AmadeusSignalRClient : IAmadeusSignalRClient, IAsyncDisposable
 
     public async Task ConnectAsync(CancellationToken cancellationToken)
     {
+        // Dispose any previous connection before creating a new one
+        if (_connection is not null)
+        {
+            try
+            {
+                await _connection.DisposeAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error disposing previous SignalR connection");
+            }
+            _connection = null;
+        }
+
         var hubUrl = AmadeusApiDefinitions.SignalRHubUrl(_options);
 
         _logger.LogInformation("Connecting to Amadeus SignalR hub at {HubUrl}", hubUrl);

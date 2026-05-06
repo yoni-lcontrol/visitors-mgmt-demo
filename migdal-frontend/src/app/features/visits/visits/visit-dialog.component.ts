@@ -68,7 +68,17 @@ import { AuthService } from '@core/auth/auth.service';
             </div>
             <div class="field">
               <label><i class="pi pi-info-circle"></i> {{ 'VISITS.PURPOSE_OF_VISIT' | translate }}</label>
-              <input type="text" [(ngModel)]="form.purposeOfVisit" [placeholder]="'PLACEHOLDER.ENTER_PURPOSE_OF_VISIT' | translate" />
+              <p-dropdown [(ngModel)]="form.purposeOfVisit" [options]="purposeOfVisitOptions" optionLabel="label" optionValue="value"
+                [placeholder]="'PLACEHOLDER.ENTER_PURPOSE_OF_VISIT' | translate" appendTo="body" [showClear]="true"
+                [style]="{ width: '100%' }"></p-dropdown>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label><i class="pi pi-th-large"></i> {{ 'VISITS.NUCLEUS' | translate }}</label>
+              <p-dropdown [(ngModel)]="form.nucleus" [options]="nucleusOptions" optionLabel="label" optionValue="value"
+                [placeholder]="'PLACEHOLDER.SELECT_NUCLEUS' | translate" appendTo="body" [showClear]="true"
+                [style]="{ width: '100%' }"></p-dropdown>
             </div>
           </div>
           <div class="form-row">
@@ -421,9 +431,11 @@ import { AuthService } from '@core/auth/auth.service';
               <button class="btn btn-secondary btn-add-inline" (click)="addInlineVisitor()">
                 <i class="pi pi-plus"></i> {{ 'VISITS.ADD_VISITOR' | translate }}
               </button>
+              @if (canImportExcel) {
               <button class="btn btn-secondary btn-add-inline" (click)="visitorFileInput.click()">
                 <i class="pi pi-file-excel"></i> {{ 'VISITS.IMPORT_VISITORS' | translate }}
               </button>
+              }
             </div>
             <input #visitorFileInput type="file" accept=".xlsx,.xls" (change)="onVisitorFileSelected($event)" style="display:none" />
             @if (importErrors.length) {
@@ -454,7 +466,17 @@ import { AuthService } from '@core/auth/auth.service';
               </div>
               <div class="field">
                 <label><i class="pi pi-info-circle"></i> {{ 'VISITS.PURPOSE_OF_VISIT' | translate }}</label>
-                <input type="text" [(ngModel)]="form.purposeOfVisit" [placeholder]="'PLACEHOLDER.ENTER_PURPOSE_OF_VISIT' | translate" />
+                <p-dropdown [(ngModel)]="form.purposeOfVisit" [options]="purposeOfVisitOptions" optionLabel="label" optionValue="value"
+                  [placeholder]="'PLACEHOLDER.ENTER_PURPOSE_OF_VISIT' | translate" appendTo="body" [showClear]="true"
+                  [style]="{ width: '100%' }"></p-dropdown>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label><i class="pi pi-th-large"></i> {{ 'VISITS.NUCLEUS' | translate }}</label>
+                <p-dropdown [(ngModel)]="form.nucleus" [options]="nucleusOptions" optionLabel="label" optionValue="value"
+                  [placeholder]="'PLACEHOLDER.SELECT_NUCLEUS' | translate" appendTo="body" [showClear]="true"
+                  [style]="{ width: '100%' }"></p-dropdown>
               </div>
             </div>
             <div class="form-row">
@@ -1029,6 +1051,7 @@ export class VisitDialogComponent implements OnDestroy {
   private authService = inject(AuthService);
 
   canRequestParking = false;
+  canImportExcel = false;
 
   get currentSectorName(): string {
     return this.authService.currentUser?.sector?.name ?? '';
@@ -1052,6 +1075,16 @@ export class VisitDialogComponent implements OnDestroy {
   today = new Date();
   emailPattern = EMAIL_PATTERN.source;
   saving = false;
+  purposeOfVisitOptions = [
+    { label: 'פגישה', value: 'פגישה' },
+    { label: 'כנס', value: 'כנס' },
+    { label: 'עבודת תחזוקה', value: 'עבודת תחזוקה' },
+    { label: 'אחר', value: 'אחר' },
+  ];
+  nucleusOptions = [
+    { label: "גרעין א'", value: "גרעין א'" },
+    { label: "גרעין ב'", value: "גרעין ב'" },
+  ];
   vehicleTypeOptions: { label: string; items: { label: string; value: string }[] }[] = [];
   escortSectorOptions: SectorLookupItem[] = [];
 
@@ -1067,6 +1100,7 @@ export class VisitDialogComponent implements OnDestroy {
   form: {
     title: string;
     purposeOfVisit: string;
+    nucleus: string;
     buildingId: string;
     floor: number | null;
     plannedStartDate: Date | null;
@@ -1076,6 +1110,7 @@ export class VisitDialogComponent implements OnDestroy {
   } = {
       title: '',
       purposeOfVisit: '',
+      nucleus: '',
       buildingId: '',
       floor: null,
       plannedStartDate: null,
@@ -1133,6 +1168,7 @@ export class VisitDialogComponent implements OnDestroy {
     this.loadEscortSectorOptions();
     this.resetDialogState();
     this.canRequestParking = this.permissionService.hasPermission('parking.request');
+    this.canImportExcel = this.permissionService.hasPermission('visitors.import');
     this.requesterLockedToOnBehalf = this.permissionService.hasPermission(VisitDialogComponent.ON_BEHALF_ONLY_PERMISSION);
     this.editing = visit ?? null;
     if (visit) {
@@ -1141,6 +1177,7 @@ export class VisitDialogComponent implements OnDestroy {
       this.form = {
         title: visit.title,
         purposeOfVisit: visit.purposeOfVisit ?? '',
+        nucleus: visit.nucleus ?? '',
         buildingId: visit.buildingId ?? '',
         floor: visit.floor ?? null,
         plannedStartDate: startDate,
@@ -1180,7 +1217,7 @@ export class VisitDialogComponent implements OnDestroy {
 
   private resetDialogState(): void {
     this.editing = null;
-    this.form = { title: '', purposeOfVisit: '', buildingId: '', floor: null, plannedStartDate: null, plannedStartTime: null, plannedEndDate: null, plannedEndTime: null };
+    this.form = { title: '', purposeOfVisit: '', nucleus: '', buildingId: '', floor: null, plannedStartDate: null, plannedStartTime: null, plannedEndDate: null, plannedEndTime: null };
     this.visitRequester = { firstName: '', lastName: '', phone: '', email: '' };
     this.requesterIsSomeoneElse = false;
     this.requesterLockedToOnBehalf = false;
@@ -1257,7 +1294,12 @@ export class VisitDialogComponent implements OnDestroy {
         debounceTime(500),
         switchMap(carNum => {
           this.vehicleBlacklistMap.set(index, { checking: true, blacklisted: false });
-          return this.blacklistCheck.checkVehicle(carNum);
+          return this.blacklistCheck.checkVehicle(carNum).pipe(
+            catchError(() => {
+              this.vehicleBlacklistMap.set(index, { checking: false, blacklisted: false });
+              return EMPTY;
+            }),
+          );
         }),
       ).subscribe(result => {
         this.vehicleBlacklistMap.set(index, { checking: false, blacklisted: result.isBlacklisted, reason: result.reason });
@@ -1409,6 +1451,7 @@ export class VisitDialogComponent implements OnDestroy {
       const body: any = {
         title: this.form.title,
         purposeOfVisit: this.form.purposeOfVisit || null,
+        nucleus: this.form.nucleus || null,
         buildingId: this.form.buildingId,
         floor: this.form.floor,
         plannedStartTimeUtc: this.combineDateTimeToIso(this.form.plannedStartDate!, this.form.plannedStartTime!),
@@ -1423,6 +1466,7 @@ export class VisitDialogComponent implements OnDestroy {
       const body: any = {
         title: this.form.title,
         purposeOfVisit: this.form.purposeOfVisit || null,
+        nucleus: this.form.nucleus || null,
         buildingId: this.form.buildingId,
         floor: this.form.floor,
         plannedStartTimeUtc: this.combineDateTimeToIso(this.form.plannedStartDate!, this.form.plannedStartTime!),
@@ -1498,7 +1542,7 @@ export class VisitDialogComponent implements OnDestroy {
         debounceTime(400),
         distinctUntilChanged(),
         switchMap(prefix => {
-          if (prefix.length < 4) {
+          if (prefix.length < 3) {
             this.visitorSuggestions.delete(index);
             this.showNoResults.delete(index);
             this.searchLoading.delete(index);

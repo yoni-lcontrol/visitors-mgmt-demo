@@ -26,8 +26,8 @@ User
 | `roles` | create, read, update, delete | `roles.create`, `roles.read`, `roles.update`, `roles.delete` |
 | `permissions` | read | `permissions.read` |
 | `access-control` | create, read, update, delete, import, sync | `access-control.create`, `access-control.read`, `access-control.update`, `access-control.delete`, `access-control.import`, `access-control.sync` |
-| `visits` | create, read, update, delete, print-card, check-in-code.send, check-in-code.regenerate, on-behalf-only, escort.required, escort.required.self-requester, scope.own, scope.training-center, delete.own-only | `visits.create`, `visits.read`, `visits.update`, `visits.delete`, `visits.print-card`, `visits.check-in-code.send`, `visits.check-in-code.regenerate`, `visits.on-behalf-only`, `visits.escort.required`, `visits.escort.required.self-requester`, `visits.scope.own`, `visits.scope.training-center`, `visits.delete.own-only` |
-| `visitors` | create, read, update, delete, export, scope.own | `visitors.create`, `visitors.read`, `visitors.update`, `visitors.delete`, `visitors.export`, `visitors.scope.own` |
+| `visits` | create, read, update, delete, print-card, check-in-code.send, check-in-code.regenerate, on-behalf-only, escort.required, escort.required.self-requester, scope.own, scope.all, scope.training-center, delete.own-only | `visits.create`, `visits.read`, `visits.update`, `visits.delete`, `visits.print-card`, `visits.check-in-code.send`, `visits.check-in-code.regenerate`, `visits.on-behalf-only`, `visits.escort.required`, `visits.escort.required.self-requester`, `visits.scope.own`, `visits.scope.all`, `visits.scope.training-center`, `visits.delete.own-only` |
+| `visitors` | create, read, update, delete, export, import, scope.own | `visitors.create`, `visitors.read`, `visitors.update`, `visitors.delete`, `visitors.export`, `visitors.import`, `visitors.scope.own` |
 | `settings` | read, update | `settings.read`, `settings.update` |
 | `settings.permanent-escorts` | read, manage | `settings.permanent-escorts.read`, `settings.permanent-escorts.manage` |
 | `settings.card-templates` | create, read, update, delete | `settings.card-templates.create`, `settings.card-templates.read`, `settings.card-templates.update`, `settings.card-templates.delete` |
@@ -40,7 +40,7 @@ User
 | `blacklist` | create, read, update, delete, check | `blacklist.create`, `blacklist.read`, `blacklist.update`, `blacklist.delete`, `blacklist.check` |
 | `parking` | request, auto-approve, approve | `parking.request`, `parking.auto-approve`, `parking.approve` |
 
-**Total: 70 permissions**
+**Total: 72 permissions**
 
 ## Default Roles
 
@@ -63,7 +63,7 @@ permissions.read
 access-control.create, access-control.read, access-control.update, access-control.import
 visits.create, visits.read, visits.update, visits.delete
 visits.print-card
-visitors.create, visitors.read, visitors.update, visitors.delete, visitors.export
+visitors.create, visitors.read, visitors.update, visitors.delete, visitors.export, visitors.import
 blacklist.create, blacklist.read, blacklist.update, blacklist.delete, blacklist.check
 parking.request, parking.auto-approve
 devices.read
@@ -234,6 +234,7 @@ Visit workflow constraints are also permission-driven (not role-name-driven):
 - `visits.escort.required`: escort is required for all new visits.
 - `visits.escort.required.self-requester`: escort is required only when requester is self.
 - `visits.scope.own`: visit lists/details are scoped to visits created by the current user.
+- `visits.scope.all`: overrides `scope.own` and `scope.training-center` — user can view all visits regardless of creator.
 - `visits.scope.training-center`: visit lists/details are scoped to creators whose effective permissions include `visits.scope.training-center`.
 - `visits.delete.own-only`: visit deletion is allowed only for visits created by the current user.
 

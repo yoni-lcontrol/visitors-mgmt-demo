@@ -37,6 +37,7 @@ export enum PermissionKey {
     VisitsEscortRequired = 'visits.escort.required',
     VisitsEscortRequiredSelfRequester = 'visits.escort.required.self-requester',
     VisitsScopeOwn = 'visits.scope.own',
+    VisitsScopeAll = 'visits.scope.all',
     VisitsScopeTrainingCenter = 'visits.scope.training-center',
     VisitsDeleteOwnOnly = 'visits.delete.own-only',
 
@@ -46,6 +47,7 @@ export enum PermissionKey {
     VisitorsUpdate = 'visitors.update',
     VisitorsDelete = 'visitors.delete',
     VisitorsExport = 'visitors.export',
+    VisitorsImport = 'visitors.import',
     VisitorsScopeOwn = 'visitors.scope.own',
 
     // Settings

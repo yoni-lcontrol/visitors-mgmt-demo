@@ -120,57 +120,57 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
           <div class="dialog-form-grid">
           <div class="field">
             <label>{{ 'USERS.FIRST_NAME' | translate }} <span class="required">*</span></label>
-            <input type="text" formControlName="firstName" [placeholder]="'PLACEHOLDER.ENTER_FIRST_NAME' | translate" [readonly]="isReadOnlyEdit" [class.readonly-field]="isReadOnlyEdit" />
+            <input type="text" formControlName="firstName" [placeholder]="'PLACEHOLDER.ENTER_FIRST_NAME' | translate" />
             @if (dialogForm.get('firstName')?.hasError('required') && dialogForm.get('firstName')?.touched) {
               <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
             }
           </div>
           <div class="field">
             <label>{{ 'USERS.LAST_NAME' | translate }} <span class="required">*</span></label>
-            <input type="text" formControlName="lastName" [placeholder]="'PLACEHOLDER.ENTER_LAST_NAME' | translate" [readonly]="isReadOnlyEdit" [class.readonly-field]="isReadOnlyEdit" />
+            <input type="text" formControlName="lastName" [placeholder]="'PLACEHOLDER.ENTER_LAST_NAME' | translate" />
             @if (dialogForm.get('lastName')?.hasError('required') && dialogForm.get('lastName')?.touched) {
               <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
             }
           </div>
           <div class="field">
             <label>{{ 'USERS.USERNAME' | translate }} <span class="required">*</span></label>
-            <input type="text" formControlName="username" [placeholder]="'PLACEHOLDER.ENTER_USERNAME' | translate" [readonly]="isReadOnlyEdit" [class.readonly-field]="isReadOnlyEdit" />
+            <input type="text" formControlName="username" [placeholder]="'PLACEHOLDER.ENTER_USERNAME' | translate" />
             @if (dialogForm.get('username')?.hasError('required') && dialogForm.get('username')?.touched) {
               <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
             }
           </div>
           <div class="field">
+            <label>{{ 'USERS.PASSWORD' | translate }} @if (!isEditMode) { <span class="required">*</span> }</label>
+            <input type="password" formControlName="password" autocomplete="new-password" [placeholder]="isEditMode ? ('PLACEHOLDER.LEAVE_EMPTY_TO_KEEP' | translate) : ('PLACEHOLDER.ENTER_PASSWORD' | translate)" />
+            @if (dialogForm.get('password')?.hasError('required') && dialogForm.get('password')?.touched) {
+              <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+            } @else if (dialogForm.get('password')?.hasError('minlength') && dialogForm.get('password')?.touched) {
+              <small class="field-error">{{ 'VALIDATION.MIN_LENGTH' | translate:{ min: 8 } }}</small>
+            }
+          </div>
+          <div class="field">
             <label>{{ 'USERS.EMAIL' | translate }}</label>
-            <input type="email" formControlName="email" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" [readonly]="isReadOnlyEdit" [class.readonly-field]="isReadOnlyEdit" />
+            <input type="email" formControlName="email" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" />
             @if (dialogForm.get('email')?.hasError('pattern') && dialogForm.get('email')?.touched) {
               <small class="field-error">{{ 'VALIDATION.EMAIL' | translate }}</small>
             }
           </div>
           <div class="field">
             <label>{{ 'USERS.PHONE' | translate }}</label>
-            <input type="tel" formControlName="phone" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" [readonly]="isReadOnlyEdit" [class.readonly-field]="isReadOnlyEdit" />
+            <input type="tel" formControlName="phone" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" />
             @if (dialogForm.get('phone')?.hasError('pattern') && dialogForm.get('phone')?.touched) {
               <small class="field-error">{{ 'VALIDATION.DIGITS_ONLY' | translate }}</small>
             }
           </div>
           <div class="field">
             <label>{{ 'USERS.ID_NUMBER' | translate }} <span class="required">*</span></label>
-            <input type="tel" formControlName="idNumber" [placeholder]="'PLACEHOLDER.ENTER_ID_NUMBER' | translate" [readonly]="isReadOnlyEdit" [class.readonly-field]="isReadOnlyEdit" />
+            <input type="tel" formControlName="idNumber" [placeholder]="'PLACEHOLDER.ENTER_ID_NUMBER' | translate" />
             @if (dialogForm.get('idNumber')?.hasError('required') && dialogForm.get('idNumber')?.touched) {
               <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
             } @else if (dialogForm.get('idNumber')?.hasError('pattern') && dialogForm.get('idNumber')?.touched) {
               <small class="field-error">{{ 'VALIDATION.DIGITS_ONLY' | translate }}</small>
             }
           </div>
-          @if (!isEditMode) {
-          <div class="field full-width">
-            <label>{{ 'USERS.PASSWORD' | translate }}</label>
-            <input type="password" formControlName="password" autocomplete="new-password" [placeholder]="editingUser ? ('PLACEHOLDER.LEAVE_EMPTY_TO_KEEP' | translate) : ('PLACEHOLDER.ENTER_PASSWORD' | translate)" />
-            @if (dialogForm.get('password')?.hasError('minlength') && dialogForm.get('password')?.touched) {
-              <small class="field-error">{{ 'VALIDATION.MIN_LENGTH' | translate:{ min: 8 } }}</small>
-            }
-          </div>
-          }
           <div class="field full-width">
             <label>{{ 'USERS.ROLES' | translate }}</label>
             <div class="roles-grid">
@@ -200,7 +200,7 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
       }
       <ng-template pTemplate="footer">
         <button class="btn btn-secondary" (click)="showDialog = false">{{ 'COMMON.CANCEL' | translate }}</button>
-        <button class="btn btn-primary" (click)="saveDialog()" [disabled]="((!isEditMode && dialogForm.invalid) || saving)">{{ 'COMMON.SAVE' | translate }}</button>
+        <button class="btn btn-primary" (click)="saveDialog()" [disabled]="(dialogForm.invalid || saving)">{{ 'COMMON.SAVE' | translate }}</button>
       </ng-template>
     </p-dialog>  `,
   styles: [`
@@ -315,7 +315,7 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   get isReadOnlyEdit(): boolean {
-    return this.isEditMode;
+    return false;
   }
 
   ngOnInit(): void {
@@ -406,6 +406,9 @@ export class UserListComponent implements OnInit, OnDestroy {
   openDialog(user?: User): void {
     this.editingUser = user ?? null;
     this.selectedRoleIds = [];
+    const passwordValidators = user
+      ? [Validators.minLength(8)]
+      : [Validators.required, Validators.minLength(8)];
     this.dialogForm = this.fb.group({
       firstName: ['', Validators.required],
       lastName: ['', Validators.required],
@@ -413,7 +416,7 @@ export class UserListComponent implements OnInit, OnDestroy {
       email: ['', Validators.pattern(EMAIL_PATTERN)],
       phone: ['', Validators.pattern(DIGITS_ONLY_PATTERN)],
       idNumber: ['', [Validators.required, Validators.pattern(DIGITS_ONLY_PATTERN)]],
-      password: ['', [Validators.minLength(8)]],
+      password: ['', passwordValidators],
     });
     this.dialogLoading = true;
     forkJoin({
@@ -449,7 +452,7 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   saveDialog(): void {
-    if (!this.isEditMode && this.dialogForm.invalid) return;
+    if (this.dialogForm.invalid) return;
     this.saving = true;
     const { password, ...rest } = this.dialogForm.value;
     const payload = {
@@ -458,7 +461,7 @@ export class UserListComponent implements OnInit, OnDestroy {
       roleIds: this.selectedRoleIds,
     };
     const req$ = this.isEditMode
-      ? this.usersApi.assignRoles(this.editingUser!.id, this.selectedRoleIds)
+      ? this.usersApi.update(this.editingUser!.id, payload)
       : this.usersApi.create(payload);
     req$.subscribe({
       next: () => { this.saving = false; this.showDialog = false; this.notify.success('COMMON.SUCCESS'); this.loadUsers(); },

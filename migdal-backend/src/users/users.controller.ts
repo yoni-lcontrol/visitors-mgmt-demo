@@ -41,6 +41,13 @@ export class UsersController {
         return this.usersService.findAll(query);
     }
 
+    @Get('lookup')
+    @RequirePermissions(PermissionKey.VisitsCreate)
+    @ApiOperation({ summary: 'Search users for requester selection (visit on-behalf flow)' })
+    lookup(@Query() query: PaginationQueryDto) {
+        return this.usersService.findAll(query);
+    }
+
     @Get('export')
     @RequirePermissions(PermissionKey.UsersRead)
     @ApiOperation({ summary: 'Export users as Excel' })

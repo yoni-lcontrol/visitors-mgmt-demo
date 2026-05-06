@@ -30,10 +30,17 @@ public class AmadeusEventListenerHostedService : BackgroundService
             {
                 await _signalRClient.ConnectAsync(stoppingToken);
 
-                // Stay alive while connected, the SignalR client handles events via callbacks
+                // Stay alive while connected; break out when disconnected so the outer loop reconnects
                 while (!stoppingToken.IsCancellationRequested)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+
+                    var status = _signalRClient.GetStatus();
+                    if (status.CurrentState == "Disconnected")
+                    {
+                        _logger.LogWarning("Amadeus SignalR connection state is Disconnected, breaking out to reconnect");
+                        break;
+                    }
                 }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

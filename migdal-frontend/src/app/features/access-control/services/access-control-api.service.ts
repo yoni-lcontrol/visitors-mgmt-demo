@@ -48,8 +48,8 @@ export class AccessControlApiService {
         return this.api.download(`${this.basePath}/controllers/export`, params);
     }
 
-    importControllers(): Observable<ControllerImportResult> {
-        return this.api.post<ControllerImportResult>(`${this.basePath}/controllers/import`, {});
+    importControllers(): Observable<{ success: boolean; message: string }> {
+        return this.api.post<{ success: boolean; message: string }>(`${this.basePath}/controllers/import`, {});
     }
 
     // ===== Doors =====

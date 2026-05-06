@@ -157,14 +157,58 @@ export class AccessControlApiService {
     // ──────────────────────── Import: full topology ─────────────────────────
 
     async triggerFullImport(): Promise<ImportCallbackPayload> {
-        this.logger.log('Triggering full import on remote AC server');
+        this.logger.log('Starting async import job on remote AC server');
 
-        const payload = await this.post<ImportCallbackPayload>('/api/import', {
+        // 1. Start the job (returns immediately with a jobId)
+        const { jobId } = await this.post<{ jobId: string }>('/api/import', {
             action: 'import',
-        }, { timeout: 120_000 });
+        }, { timeout: 30_000 });
 
-        this.logger.log('Full import completed, received response with data');
+        this.logger.log(`Import job started with id=${jobId}, polling for completion`);
+
+        // 2. Poll until done
+        const payload = await this.pollImportJob(jobId);
         return payload;
+    }
+
+    private async pollImportJob(jobId: string): Promise<ImportCallbackPayload> {
+        const maxWaitMs = 20 * 60_000; // 20 minutes max
+        const intervalMs = 5_000;       // poll every 5 seconds
+        const startTime = Date.now();
+
+        while (Date.now() - startTime < maxWaitMs) {
+            await this.sleep(intervalMs);
+
+            const status = await this.get<{
+                status: string;
+                phase?: string;
+                processed?: number;
+                total?: number;
+                payload?: ImportCallbackPayload;
+                errorMessage?: string;
+            }>(`/api/import/status/${jobId}`);
+
+            if (status.status === 'Completed' && status.payload) {
+                this.logger.log('Import job completed successfully');
+                return status.payload;
+            }
+
+            if (status.status === 'Failed') {
+                throw new BadGatewayException(
+                    `Remote import failed: ${status.errorMessage ?? 'Unknown error'}`,
+                );
+            }
+
+            this.logger.debug(
+                `Import job ${jobId}: ${status.phase ?? 'unknown'} ${status.processed ?? '?'}/${status.total ?? '?'}`,
+            );
+        }
+
+        throw new BadGatewayException('Import job timed out after 20 minutes');
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     async triggerAccessLevelImport(): Promise<AccessLevelCallbackPayload> {

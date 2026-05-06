@@ -63,6 +63,7 @@ builder.Services.AddScoped<IEventProcessingService, EventProcessingService>();
 builder.Services.AddScoped<IEquipmentResolverService, EquipmentResolverService>();
 builder.Services.AddScoped<IAmadeusEventMappingService, AmadeusEventMappingService>();
 builder.Services.AddScoped<IImportBridgeService, ImportBridgeService>();
+builder.Services.AddSingleton<IImportJobManager, ImportJobManager>();
 builder.Services.AddScoped<IEquipmentStatusService, EquipmentStatusService>();
 
 var enableHostedServices = builder.Configuration.GetValue(

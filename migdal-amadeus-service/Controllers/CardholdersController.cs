@@ -100,4 +100,32 @@ public class CardholdersController : ControllerBase
             return StatusCode(502, new { error = "Failed to archive cardholder in Amadeus", detail = ex.Message });
         }
     }
+
+    [HttpPost("visitors")]
+    public async Task<IActionResult> CreateVisitor([FromBody] CreateAmadeusVisitorDto dto, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Creating visitor via API");
+        var result = await _commandService.CreateVisitorAsync(dto, cancellationToken);
+
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return CreatedAtAction(nameof(GetByUid), new { amadeusUid = result.AmadeusExternalId }, result);
+    }
+
+    [HttpDelete("visitors/{amadeusUid}")]
+    public async Task<IActionResult> DeleteVisitor(string amadeusUid, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Deleting visitor {Uid} via API", amadeusUid);
+        var result = await _commandService.DeleteVisitorAsync(amadeusUid, cancellationToken);
+
+        if (!result.Success)
+        {
+            return BadRequest(result);
+        }
+
+        return Ok(result);
+    }
 }

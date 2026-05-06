@@ -34,7 +34,6 @@
                         ],
                         "styles": [
                             "node_modules/primeicons/primeicons.css",
-                            "public/primeng-theme/theme.css",
                             "src/styles.scss"
                         ],
                         "scripts": [],

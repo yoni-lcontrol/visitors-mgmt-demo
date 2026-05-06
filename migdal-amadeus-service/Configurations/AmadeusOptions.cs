@@ -38,4 +38,10 @@ public class AmadeusOptions
 
     [Range(1, 5000)]
     public int AccessGroupsImportBatchSize { get; set; } = 50;
+
+    /// <summary>
+    /// The Amadeus CardholderType UID that represents a Visitor.
+    /// Obtain from GET /odata/API_CardholderTypes in the target environment.
+    /// </summary>
+    public string? VisitorCardholderTypeUid { get; set; }
 }

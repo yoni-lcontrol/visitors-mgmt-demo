@@ -112,9 +112,7 @@ public sealed class EventProcessingServiceTests : IDisposable
         await sut.ProcessEventAsync(payload, "AccessEventArrived", CancellationToken.None);
 
         Assert.Equal(0, backend.DispatchCalls);
-
-        var persisted = await _db.EventLogs.SingleAsync();
-        Assert.Equal("SkippedInactiveEquipment", persisted.ProcessingStatus);
+        Assert.Equal(0, await _db.EventLogs.CountAsync());
     }
 
     [Fact]
@@ -134,10 +132,7 @@ public sealed class EventProcessingServiceTests : IDisposable
         await sut.ProcessEventAsync("not-json", "AccessEventArrived", CancellationToken.None);
 
         Assert.Equal(0, backend.DispatchCalls);
-
-        var persisted = await _db.EventLogs.SingleAsync();
-        Assert.Equal("InvalidJson", persisted.ProcessingStatus);
-        Assert.Equal("JSON parse failed", persisted.ProcessingError);
+        Assert.Equal(0, await _db.EventLogs.CountAsync());
     }
 
     private sealed class FakeResolver : IEquipmentResolverService

@@ -318,3 +318,107 @@ The user create/edit dialog (`UserListComponent`) includes a sites toggle grid (
 | `getAllActive()` | `GET /sites/active` | List active sites (for dropdowns) |
 | `getUserSites(userId)` | `GET /sites/users/:userId/sites` | Get sites assigned to a user |
 | `assignUserToSites(userId, siteIds)` | `POST /sites/assign-users/:userId` | Assign user to sites |
+
+## PrimeNG 19 Usage
+
+### Configuration
+
+PrimeNG 19 is configured in `app.config.ts` via `providePrimeNG()` with the **Lara** theme preset customized with an indigo primary palette (`MigdalPreset`). Dark mode is disabled.
+
+```typescript
+import { providePrimeNG } from 'primeng/config';
+import { definePreset } from '@primeng/themes';
+import Lara from '@primeng/themes/lara';
+
+const MigdalPreset = definePreset(Lara, { semantic: { primary: { /* indigo */ } } });
+
+providePrimeNG({ theme: { preset: MigdalPreset, options: { darkModeSelector: false } } })
+```
+
+### Packages
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `primeng` | ^19.0.0 | Component library |
+| `@primeng/themes` | ^19.0.0 | Programmatic theming (Lara/Aura/Nora/Material) |
+| `primeicons` | ^7.0.0 | Icon font |
+
+### Theme & Styles
+
+- No pre-built CSS theme file is loaded. The Lara preset injects styles at runtime via `providePrimeNG`.
+- `primeicons.css` is loaded globally via `angular.json` styles array.
+- Custom overrides live in `src/styles.scss` and target **both** old (`p-dropdown`, `p-calendar`) and new (`p-select`, `p-datepicker-panel`) CSS class names for full compatibility with PrimeNG 19's backward-compatible wrappers.
+
+### Backward-Compatible Modules (Deprecated but Functional)
+
+PrimeNG 19 ships backward-compatible wrappers for renamed components. These still compile and render correctly:
+
+| Old Module (still works) | New Module (preferred for new code) | Selector Change |
+|--------------------------|--------------------------------------|-----------------|
+| `DropdownModule` from `primeng/dropdown` | `SelectModule` from `primeng/select` | `p-dropdown` → `p-select` |
+| `CalendarModule` from `primeng/calendar` | `DatePickerModule` from `primeng/datepicker` | `p-calendar` → `p-datepicker` |
+| `InputSwitchModule` from `primeng/inputswitch` | `ToggleSwitchModule` from `primeng/toggleswitch` | `p-inputSwitch` → `p-toggleswitch` |
+| `pButton` directive | `pButtonIcon` + `pButtonLabel` | Same `[pButton]` selector, deprecated inputs |
+
+**Current state:** All existing components use the backward-compatible modules. They function correctly and will continue to work. When writing **new** components, prefer the new modules.
+
+### Standard Table Implementation
+
+```html
+<p-table [value]="items" [lazy]="true" (onLazyLoad)="load($event)"
+         [totalRecords]="totalRecords" [rows]="pageSize" [paginator]="true"
+         [loading]="loading" [globalFilterFields]="['name','email']"
+         [sortField]="sortField" [sortOrder]="sortOrder"
+         dataKey="id" #dt>
+    <ng-template pTemplate="caption">
+        <!-- Search / filter controls -->
+    </ng-template>
+    <ng-template pTemplate="header">
+        <tr><th pSortableColumn="name">{{ 'NAME' | translate }}<p-sortIcon field="name"/></th></tr>
+    </ng-template>
+    <ng-template pTemplate="body" let-item>
+        <tr><td>{{ item.name }}</td></tr>
+    </ng-template>
+    <ng-template pTemplate="emptymessage">
+        <tr><td [attr.colspan]="columns">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
+    </ng-template>
+</p-table>
+```
+
+### Standard Form Input (Dropdown)
+
+```html
+<p-dropdown [options]="items" [(ngModel)]="selectedValue"
+    optionLabel="name" optionValue="id"
+    [placeholder]="'SELECT' | translate"
+    appendTo="body" [showClear]="true"
+    [style]="{'width':'100%'}">
+</p-dropdown>
+```
+
+### Standard Calendar
+
+```html
+<p-calendar [(ngModel)]="dateValue" [dateFormat]="'dd/mm/yy'"
+    [showIcon]="true" [showClear]="true"
+    appendTo="body" [style]="{'width':'100%'}">
+</p-calendar>
+```
+
+### RTL Rules
+
+- All PrimeNG panels/overlays use `appendTo="body"` to ensure correct positioning.
+- Global RTL styles in `styles.scss` target both old and new selectors.
+- Paginator arrows are flipped via `transform: scaleX(-1)` in RTL.
+- Calendar time pickers keep `direction: ltr` within RTL layouts.
+- Dropdown/select triggers swap border-radius in RTL.
+
+### Rules for Future Developers
+
+1. **Do NOT change business logic** during PrimeNG upgrades.
+2. **New components** should use `SelectModule`, `DatePickerModule`, `ToggleSwitchModule` instead of the deprecated equivalents.
+3. **Always use `appendTo="body"`** on dropdowns, calendars, and overlays to avoid z-index/clipping issues.
+4. **Always use `| translate`** for placeholders and labels.
+5. **Add dual CSS selectors** in `styles.scss` when overriding PrimeNG component styles (old + new class names).
+6. **Do not import pre-built CSS theme files** — theming is handled programmatically via `providePrimeNG`.
+7. **Test RTL** when modifying any PrimeNG component styling.

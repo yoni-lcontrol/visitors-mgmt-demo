@@ -56,8 +56,8 @@ describe('VisitorsService', () => {
             expect(mockRepo.createQueryBuilder).not.toHaveBeenCalled();
         });
 
-        it('should return empty array for prefix shorter than 4 chars', async () => {
-            const result = await service.searchByPersonId('abc');
+        it('should return empty array for prefix shorter than 3 chars', async () => {
+            const result = await service.searchByPersonId('ab');
             expect(result).toEqual([]);
             expect(mockRepo.createQueryBuilder).not.toHaveBeenCalled();
         });
@@ -68,7 +68,7 @@ describe('VisitorsService', () => {
             expect(mockRepo.createQueryBuilder).not.toHaveBeenCalled();
         });
 
-        it('should query visitors with LIKE prefix for 4+ char input', async () => {
+        it('should query visitors with LIKE prefix for 3+ char input', async () => {
             const mockVisitors = [
                 { id: '1', firstName: 'John', lastName: 'Doe', personId: '1234', phone: '050', email: 'j@d.com', carNumber: null },
             ];

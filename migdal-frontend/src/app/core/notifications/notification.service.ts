@@ -45,13 +45,69 @@ export class NotificationService {
         });
     }
 
+    showHttpError(error: HttpErrorResponse): void {
+        const detail = this.extractHttpErrorMessage(error);
+        const summary = this.getErrorSummary(error);
+        this.messageService.add({
+            severity: 'error',
+            summary,
+            detail,
+            life: 5000,
+        });
+    }
+
+    private getErrorSummary(error: HttpErrorResponse): string {
+        if (error.status === 403) {
+            return this.translate.instant('COMMON.PERMISSION_DENIED');
+        }
+        if (error.status === 400) {
+            return this.translate.instant('COMMON.VALIDATION_ERROR');
+        }
+        return this.translate.instant('COMMON.ERROR');
+    }
+
+    private extractHttpErrorMessage(error: HttpErrorResponse): string {
+        if (error.status === 0) {
+            return this.translate.instant('COMMON.NETWORK_ERROR');
+        }
+        if (error.status === 502 || error.status === 503) {
+            return this.translate.instant('COMMON.SERVICE_UNAVAILABLE');
+        }
+        if (error.status === 403) {
+            return this.getBackendMessage(error) || this.translate.instant('COMMON.FORBIDDEN_MESSAGE');
+        }
+        if (error.status === 400 || error.status === 422) {
+            return this.getBackendMessage(error) || this.translate.instant('COMMON.MISSING_DATA_MESSAGE');
+        }
+
+        // Business errors (409, 404, etc.) — use backend message
+        const backendMsg = this.getBackendMessage(error);
+        if (backendMsg) {
+            return backendMsg;
+        }
+
+        return this.translate.instant('COMMON.UNKNOWN_ERROR');
+    }
+
+    private getBackendMessage(error: HttpErrorResponse): string | null {
+        const body = error.error;
+        // Backend wraps in { success: false, error: { code, message, details } }
+        if (body?.error?.message) {
+            return body.error.message;
+        }
+        // Fallback: direct message field
+        if (body?.message) {
+            return Array.isArray(body.message) ? body.message.join('. ') : body.message;
+        }
+        if (body?.details) {
+            return Array.isArray(body.details) ? body.details.join('. ') : body.details;
+        }
+        return null;
+    }
+
     private extractErrorMessage(error: unknown): string {
         if (error instanceof HttpErrorResponse) {
-            const body = error.error;
-            if (body?.message) {
-                return Array.isArray(body.message) ? body.message.join(', ') : body.message;
-            }
-            return error.statusText || this.translate.instant('COMMON.ERROR');
+            return this.extractHttpErrorMessage(error);
         }
         return this.translate.instant('COMMON.ERROR');
     }

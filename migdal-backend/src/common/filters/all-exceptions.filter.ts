@@ -30,9 +30,26 @@ export class AllExceptionsFilter implements ExceptionFilter {
                 message = exceptionResponse;
             } else if (typeof exceptionResponse === 'object') {
                 const resp = exceptionResponse as Record<string, unknown>;
-                message = (resp.message as string) || exception.message;
-                details = resp.details || resp.message;
-                errorCode = (resp.error as string) || 'HTTP_ERROR';
+
+                // ValidationPipe returns { message: string[] } for validation errors
+                if (Array.isArray(resp.message)) {
+                    message = (resp.message as string[]).join('. ');
+                    details = resp.message;
+                    errorCode = 'VALIDATION_ERROR';
+                } else {
+                    message = (resp.message as string) || exception.message;
+                    details = resp.details || resp.message;
+                    errorCode = (resp.error as string) || 'HTTP_ERROR';
+                }
+            }
+
+            // Categorize by status
+            if (status === HttpStatus.FORBIDDEN) {
+                errorCode = 'FORBIDDEN';
+            } else if (status === HttpStatus.UNAUTHORIZED) {
+                errorCode = 'UNAUTHORIZED';
+            } else if (status === HttpStatus.BAD_REQUEST && errorCode === 'HTTP_ERROR') {
+                errorCode = 'BAD_REQUEST';
             }
         } else if (exception instanceof Error) {
             message = exception.message;

@@ -7,11 +7,14 @@ import { Extension } from '../access-control/entities/extension.entity';
 import { ExtensionIo } from '../access-control/entities/extension-io.entity';
 import { IntegrationsCommonModule } from '../integrations/common/integrations-common.module';
 import { WebsocketModule } from '../websocket/websocket.module';
+import { AccessControlModule } from '../access-control/access-control.module';
 import { AmadeusController } from './amadeus.controller';
 import { AmadeusEventsController } from './amadeus-events.controller';
+import { AmadeusUsersController } from './amadeus-users.controller';
 import { AmadeusService } from './amadeus.service';
 import { AmadeusEventsService } from './amadeus-events.service';
 import { AmadeusEventAdapter } from './adapters/amadeus-event.adapter';
+import { AmadeusUsersService } from './services/amadeus-users.service';
 
 @Module({
     imports: [
@@ -24,8 +27,9 @@ import { AmadeusEventAdapter } from './adapters/amadeus-event.adapter';
         ]),
         IntegrationsCommonModule,
         WebsocketModule,
+        AccessControlModule,
     ],
-    controllers: [AmadeusController, AmadeusEventsController],
-    providers: [AmadeusService, AmadeusEventsService, AmadeusEventAdapter],
+    controllers: [AmadeusController, AmadeusEventsController, AmadeusUsersController],
+    providers: [AmadeusService, AmadeusEventsService, AmadeusEventAdapter, AmadeusUsersService],
 })
 export class AmadeusModule { }

@@ -16,21 +16,18 @@ export class BuildingsController {
     constructor(private readonly buildingsService: BuildingsService) { }
 
     @Get()
-    @RequirePermissions(PermissionKey.BuildingsRead)
     @ApiOperation({ summary: 'List all buildings (paginated)' })
     findAll(@Query() query: BuildingQueryDto) {
         return this.buildingsService.findAll(query);
     }
 
     @Get('access-levels')
-    @RequirePermissions(PermissionKey.BuildingsRead)
     @ApiOperation({ summary: 'List active access levels for building assignment' })
     findAccessLevels() {
         return this.buildingsService.findAccessLevels();
     }
 
     @Get(':id')
-    @RequirePermissions(PermissionKey.BuildingsRead)
     @ApiOperation({ summary: 'Get building by ID' })
     findOne(@Param('id', ParseUUIDPipe) id: string) {
         return this.buildingsService.findById(id);

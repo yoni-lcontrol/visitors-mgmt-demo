@@ -89,6 +89,8 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
             [value]="controller.doors"
             dataKey="id"
             [expandedRowKeys]="expandedDoorRows"
+            (onRowExpand)="onDoorRowExpand($event)"
+            (onRowCollapse)="onDoorRowCollapse($event)"
             styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines"
           >
             <ng-template pTemplate="header">
@@ -105,7 +107,7 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
             <ng-template pTemplate="body" let-door let-expanded="expanded">
               <tr>
                 <td>
-                  <button type="button" class="btn-icon expand-btn" [pRowToggler]="door"
+                  <button *ngIf="door.doorIos?.length" type="button" class="btn-icon expand-btn" [pRowToggler]="door"
                     [class.expanded]="expanded">
                     <i class="pi" [ngClass]="expanded ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
                   </button>
@@ -127,7 +129,7 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                 </td>
               </tr>
             </ng-template>
-            <ng-template pTemplate="rowexpansion" let-door>
+            <ng-template pTemplate="expandedrow" let-door>
               <tr>
                 <td colspan="7" class="expansion-cell">
                   <div class="nested-section">
@@ -200,6 +202,8 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
             [value]="controller.extensions"
             dataKey="id"
             [expandedRowKeys]="expandedExtRows"
+            (onRowExpand)="onExtRowExpand($event)"
+            (onRowCollapse)="onExtRowCollapse($event)"
             styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines"
           >
             <ng-template pTemplate="header">
@@ -216,7 +220,7 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
             <ng-template pTemplate="body" let-ext let-expanded="expanded">
               <tr>
                 <td>
-                  <button type="button" class="btn-icon expand-btn" [pRowToggler]="ext"
+                  <button *ngIf="ext.extensionIos?.length" type="button" class="btn-icon expand-btn" [pRowToggler]="ext"
                     [class.expanded]="expanded">
                     <i class="pi" [ngClass]="expanded ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
                   </button>
@@ -238,7 +242,7 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                 </td>
               </tr>
             </ng-template>
-            <ng-template pTemplate="rowexpansion" let-ext>
+            <ng-template pTemplate="expandedrow" let-ext>
               <tr>
                 <td colspan="8" class="expansion-cell">
                   <div class="nested-section">
@@ -583,24 +587,54 @@ export class ControllerDetailComponent implements OnInit {
 
   toggleDoorRow(door: Door): void {
     if (this.expandedDoorRows[door.id]) {
-      delete this.expandedDoorRows[door.id];
+      const { [door.id]: _, ...rest } = this.expandedDoorRows;
+      this.expandedDoorRows = rest;
     } else {
-      this.expandedDoorRows[door.id] = true;
+      this.expandedDoorRows = { ...this.expandedDoorRows, [door.id]: true };
       if (!this.doorIoMap[door.id]) {
         this.loadDoorIos(door.id);
       }
     }
   }
 
+  onDoorRowExpand(event: any): void {
+    const door = event.data;
+    this.expandedDoorRows = { ...this.expandedDoorRows, [door.id]: true };
+    if (!this.doorIoMap[door.id]) {
+      this.loadDoorIos(door.id);
+    }
+  }
+
+  onDoorRowCollapse(event: any): void {
+    const door = event.data;
+    const { [door.id]: _, ...rest } = this.expandedDoorRows;
+    this.expandedDoorRows = rest;
+  }
+
   toggleExtRow(ext: Extension): void {
     if (this.expandedExtRows[ext.id]) {
-      delete this.expandedExtRows[ext.id];
+      const { [ext.id]: _, ...rest } = this.expandedExtRows;
+      this.expandedExtRows = rest;
     } else {
-      this.expandedExtRows[ext.id] = true;
+      this.expandedExtRows = { ...this.expandedExtRows, [ext.id]: true };
       if (!this.extIoMap[ext.id]) {
         this.loadExtIos(ext.id);
       }
     }
+  }
+
+  onExtRowExpand(event: any): void {
+    const ext = event.data;
+    this.expandedExtRows = { ...this.expandedExtRows, [ext.id]: true };
+    if (!this.extIoMap[ext.id]) {
+      this.loadExtIos(ext.id);
+    }
+  }
+
+  onExtRowCollapse(event: any): void {
+    const ext = event.data;
+    const { [ext.id]: _, ...rest } = this.expandedExtRows;
+    this.expandedExtRows = rest;
   }
 
   private loadDoorIos(doorId: string): void {

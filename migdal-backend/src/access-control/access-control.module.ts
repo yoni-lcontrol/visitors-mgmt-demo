@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HttpModule } from '@nestjs/axios';
+import * as https from 'https';
 import {
     AcController,
     Door,
@@ -38,7 +39,9 @@ import { WebsocketModule } from '../websocket/websocket.module';
             ExtensionIo,
             AccessLevel,
         ]),
-        HttpModule,
+        HttpModule.register({
+            httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+        }),
         WebsocketModule,
     ],
     controllers: [

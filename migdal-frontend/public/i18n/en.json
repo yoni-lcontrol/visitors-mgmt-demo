@@ -158,7 +158,14 @@
         "SHOWING": "Showing",
         "OF": "of",
         "ENTRIES": "entries",
-        "UNSAVED_CHANGES_WARNING": "You have unsaved changes. Are you sure you want to leave?"
+        "UNSAVED_CHANGES_WARNING": "You have unsaved changes. Are you sure you want to leave?",
+        "SERVICE_UNAVAILABLE": "Access control service is unavailable. Please ensure the service is running and try again.",
+        "NETWORK_ERROR": "Unable to connect to the server. Please check your connection and try again.",
+        "FORBIDDEN_MESSAGE": "You do not have permission to perform this action.",
+        "MISSING_DATA_MESSAGE": "Required data is missing. Please fill all required fields.",
+        "UNKNOWN_ERROR": "Something went wrong. Please try again.",
+        "PERMISSION_DENIED": "Permission Denied",
+        "VALIDATION_ERROR": "Validation Error"
     },
     "PRIMENG": {
         "dayNames": [
@@ -514,6 +521,7 @@
         "ENTER_ROLE_NAME": "Enter role name",
         "ENTER_DESCRIPTION": "Enter description...",
         "ENTER_PURPOSE_OF_VISIT": "Enter purpose of visit...",
+        "SELECT_NUCLEUS": "Select nucleus",
         "ENTER_FLOOR": "Enter floor...",
         "ENTER_BUILDING_NAME": "Enter building name...",
         "ENTER_ADDRESS": "Enter address...",
@@ -976,6 +984,7 @@
         "VIEW_DETAIL": "View Details",
         "VISIT_TITLE": "Title",
         "SECTOR": "Sector",
+        "NUCLEUS": "Nucleus",
         "PURPOSE_OF_VISIT": "Purpose of Visit",
         "FLOOR": "Floor",
         "VISIT_DETAILS": "Visit Details",

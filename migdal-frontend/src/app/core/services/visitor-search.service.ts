@@ -18,7 +18,7 @@ export class VisitorSearchService {
     private api = inject(ApiService);
 
     searchByPersonId(prefix: string): Observable<VisitorSuggestion[]> {
-        if (!prefix || prefix.trim().length < 4) {
+        if (!prefix || prefix.trim().length < 3) {
             return of([]);
         }
         return this.api.get<VisitorSuggestion[]>('/visitors/search', { personId: prefix.trim() });

@@ -23,7 +23,7 @@ export class SystemUserSearchService {
             return of([]);
         }
 
-        return this.api.get<PaginatedResult<User>>('/users', {
+        return this.api.get<PaginatedResult<User>>('/users/lookup', {
             search: query.trim(),
             page: 1,
             limit: 10,

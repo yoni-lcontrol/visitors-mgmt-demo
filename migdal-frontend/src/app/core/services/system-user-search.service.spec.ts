@@ -50,7 +50,7 @@ describe('SystemUserSearchService', () => {
 
         service.searchUsers('John').subscribe(() => {
             const [url, params] = mockApi.get.calls.mostRecent().args;
-            expect(url).toBe('/users');
+            expect(url).toBe('/users/lookup');
             expect(params!['search']).toBe('John');
             const filters = JSON.parse(params!['filters'] as string);
             expect(filters.isActive).toEqual({ value: true, matchMode: 'equals' });

@@ -97,20 +97,25 @@ export class SeedService implements OnModuleInit {
                 }
 
                 const existingKeys = new Set((role.permissions ?? []).map((permission) => permission.key));
+                const seedKeys = new Set<string>(seededRole.permissions);
                 const missingKeys = seededRole.permissions.filter((permissionKey) => !existingKeys.has(permissionKey));
+                const extraKeys = [...existingKeys].filter((key) => !seedKeys.has(key));
 
-                if (missingKeys.length === 0) {
+                if (missingKeys.length === 0 && extraKeys.length === 0) {
                     continue;
                 }
 
                 const missingPermissions = allPerms.filter((permission) => missingKeys.includes(permission.key as any));
-                if (missingPermissions.length === 0) {
-                    continue;
-                }
-
-                role.permissions = [...(role.permissions ?? []), ...missingPermissions];
+                const updatedPermissions = (role.permissions ?? []).filter((permission) => !extraKeys.includes(permission.key));
+                role.permissions = [...updatedPermissions, ...missingPermissions];
                 await roleRepo.save(role);
-                this.logger.log(`Updated role ${role.name}: added ${missingPermissions.length} permission(s)`);
+
+                if (missingKeys.length > 0) {
+                    this.logger.log(`Updated role ${role.name}: added ${missingPermissions.length} permission(s)`);
+                }
+                if (extraKeys.length > 0) {
+                    this.logger.log(`Updated role ${role.name}: removed ${extraKeys.length} permission(s) [${extraKeys.join(', ')}]`);
+                }
             }
 
             // Always ensure the Admin role has ALL permissions

@@ -49,6 +49,11 @@ export class CreateVisitDto {
     @IsString()
     purposeOfVisit?: string;
 
+    @ApiPropertyOptional({ example: "גרעין א'" })
+    @IsOptional()
+    @IsString()
+    nucleus?: string;
+
     @ApiPropertyOptional({ example: 'SITE-001' })
     @IsOptional()
     @IsString()

@@ -158,7 +158,14 @@
         "SHOWING": "מציג",
         "OF": "מתוך",
         "ENTRIES": "רשומות",
-        "UNSAVED_CHANGES_WARNING": "יש שינויים שלא נשמרו. האם אתה בטוח שברצונך לעזוב?"
+        "UNSAVED_CHANGES_WARNING": "יש שינויים שלא נשמרו. האם אתה בטוח שברצונך לעזוב?",
+        "SERVICE_UNAVAILABLE": "שירות בקרת הגישה אינו זמין. אנא ודא שהשירות פעיל ונסה שנית.",
+        "NETWORK_ERROR": "לא ניתן להתחבר לשרת. אנא בדוק את החיבור שלך ונסה שנית.",
+        "FORBIDDEN_MESSAGE": "אין לך הרשאה לבצע פעולה זו.",
+        "MISSING_DATA_MESSAGE": "נתונים נדרשים חסרים. אנא מלא את כל השדות הנדרשים.",
+        "UNKNOWN_ERROR": "משהו השתבש. אנא נסה שנית.",
+        "PERMISSION_DENIED": "הרשאה נדחתה",
+        "VALIDATION_ERROR": "שגיאת אימות"
     },
     "PRIMENG": {
         "dayNames": [
@@ -514,6 +521,7 @@
         "ENTER_ROLE_NAME": "הכנס שם תפקיד",
         "ENTER_DESCRIPTION": "הכנס תיאור...",
         "ENTER_PURPOSE_OF_VISIT": "הכנס מטרת הביקור...",
+        "SELECT_NUCLEUS": "בחר גרעין",
         "ENTER_FLOOR": "הכנס קומה...",
         "ENTER_BUILDING_NAME": "הכנס שם מבנה...",
         "ENTER_ADDRESS": "הכנס כתובת...",
@@ -976,6 +984,7 @@
         "VIEW_DETAIL": "צפה בפרטים",
         "VISIT_TITLE": "כותרת",
         "SECTOR": "תחום",
+        "NUCLEUS": "גרעין",
         "PURPOSE_OF_VISIT": "מטרת הביקור",
         "FLOOR": "קומה",
         "VISIT_DETAILS": "פרטי ביקור",

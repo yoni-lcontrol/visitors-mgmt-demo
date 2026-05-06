@@ -7,6 +7,7 @@ import { SmsTemplate } from '../../settings/entities/sms-template.entity';
 import { EmailTemplate } from '../../settings/entities/email-template.entity';
 import { Setting } from '../../settings/entities/setting.entity';
 import { VehicleManufacturer } from '../../settings/entities/vehicle-manufacturer.entity';
+import { VehicleModel } from '../../settings/entities/vehicle-model.entity';
 import { AdGroupRoleMapping } from '../../ad-group-role-mappings/entities/ad-group-role-mapping.entity';
 
 describe('SeedService', () => {
@@ -23,6 +24,7 @@ describe('SeedService', () => {
         const permissionRepo = createRepositoryMock();
         permissionRepo.find.mockResolvedValue([
             { key: 'users.read' },
+            { key: 'roles.read' },
             { key: 'visits.create' },
             { key: 'visits.read' },
             { key: 'visits.update' },
@@ -30,6 +32,14 @@ describe('SeedService', () => {
             { key: 'parking.request' },
             { key: 'parking.approve' },
             { key: 'access-control.import' },
+            { key: 'settings.read' },
+            { key: 'settings.update' },
+            { key: 'settings.permanent-escorts.read' },
+            { key: 'settings.permanent-escorts.manage' },
+            { key: 'settings.card-templates.read' },
+            { key: 'settings.card-templates.create' },
+            { key: 'settings.card-templates.update' },
+            { key: 'settings.card-templates.delete' },
         ]);
 
         const roleRepo = createRepositoryMock();
@@ -47,6 +57,7 @@ describe('SeedService', () => {
         const emailTemplateRepo = createRepositoryMock();
         const settingRepo = createRepositoryMock();
         const vehicleManufacturerRepo = createRepositoryMock();
+        const vehicleModelRepo = createRepositoryMock();
         const adGroupRoleMappingRepo = createRepositoryMock();
 
         const repositories = new Map<any, ReturnType<typeof createRepositoryMock>>([
@@ -57,6 +68,7 @@ describe('SeedService', () => {
             [EmailTemplate, emailTemplateRepo],
             [Setting, settingRepo],
             [VehicleManufacturer, vehicleManufacturerRepo],
+            [VehicleModel, vehicleModelRepo],
             [AdGroupRoleMapping, adGroupRoleMappingRepo],
         ]);
 
@@ -107,6 +119,7 @@ describe('SeedService', () => {
         ]));
         expect(managersRole?.permissions.map((permission: { key: string }) => permission.key)).not.toContain('parking.approve');
         expect(securityDeskRole?.permissions.map((permission: { key: string }) => permission.key)).toEqual(expect.arrayContaining([
+            'roles.read',
             'visits.create',
             'visits.read',
             'visits.update',
@@ -114,6 +127,14 @@ describe('SeedService', () => {
             'parking.request',
             'parking.approve',
             'access-control.import',
+            'settings.read',
+            'settings.update',
+            'settings.permanent-escorts.read',
+            'settings.permanent-escorts.manage',
+            'settings.card-templates.read',
+            'settings.card-templates.create',
+            'settings.card-templates.update',
+            'settings.card-templates.delete',
         ]));
         expect(kabatRole?.permissions.map((permission: { key: string }) => permission.key)).toEqual(expect.arrayContaining([
             'visits.create',
@@ -216,6 +237,7 @@ describe('SeedService', () => {
     it('should add missing default permissions to existing security desk role', async () => {
         const permissionRepo = createRepositoryMock();
         permissionRepo.find.mockResolvedValue([
+            { key: 'roles.read' },
             { key: 'visits.create' },
             { key: 'visits.read' },
             { key: 'visits.update' },
@@ -223,6 +245,14 @@ describe('SeedService', () => {
             { key: 'parking.request' },
             { key: 'parking.approve' },
             { key: 'access-control.import' },
+            { key: 'settings.read' },
+            { key: 'settings.update' },
+            { key: 'settings.permanent-escorts.read' },
+            { key: 'settings.permanent-escorts.manage' },
+            { key: 'settings.card-templates.read' },
+            { key: 'settings.card-templates.create' },
+            { key: 'settings.card-templates.update' },
+            { key: 'settings.card-templates.delete' },
         ]);
 
         const roleRepo = createRepositoryMock();
@@ -292,6 +322,7 @@ describe('SeedService', () => {
         expect(updatedSecurityDeskCall).toBeDefined();
         const updatedSecurityDeskRole = updatedSecurityDeskCall?.[0];
         expect(updatedSecurityDeskRole.permissions.map((permission: { key: string }) => permission.key)).toEqual(expect.arrayContaining([
+            'roles.read',
             'visits.create',
             'visits.read',
             'visits.update',
@@ -299,6 +330,14 @@ describe('SeedService', () => {
             'parking.request',
             'parking.approve',
             'access-control.import',
+            'settings.read',
+            'settings.update',
+            'settings.permanent-escorts.read',
+            'settings.permanent-escorts.manage',
+            'settings.card-templates.read',
+            'settings.card-templates.create',
+            'settings.card-templates.update',
+            'settings.card-templates.delete',
         ]));
     });
 

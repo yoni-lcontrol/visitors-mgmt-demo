@@ -1,0 +1,96 @@
+{
+    "HOME": {
+        "WELCOME": "ברוכים הבאים!",
+        "VISITORS_ENTRY": "כניסת מבקרים מכאן",
+        "CHECK_IN": "צ׳ק-אין"
+    },
+    "CHECKIN": {
+        "STARTED": "התחלנו!",
+        "PROCESS": "תהליך צ׳ק-אין",
+        "SMS_RECEIVED": "SMS קיבלתם",
+        "SMS_INSTRUCTION": "עם קוד בן 6 ספרות, נא הזינו אותו כאן",
+        "VERIFICATION_CODE": "קוד אימות",
+        "NUMERIC_KEYPAD": "מקלדת מספרים",
+        "DELETE_DIGIT": "מחק ספרה"
+    },
+    "COMMON": {
+        "CLEAR": "נקה",
+        "HOME_SCREEN": "מסך ראשי",
+        "CONFIRM_CONTINUE": "אשר והמשך",
+        "LOADING": "טוען",
+        "PREVIOUS": "הקודם",
+        "CANCEL": "ביטול",
+        "PROCESS_STEPS": "שלבי התהליך"
+    },
+    "SCAN": {
+        "SCAN_TITLE": "סריקה....",
+        "VERIFY_DETAILS": "אימות פרטים...",
+        "WAITING_FOR_SCAN": "ממתין לכם לסריקת תעודת זהות...",
+        "SCAN_INSTRUCTION": "אנא סרקו את תעודת הזהות שלכם באזור<br/>המיועד למטה"
+    },
+    "DETAILS": {
+        "VERIFY_DETAILS": "אימות פרטים...",
+        "SUBTITLE": "וודאו שהפרטים שמופיעים נכונים,<br/>וצלמו תמונה במידה ואין במערכת",
+        "VISITOR_PHOTO": "תמונת מבקר",
+        "NO_PHOTO": "אין תמונה",
+        "PERSONAL_DETAILS": "פרטים אישיים",
+        "FIRST_NAME": "שם פרטי",
+        "LAST_NAME": "שם משפחה",
+        "ID_NUMBER": "מס׳ תעודת זהות",
+        "MOBILE_PHONE": "טלפון נייד",
+        "EMAIL": "כתובת מייל",
+        "SITE_CLASSIFICATION": "סיווג באתר",
+        "POPULATION": "אוכלוסיה",
+        "FUNDING_SOURCE": "גורם מממן",
+        "VISITOR": "מבקר",
+        "DRIVER": "נהג",
+        "UNKNOWN": "לא ידוע"
+    },
+    "SIGNATURE": {
+        "ALMOST_DONE": "כמעט סיימנו!",
+        "READ_AND_SIGN": "קראו את הטופס וחתמו לאישור תנאי הביקור.",
+        "SIGN_WITH_FINGER": "נא לחתום עם האצבע / עט מגע",
+        "SIGN_AREA": "אזור חתימה",
+        "SIGN_HERE": "חתום כאן",
+        "CLEAR_SIGNATURE": "נקה חתימה",
+        "CLEAR_NOTE": "ניתן לנקות ולחתום מחדש בכל שלב"
+    },
+    "COMPLETE": {
+        "CHECKIN_COMPLETED": "הצ'ק-אין הושלם",
+        "HAVE_A_NICE_VISIT": "ביקור נעים!",
+        "SUCCESS_MESSAGE": "הפרטים נקלטו במערכת.<br/>תוכלו להמשיך בביקור בהתאם להנחיות המקום",
+        "HOST_NOTIFIED": "המארח שלך עודכן על הגעתך.",
+        "WAIT_IN_LOBBY": "אנא המתן בלובי עד שיקראו לך.",
+        "NEED_HELP": "במידה ותזדקק לעזרה, ניתן לפנות לצוות הקבלה.",
+        "FINISH_PROCESS": "סיום"
+    },
+    "ERROR": {
+        "TITLE": "אירעה שגיאה",
+        "MESSAGE": "משהו השתבש. נא לנסות שוב.",
+        "NO_ID_DETECTED_IN_SCAN": "לא זוהה מספר תעודת זהות במסמך שנסרק.",
+        "DOCUMENT_SCAN_ERROR": "אירעה שגיאה בסריקת המסמך. נא לנסות שוב.",
+        "SCANNED_ID_NOT_MATCH": "מספר תעודת הזהות שנסרק אינו תואם למספר המצופה.",
+        "SCANNER_CONNECTION_ERROR": "שגיאת התחברות לסורק",
+        "MISSING_VISITOR_ID": "מזהה מבקר חסר.",
+        "GENERAL_TRY_AGAIN": "אירעה שגיאה. נא לנסות שוב מאוחר יותר.",
+        "NO_CARD_TEMPLATES": "לא נמצאו תבניות כרטיס.",
+        "CHECKIN_PRINT_FAILED": "פעולת הצ'ק-אין או הדפסת הכרטיס נכשלה."
+    },
+    "INVITATION": {
+        "NOT_FOUND_TITLE": "לא נמצא זימון",
+        "NOT_FOUND_MESSAGE": "לא הצלחנו למצוא זימון פעיל לפי הפרטים שהוזנו.",
+        "SUGGESTIONS": "הצעות לפתרון",
+        "CHECK_CODE": "ודא/י שקוד הזימון הוקלד כראוי",
+        "MAYBE_NOT_CREATED": "ייתכן שהזימון עדיין לא הוקם או שהוא בתאריך אחר",
+        "TRY_AGAIN_OR_CANCEL": "נסה/י שוב או לחצו על ביטול כדי לחזור למסך הבית",
+        "CONTACT_DETAILS": "פרטי קשר",
+        "CONTACT_RECEPTION": "צרו קשר עם הקבלה לפרטים נוספים",
+        "RECEPTION_HELP": "במידת הצורך, הקבלה תוכל לבדוק את הזימון ולעזור לכם להמשיך."
+    },
+    "TOASTER": {
+        "TITLE_ERROR": "שגיאה",
+        "TITLE_SUCCESS": "הצלחה",
+        "TITLE_INFO": "מידע",
+        "TITLE_WARNING": "אזהרה"
+    }
+}

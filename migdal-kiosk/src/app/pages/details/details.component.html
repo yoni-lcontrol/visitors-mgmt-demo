@@ -1,0 +1,222 @@
+<div class="details-container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-title">
+      {{ 'DETAILS.VERIFY_DETAILS' | translate }}
+    </div>
+  </div>
+
+  <div class="body">
+
+    <!-- Steps -->
+    <app-steps [active]="2"></app-steps>
+
+    <!-- Subtitle -->
+    <div class="subtitle"
+         [innerHTML]="'DETAILS.SUBTITLE' | translate">
+    </div>
+
+    <div class="vc-card">
+
+      <!-- Header stripe -->
+      <div class="vc-header">
+
+        <div class="vc-avatar">
+          <ng-container *ngIf="currentVisit?.visitor?.image; else defaultAvatar">
+            <img [src]="currentVisit?.visitor?.image"
+                 [attr.alt]="'DETAILS.VISITOR_PHOTO' | translate"
+                 class="vc-avatar-img" />
+          </ng-container>
+
+          <ng-template #defaultAvatar>
+            <div class="vc-avatar-fallback"
+                 [attr.aria-label]="'DETAILS.NO_PHOTO' | translate">
+
+              <svg class="vc-avatar-icon"
+                   viewBox="0 0 24 24"
+                   aria-hidden="true">
+                <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5Z"
+                      fill="currentColor" />
+              </svg>
+
+            </div>
+          </ng-template>
+        </div>
+
+        <div class="vc-header-text">
+          <h2 class="vc-name">
+            {{ currentVisit?.visitor?.firstName }}
+            {{ currentVisit?.visitor?.lastName }}
+          </h2>
+
+          <span class="vc-badge">
+            {{ currentVisit?.visit?.visitorType | visitorTypeLabel | translate}}
+          </span>
+        </div>
+
+      </div>
+
+      <!-- Body -->
+      <div class="vc-body">
+
+        <!-- Personal details -->
+        <div class="section-divider">
+          <div class="divider-line"></div>
+          <span class="divider-label">
+            {{ 'DETAILS.PERSONAL_DETAILS' | translate }}
+          </span>
+          <div class="divider-line"></div>
+        </div>
+
+        <div class="details-grid">
+
+          <div class="detail-row">
+            <div class="detail-icon-wrap">
+              <lucide-icon name="user"
+                           [size]="16"></lucide-icon>
+            </div>
+            <div class="detail-text">
+              <span class="detail-label">
+                {{ 'DETAILS.FIRST_NAME' | translate }}
+              </span>
+              <span class="detail-val">
+                {{ currentVisit?.visitor?.firstName }}
+              </span>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <div class="detail-icon-wrap">
+              <lucide-icon name="user"
+                           [size]="16"></lucide-icon>
+            </div>
+            <div class="detail-text">
+              <span class="detail-label">
+                {{ 'DETAILS.LAST_NAME' | translate }}
+              </span>
+              <span class="detail-val">
+                {{ currentVisit?.visitor?.lastName }}
+              </span>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <div class="detail-icon-wrap detail-icon-highlight">
+              <lucide-icon name="id-card"
+                           [size]="16"></lucide-icon>
+            </div>
+            <div class="detail-text">
+              <span class="detail-label">
+                {{ 'DETAILS.ID_NUMBER' | translate }}
+              </span>
+              <span class="detail-val">
+                {{ currentVisit?.visitor?.personId }}
+              </span>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <div class="detail-icon-wrap detail-icon-highlight">
+              <lucide-icon name="phone"
+                           [size]="16"></lucide-icon>
+            </div>
+            <div class="detail-text">
+              <span class="detail-label">
+                {{ 'DETAILS.MOBILE_PHONE' | translate }}
+              </span>
+              <span class="detail-val">
+                {{ currentVisit?.visitor?.phone }}
+              </span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Email -->
+        <div class="detail-row">
+          <div class="detail-icon-wrap">
+            <lucide-icon name="mail"
+                         [size]="16"></lucide-icon>
+          </div>
+          <div class="detail-text">
+            <span class="detail-label">
+              {{ 'DETAILS.EMAIL' | translate }}
+            </span>
+            <span class="detail-val">
+              {{ currentVisit?.visitor?.email }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Site classification -->
+        <!-- <div class="section-divider">
+          <div class="divider-line"></div>
+          <span class="divider-label">
+            {{ 'DETAILS.SITE_CLASSIFICATION' | translate }}
+          </span>
+          <div class="divider-line"></div>
+        </div>
+
+        <div class="details-grid">
+
+          <div class="detail-row">
+            <div class="detail-icon-wrap">
+              <lucide-icon name="building-2"
+                           [size]="16"></lucide-icon>
+            </div>
+            <div class="detail-text">
+              <span class="detail-label">
+                {{ 'DETAILS.POPULATION' | translate }}
+              </span>
+              <span class="detail-val">
+                {{ visitor.occupation }}
+              </span>
+            </div>
+          </div>
+
+          <div class="detail-row">
+            <div class="detail-icon-wrap">
+              <lucide-icon name="wallet"
+                           [size]="16"></lucide-icon>
+            </div>
+            <div class="detail-text">
+              <span class="detail-label">
+                {{ 'DETAILS.FUNDING_SOURCE' | translate }}
+              </span>
+              <span class="detail-val">
+                {{ visitor.fundingSource }}
+              </span>
+            </div>
+          </div>
+
+        </div> -->
+
+      </div>
+    </div>
+
+    <!-- Bottom -->
+    <div class="bottom">
+
+      <button type="button"
+              class="btn-prev"
+              (click)="goBack()">
+        <span class="btn-prev-bg"></span>
+        <span class="btn-prev-text">
+          {{ 'COMMON.PREVIOUS' | translate }}
+        </span>
+      </button>
+
+      <button type="button"
+              class="continue"
+              (click)="continue()">
+        <span class="continue-bg"></span>
+        <span class="continue-text">
+          {{ 'COMMON.CONFIRM_CONTINUE' | translate }}
+        </span>
+      </button>
+
+    </div>
+
+  </div>
+</div>

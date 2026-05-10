@@ -1,0 +1,12 @@
+{
+    "APP_VERSION": "1.0.1",
+    "HOME_URL": "/home",
+    "ERROR_URL": "/error",
+    "IDLE_TIMEOUT_MS": 120000,
+    "ENABLE_RELOAD_ON_IDLE": true,
+    "RELOAD_AFTER_IDLE_MS": 1800000,
+    "API_BASE_URL": "http://localhost:3000",
+    "WS_URL": "http://localhost:3000",
+    "WS_API_KEY": "kiosk-dev-key",
+    "HEARTBEAT_INTERVAL_MS": 30000
+}

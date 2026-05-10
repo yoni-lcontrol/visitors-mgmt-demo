@@ -1,0 +1,139 @@
+<div class="checkin">
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-title">
+            {{ 'CHECKIN.STARTED' | translate }}
+        </div>
+
+        <div class="header-sub">
+            {{ 'CHECKIN.PROCESS' | translate }}
+        </div>
+    </div>
+
+    <!-- Body -->
+    <div class="body">
+
+        <!-- Steps -->
+        <app-steps [active]="1"></app-steps>
+
+        <!-- SMS instructions -->
+        <div class="sms">
+            <div class="sms-title">
+                {{ 'CHECKIN.SMS_RECEIVED' | translate }}
+            </div>
+
+            <div class="sms-text">
+                {{ 'CHECKIN.SMS_INSTRUCTION' | translate }}
+            </div>
+        </div>
+
+        <!-- Code boxes -->
+        <div class="code">
+            <div class="boxes"
+                 [attr.aria-label]="'CHECKIN.VERIFICATION_CODE' | translate">
+
+                <div class="box"
+                     *ngFor="let d of digits; index as i">
+                    {{ d || '' }}
+                </div>
+
+            </div>
+
+            <div class="code-label">
+                {{ 'CHECKIN.VERIFICATION_CODE' | translate }}
+            </div>
+        </div>
+
+        <!-- Keypad -->
+        <div class="bottom">
+
+            <div class="keypad"
+                 [attr.aria-label]="'CHECKIN.NUMERIC_KEYPAD' | translate">
+
+                <button class="k"
+                        type="button"
+                        (click)="press(1)">1</button>
+                <button class="k"
+                        type="button"
+                        (click)="press(2)">2</button>
+                <button class="k"
+                        type="button"
+                        (click)="press(3)">3</button>
+
+                <button class="k"
+                        type="button"
+                        (click)="press(4)">4</button>
+                <button class="k"
+                        type="button"
+                        (click)="press(5)">5</button>
+                <button class="k"
+                        type="button"
+                        (click)="press(6)">6</button>
+
+                <button class="k"
+                        type="button"
+                        (click)="press(7)">7</button>
+                <button class="k"
+                        type="button"
+                        (click)="press(8)">8</button>
+                <button class="k"
+                        type="button"
+                        (click)="press(9)">9</button>
+
+                <button class="k k0"
+                        type="button"
+                        (click)="press(0)">0</button>
+
+                <button class="k k-clear"
+                        type="button"
+                        (click)="clearAll()">
+                    {{ 'COMMON.CLEAR' | translate }}
+                </button>
+
+                <button class="k k-back"
+                        type="button"
+                        (click)="backspace()"
+                        [attr.aria-label]="'CHECKIN.DELETE_DIGIT' | translate">
+
+                    <svg viewBox="0 0 24 24"
+                         class="icon">
+                        <path d="M22 3H7c-.69 0-1.23.35-1.59.88L1 12l4.41 8.12c.36.53.9.88 1.59.88h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2Zm0 16H7.07L3.55 12l3.52-7H22v14ZM10.41 8.41 9 9.83 11.17 12 9 14.17l1.41 1.42L12.59 13.4l2.17 2.19 1.41-1.42L14 12l2.17-2.17-1.41-1.42-2.17 2.19-2.18-2.19Z"
+                              fill="currentColor" />
+                    </svg>
+                </button>
+
+            </div>
+
+            <!-- Actions -->
+            <div class="actions">
+
+                <button type="button"
+                        class="btn-prev"
+                        (click)="cancel()">
+
+                    <span class="btn-prev-bg"></span>
+
+                    <span class="btn-prev-text">
+                        {{ 'COMMON.HOME_SCREEN' | translate }}
+                    </span>
+
+                </button>
+
+                <button type="button"
+                        class="continue"
+                        [disabled]="!isComplete"
+                        (click)="continue()">
+
+                    <span class="continue-bg"></span>
+
+                    <span class="continue-text">
+                        {{ 'COMMON.CONFIRM_CONTINUE' | translate }}
+                    </span>
+
+                </button>
+
+            </div>
+        </div>
+    </div>
+</div>

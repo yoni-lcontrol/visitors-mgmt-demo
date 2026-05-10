@@ -1,0 +1,96 @@
+{
+    "HOME": {
+        "WELCOME": "Welcome!",
+        "VISITORS_ENTRY": "Visitors Entrance Here",
+        "CHECK_IN": "Check In"
+    },
+    "CHECKIN": {
+        "STARTED": "Let's Begin!",
+        "PROCESS": "Check-In Process",
+        "SMS_RECEIVED": "SMS Received",
+        "SMS_INSTRUCTION": "Enter the 6-digit verification code here",
+        "VERIFICATION_CODE": "Verification Code",
+        "NUMERIC_KEYPAD": "Numeric Keypad",
+        "DELETE_DIGIT": "Delete Digit",
+        "PROCESS_STEPS": "Process steps"
+    },
+    "COMMON": {
+        "CLEAR": "Clear",
+        "HOME_SCREEN": "Home",
+        "CONFIRM_CONTINUE": "Confirm",
+        "LOADING": "Loading",
+        "PREVIOUS": "Previous",
+        "CANCEL": "Cancel"
+    },
+    "SCAN": {
+        "SCAN_TITLE": "Scan...",
+        "VERIFY_DETAILS": "Verifying Details...",
+        "WAITING_FOR_SCAN": "Waiting for ID Scan...",
+        "SCAN_INSTRUCTION": "Please scan your ID card in the designated area below"
+    },
+    "DETAILS": {
+        "VERIFY_DETAILS": "Verify Details",
+        "SUBTITLE": "Please verify that the displayed details are correct<br/>and take a photo if none exists in the system",
+        "VISITOR_PHOTO": "Visitor Photo",
+        "NO_PHOTO": "No Photo Available",
+        "PERSONAL_DETAILS": "Personal Details",
+        "FIRST_NAME": "First Name",
+        "LAST_NAME": "Last Name",
+        "ID_NUMBER": "ID Number",
+        "MOBILE_PHONE": "Mobile Phone",
+        "EMAIL": "Email Address",
+        "SITE_CLASSIFICATION": "Site Classification",
+        "POPULATION": "Population",
+        "FUNDING_SOURCE": "Funding Source",
+        "VISITOR": "Visitor",
+        "DRIVER": "Driver",
+        "UNKNOWN": "Unknown"
+    },
+    "SIGNATURE": {
+        "ALMOST_DONE": "Almost Done!",
+        "READ_AND_SIGN": "Please read the form and sign to approve the visit terms.",
+        "SIGN_WITH_FINGER": "Please sign using your finger or stylus",
+        "SIGN_AREA": "Signature Area",
+        "SIGN_HERE": "Sign Here",
+        "CLEAR_SIGNATURE": "Clear",
+        "CLEAR_NOTE": "You can clear and sign again"
+    },
+    "COMPLETE": {
+        "CHECKIN_COMPLETED": "Check-In Completed",
+        "HAVE_A_NICE_VISIT": "Have a Pleasant Visit!",
+        "SUCCESS_MESSAGE": "Your details were successfully registered.<br/>Please continue your visit according to site instructions.",
+        "HOST_NOTIFIED": "Your host has been notified of your arrival.",
+        "WAIT_IN_LOBBY": "Please wait in the lobby until you are called.",
+        "NEED_HELP": "If you need assistance, please contact the reception staff.",
+        "FINISH_PROCESS": "Finish"
+    },
+    "ERROR": {
+        "TITLE": "Something Went Wrong",
+        "MESSAGE": "Please try again.",
+        "SCANNER_CONNECTION_ERROR": "Scanner connection error",
+        "NO_ID_DETECTED_IN_SCAN": "No ID number was detected in the scanned document.",
+        "DOCUMENT_SCAN_ERROR": "An error occurred while scanning the document. Please try again.",
+        "SCANNED_ID_NOT_MATCH": "The scanned ID does not match the expected ID.",
+        "MISSING_VISITOR_ID": "Missing visitor ID.",
+        "GENERAL_TRY_AGAIN": "An error occurred. Please try again later.",
+        "NO_CARD_TEMPLATES": "No card templates were found.",
+        "CHECKIN_PRINT_FAILED": "Check-in or card printing failed."
+    },
+    "INVITATION": {
+        "NOT_FOUND_TITLE": "Invitation Not Found",
+        "NOT_FOUND_MESSAGE": "We could not find an active invitation based on the entered details.",
+        "SUGGESTIONS": "Suggestions",
+        "CHECK_CODE": "Please verify the invitation code was entered correctly",
+        "MAYBE_NOT_CREATED": "The invitation may not yet exist or may be scheduled for another date",
+        "TRY_AGAIN_OR_CANCEL": "Try again or press Cancel to return to the home screen",
+        "CONTACT_DETAILS": "Contact Information",
+        "CONTACT_RECEPTION": "Please contact reception for assistance",
+        "RECEPTION_HELP": "Reception staff can verify the invitation and help you continue."
+    },
+    "TOASTER": {
+        "TITLE_ERROR": "Error",
+        "TITLE_SUCCESS": "Success",
+        "TITLE_INFO": "Information",
+        "TITLE_WARNING": "Warning"
+    }
+}

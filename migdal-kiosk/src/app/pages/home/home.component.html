@@ -1,0 +1,62 @@
+<div class="kiosk-home">
+
+  <!-- Language switch (overlay) -->
+  <div class="lang-switch"
+       role="group"
+       aria-label="Language">
+    <button type="button"
+            class="lang-btn"
+            [class.active]="currentLang === 'he'"
+            (click)="setLang('he')">
+      עברית
+    </button>
+
+    <button type="button"
+            class="lang-btn"
+            [class.active]="currentLang === 'en'"
+            (click)="setLang('en')">
+      English
+    </button>
+  </div>
+
+  <!-- Main content -->
+  <main class="content">
+
+    <!-- Tower logo -->
+    <div class="hero">
+      <img class="hero-frame"
+           src="assets/kiosk/מגדל_חדש_PNG.png"
+           alt="" />
+    </div>
+
+    <!-- Welcome title -->
+    <h1 class="title">
+      {{ 'HOME.WELCOME' | translate }}
+    </h1>
+
+    <!-- Hint + CTA -->
+    <div class="bottom">
+      <div class="hint">
+        <div class="hint-text">
+          {{ 'HOME.VISITORS_ENTRY' | translate }}
+        </div>
+        <div class="hint-arrow">↓</div>
+      </div>
+
+      <button type="button"
+              class="cta"
+              (click)="onStart()">
+
+        <span class="cta-bg"
+              aria-hidden="true"></span>
+
+        <span class="cta-text">
+          {{ 'HOME.CHECK_IN' | translate }}
+        </span>
+
+      </button>
+    </div>
+
+  </main>
+
+</div>

@@ -1,0 +1,134 @@
+<div class="visit-not-found-container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-title">
+      {{ 'INVITATION.NOT_FOUND_TITLE' | translate }}
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <div class="subtitle"></div>
+
+    <!-- Card -->
+    <div class="scan-card"
+         aria-live="polite">
+      <div class="scan-card-top"></div>
+
+      <div class="scan-card-content">
+
+        <!-- Title -->
+        <div class="status-title">
+
+          <div class="status-title-text">
+            {{ 'INVITATION.NOT_FOUND_TITLE' | translate }}
+          </div>
+
+          <svg class="status-icon"
+               viewBox="0 0 24 24"
+               aria-hidden="true">
+            <path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Zm1 15h-2v-2h2Zm0-4h-2V7h2Z"
+                  fill="currentColor" />
+          </svg>
+
+        </div>
+
+        <!-- Message -->
+        <div class="scan-card-text modern-text">
+          {{ 'INVITATION.NOT_FOUND_MESSAGE' | translate }}
+        </div>
+
+        <!-- Help list -->
+        <div class="help-list"
+             role="list"
+             [attr.aria-label]="'INVITATION.SUGGESTIONS' | translate">
+
+          <div class="help-item"
+               role="listitem">
+            <svg class="help-icon"
+                 viewBox="0 0 24 24"
+                 aria-hidden="true">
+              <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2Zm0 14H4V8h16v10Zm-9-1h7v-2h-7v2Zm-5-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2Zm-2 3h6v-1c0-1.1-2-2-3-2s-3 .9-3 2v1Z"
+                    fill="currentColor" />
+            </svg>
+
+            <div class="help-text">
+              {{ 'INVITATION.CHECK_CODE' | translate }}
+            </div>
+          </div>
+
+          <div class="help-item"
+               role="listitem">
+            <svg class="help-icon"
+                 viewBox="0 0 24 24"
+                 aria-hidden="true">
+              <path d="M12 7a1 1 0 0 1 1 1v3.586l2.707 2.707-1.414 1.414L11 12.414V8a1 1 0 0 1 1-1Zm0-5a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Z"
+                    fill="currentColor" />
+            </svg>
+
+            <div class="help-text">
+              {{ 'INVITATION.MAYBE_NOT_CREATED' | translate }}
+            </div>
+          </div>
+
+          <div class="help-item"
+               role="listitem">
+            <svg class="help-icon"
+                 viewBox="0 0 24 24"
+                 aria-hidden="true">
+              <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2Z"
+                    fill="currentColor" />
+            </svg>
+
+            <div class="help-text">
+              {{ 'INVITATION.TRY_AGAIN_OR_CANCEL' | translate }}
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Contact -->
+        <div class="contact-box"
+             [attr.aria-label]="'INVITATION.CONTACT_DETAILS' | translate">
+
+          <div class="contact-title">
+            <svg class="contact-icon"
+                 viewBox="0 0 24 24"
+                 aria-hidden="true">
+              <path d="M6.62 10.79a15.053 15.053 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C10.07 21 3 13.93 3 5a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.57 3.58a1 1 0 0 1-.24 1.01l-2.21 2.2Z"
+                    fill="currentColor" />
+            </svg>
+
+            {{ 'INVITATION.CONTACT_RECEPTION' | translate }}
+          </div>
+
+          <div class="contact-subtitle">
+            {{ 'INVITATION.RECEPTION_HELP' | translate }}
+          </div>
+
+        </div>
+
+        <!-- Spinner -->
+        <div class="spinner"
+             [attr.aria-label]="'COMMON.LOADING' | translate">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Bottom -->
+    <div class="bottom">
+      <button type="button"
+              class="btn-cancel"
+              (click)="cancel()">
+        <span class="btn-cancel-bg"></span>
+        <span class="btn-cancel-text">
+          {{ 'COMMON.HOME_SCREEN' | translate }}
+        </span>
+      </button>
+    </div>
+
+  </div>
+</div>

@@ -1,0 +1,185 @@
+/* ---------- Host ---------- */
+:host {
+    display: block;
+    position: relative;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+}
+
+/* ---------- Root layout ---------- */
+.kiosk-home {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+
+    background-image: url("/assets/kiosk/Kiosk-Main_Greetings.png");
+    background-size: auto 100%;
+    background-position: center center;
+    background-repeat: no-repeat;
+    overflow: hidden;
+
+    display: flex;
+    flex-direction: column;
+    position: relative;
+
+    line-height: 1.1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Main content */
+.content {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    padding-top: clamp(60px, 8vh, 100px);
+    padding-bottom: clamp(10px, 1.5vh, 20px);
+    gap: clamp(8px, 1.2vh, 16px);
+}
+
+/* ---------- Hero (tower logo) ---------- */
+.hero {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+.hero-frame {
+    width: clamp(180px, 30vw, 380px);
+    height: auto;
+    display: block;
+    filter: drop-shadow(0 10px 22px rgba(27, 20, 100, 0.18));
+}
+
+/* ---------- Title typography ---------- */
+.title {
+    margin: 0;
+    padding: 0 clamp(16px, 3vw, 32px);
+
+    font-size: clamp(52px, 9vw, 130px);
+    font-weight: 900;
+    letter-spacing: 0.01em;
+    line-height: 1.05;
+    color: var(--kiosk-primary-color, #1B1464);
+    text-align: center;
+}
+
+/* ---------- Bottom area ---------- */
+.bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(8px, 1.4vh, 16px);
+    margin-top: clamp(4px, 0.8vh, 10px);
+}
+
+/* Hint text + arrow */
+.hint {
+    text-align: center;
+    color: var(--kiosk-muted-text-color, #6B68A0);
+    font-weight: 800;
+    font-size: clamp(22px, 3.2vw, 54px);
+    line-height: 1.1;
+    letter-spacing: 0.01em;
+}
+
+.hint-text {
+    margin-bottom: clamp(4px, 0.6vh, 8px);
+}
+
+.hint-arrow {
+    font-size: clamp(26px, 4.5vw, 70px);
+    line-height: 1;
+    margin-bottom: clamp(4px, 0.6vh, 8px);
+}
+
+/* ---------- CTA button ---------- */
+.cta {
+    position: relative;
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    outline: none;
+
+    width: clamp(190px, 28vw, 300px);
+    height: clamp(64px, 7.5vh, 90px);
+
+    display: grid;
+    place-items: center;
+    touch-action: manipulation;
+}
+
+.cta-bg {
+    position: absolute;
+    inset: 0;
+
+    background: var(--kiosk-accent-green-gradient, linear-gradient(180deg, #B8EC92 0%, #82D49E 55%, #6FCF8A 100%));
+    border: 4px solid var(--kiosk-accent-green-border, rgba(130, 212, 158, 0.8));
+    border-radius: var(--kiosk-button-radius, 999px);
+
+    box-shadow:
+        0 10px 18px rgba(27, 20, 100, 0.18),
+        inset 0 2px 0 rgba(255, 255, 255, 0.45);
+}
+
+.cta-text {
+    position: relative;
+    font-size: clamp(22px, 3vh, 40px);
+    font-weight: 900;
+    color: var(--kiosk-primary-color, #1B1464);
+    letter-spacing: 0.01em;
+}
+
+.cta:active {
+    transform: translateY(1px) scale(0.99);
+}
+
+.cta:active .cta-bg {
+    box-shadow:
+        0 6px 12px rgba(27, 20, 100, 0.16),
+        inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* ---------- Language switch ---------- */
+.lang-switch {
+    position: fixed;
+    top: clamp(70px, 9vh, 100px);
+    inset-inline-start: clamp(14px, 2vw, 28px);
+
+    display: flex;
+    gap: 10px;
+    z-index: 99;
+}
+
+.lang-btn {
+    border: none;
+    border-radius: var(--kiosk-button-radius, 999px);
+
+    padding: clamp(8px, 1.1vh, 12px) clamp(14px, 1.8vw, 20px);
+    font-size: clamp(16px, 2.2vw, 44px);
+    font-weight: 800;
+    line-height: 1;
+
+    cursor: pointer;
+
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 4px 12px rgba(27, 20, 100, 0.15);
+    backdrop-filter: blur(6px);
+    color: var(--kiosk-primary-color, #1B1464);
+}
+
+.lang-btn.active {
+    background-color: var(--kiosk-primary-light, #3B38A8);
+    color: #FFFFFF;
+    box-shadow: 0 4px 12px rgba(27, 20, 100, 0.25);
+}

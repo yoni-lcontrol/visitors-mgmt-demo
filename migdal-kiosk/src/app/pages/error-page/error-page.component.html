@@ -1,0 +1,25 @@
+<div class="kiosk-page">
+  <div class="card">
+
+    <div class="h1">
+      {{ 'ERROR.TITLE' | translate }}
+    </div>
+
+    <p>
+      {{ 'ERROR.MESSAGE' | translate }}
+    </p>
+
+    <div class="actions">
+      <button class="big-btn secondary"
+              (click)="home()">
+        {{ 'COMMON.HOME_SCREEN' | translate }}
+      </button>
+
+      <button class="big-btn primary"
+              (click)="retry()">
+        {{ 'COMMON.TRY_AGAIN' | translate }}
+      </button>
+    </div>
+
+  </div>
+</div>

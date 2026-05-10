@@ -1,0 +1,72 @@
+<div class="scan-container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-title">
+      {{ 'SCAN.SCAN_TITLE' | translate }}
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- Steps -->
+    <app-steps [active]="1"></app-steps>
+
+    <!-- Subtitle -->
+    <div class="subtitle">
+      {{ 'SCAN.WAITING_FOR_SCAN' | translate }}
+    </div>
+
+    <!-- Scan card -->
+    <div class="scan-card"
+         aria-live="polite">
+
+      <div class="scan-card-top"></div>
+
+      <div class="scan-card-content">
+
+        <!-- ID icon -->
+        <svg class="scan-id-icon"
+             viewBox="0 0 24 24"
+             aria-hidden="true">
+          <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2Zm0 14H4V8h16v10Zm-9-1h7v-2h-7v2Zm-5-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2Zm-2 3h6v-1c0-1.1-2-2-3-2s-3 .9-3 2v1Z"
+                fill="currentColor" />
+        </svg>
+
+        <div class="scan-card-text"
+             [innerHTML]="'SCAN.SCAN_INSTRUCTION' | translate">
+        </div>
+
+        <div class="spinner"
+             [attr.aria-label]="'COMMON.LOADING' | translate">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Bottom buttons -->
+    <div class="bottom">
+
+      <button type="button"
+              class="btn-cancel"
+              (click)="cancel()">
+        <span class="btn-cancel-bg"></span>
+        <span class="btn-cancel-text">
+          {{ 'COMMON.HOME_SCREEN' | translate }}
+        </span>
+      </button>
+      <!-- 
+      <button type="button"
+              class="continue"
+              (click)="continue()">
+        <span class="continue-bg"></span>
+        <span class="continue-text">
+          {{ 'COMMON.CONFIRM_CONTINUE' | translate }}
+        </span>
+      </button> -->
+
+    </div>
+
+  </div>
+</div>

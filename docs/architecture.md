@@ -6,8 +6,9 @@ Migdal is a multi-tier web application:
 
 ```
 ┌─────────────────────────────────────────────────┐
-│              Angular Frontend                    │
-│  (SPA, lazy-loaded feature modules)             │
+│              Angular Frontends                   │
+│  - Admin SPA (lazy-loaded feature modules)      │
+│  - Kiosk SPA (visitor self-service flow)        │
 │  - HTTP REST calls via interceptor              │
 │  - WebSocket for realtime updates               │
 │  - Route guards for auth + permissions          │

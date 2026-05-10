@@ -48,8 +48,8 @@ export class AccessControlApiService {
         return this.api.download(`${this.basePath}/controllers/export`, params);
     }
 
-    importControllers(): Observable<ControllerImportResult> {
-        return this.api.post<ControllerImportResult>(`${this.basePath}/controllers/import`, {});
+    importControllers(): Observable<{ success: boolean; message: string }> {
+        return this.api.post<{ success: boolean; message: string }>(`${this.basePath}/controllers/import`, {});
     }
 
     // ===== Doors =====
@@ -129,12 +129,12 @@ export class AccessControlApiService {
         return this.api.delete<void>(`${this.basePath}/access-levels/${id}`);
     }
 
-    importAccessLevels(): Observable<AccessLevelImportResult> {
-        return this.api.post<AccessLevelImportResult>(`${this.basePath}/access-levels/import`, {});
+    importAccessLevels(): Observable<{ success: boolean; message: string }> {
+        return this.api.post<{ success: boolean; message: string }>(`${this.basePath}/access-levels/import`, {});
     }
 
-    getAmadeusEvents(limit = 200): Observable<AmadeusEvent[]> {
-        return this.api.get<AmadeusEvent[]>('/events/amadeus', { limit });
+    getAmadeusEvents(params: Record<string, string | number>): Observable<PaginatedResult<AmadeusEvent>> {
+        return this.api.get<PaginatedResult<AmadeusEvent>>('/events/amadeus', params);
     }
 }
 

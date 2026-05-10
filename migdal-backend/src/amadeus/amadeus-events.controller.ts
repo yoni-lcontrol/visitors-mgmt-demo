@@ -43,11 +43,12 @@ export class AmadeusEventsController {
 
     @Get('amadeus')
     @RequirePermissions(PermissionKey.AccessControlRead)
-    @ApiOperation({ summary: 'List recent Amadeus realtime events from the event log' })
+    @ApiOperation({ summary: 'List Amadeus realtime events from the event log with pagination' })
     async getRecentEvents(
-        @Query('limit', new DefaultValuePipe(200), ParseIntPipe) limit: number,
+        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+        @Query('limit', new DefaultValuePipe(25), ParseIntPipe) limit: number,
     ) {
-        return this.eventsService.getRecentEvents(limit);
+        return this.eventsService.getEvents(page, limit);
     }
 
     @Post('amadeus')

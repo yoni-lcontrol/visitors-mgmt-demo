@@ -10,7 +10,7 @@ import { BadRequestException } from '@nestjs/common';
 describe('AmadeusEventsController', () => {
     let controller: AmadeusEventsController;
     let mockAdapter: { toCanonical: jest.Mock };
-    let mockEventsService: { processEvent: jest.Mock; getRecentEvents: jest.Mock };
+    let mockEventsService: { processEvent: jest.Mock; getEvents: jest.Mock };
     let mockEventLogService: {
         isDuplicate: jest.Mock;
         createLog: jest.Mock;
@@ -46,7 +46,7 @@ describe('AmadeusEventsController', () => {
         };
         mockEventsService = {
             processEvent: jest.fn().mockResolvedValue(undefined),
-            getRecentEvents: jest.fn().mockResolvedValue([]),
+            getEvents: jest.fn().mockResolvedValue({ items: [], total: 0, page: 1, limit: 25, totalPages: 0 }),
         };
         mockEventLogService = {
             isDuplicate: jest.fn().mockResolvedValue(false),
@@ -148,14 +148,20 @@ describe('AmadeusEventsController', () => {
     });
 
     describe('getRecentEvents', () => {
-        it('should return recent Amadeus events from the service', async () => {
-            const events = [{ externalEventId: 'evt-1', eventType: 'Door.LegalCard' }];
-            mockEventsService.getRecentEvents.mockResolvedValue(events);
+        it('should return paginated Amadeus events from the service', async () => {
+            const paginated = {
+                items: [{ externalEventId: 'evt-1', eventType: 'Door.LegalCard' }],
+                total: 1,
+                page: 1,
+                limit: 25,
+                totalPages: 1,
+            };
+            mockEventsService.getEvents.mockResolvedValue(paginated);
 
-            const result = await controller.getRecentEvents(100);
+            const result = await controller.getRecentEvents(1, 25);
 
-            expect(result).toEqual(events);
-            expect(mockEventsService.getRecentEvents).toHaveBeenCalledWith(100);
+            expect(result).toEqual(paginated);
+            expect(mockEventsService.getEvents).toHaveBeenCalledWith(1, 25);
         });
     });
 });

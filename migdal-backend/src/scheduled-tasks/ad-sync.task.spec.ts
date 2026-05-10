@@ -1,90 +1,81 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { getQueueToken } from '@nestjs/bullmq';
 import { AdSyncTask } from './ad-sync.task';
-import { AdSyncService, AdSyncResult } from '../users/ad-sync.service';
+import { AD_SYNC_QUEUE } from '../users/ad-sync.processor';
+import { AdSyncService } from '../users/ad-sync.service';
 
 describe('AdSyncTask', () => {
     let task: AdSyncTask;
-    let mockSyncService: Record<string, jest.Mock>;
-
-    const mockResult: AdSyncResult = {
-        configsProcessed: 1,
-        configsFailed: 0,
-        totalFetched: 5,
-        totalCreated: 2,
-        totalUpdated: 3,
-        totalDeactivated: 0,
-        totalSkipped: 0,
-        details: [],
-        durationMs: 500,
-    };
+    let mockQueue: any;
+    let mockAdSyncService: Record<string, jest.Mock>;
 
     beforeEach(async () => {
-        mockSyncService = {
-            syncAll: jest.fn().mockResolvedValue(mockResult),
+        mockQueue = {
+            add: jest.fn().mockResolvedValue({ id: 'job-1' }),
+            getJobs: jest.fn().mockResolvedValue([]),
+            client: Promise.resolve({}),
+        };
+
+        mockAdSyncService = {
+            syncAll: jest.fn().mockResolvedValue({ totalCreated: 0, totalUpdated: 0 }),
         };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 AdSyncTask,
-                { provide: AdSyncService, useValue: mockSyncService },
+                { provide: getQueueToken(AD_SYNC_QUEUE), useValue: mockQueue },
+                { provide: AdSyncService, useValue: mockAdSyncService },
             ],
         }).compile();
 
         task = module.get<AdSyncTask>(AdSyncTask);
     });
 
-    it('should call syncAll when handleCron is invoked', async () => {
+    it('should queue a sync job when handleCron is invoked', async () => {
         await task.handleCron();
-        expect(mockSyncService.syncAll).toHaveBeenCalledTimes(1);
+        expect(mockQueue.add).toHaveBeenCalledWith(
+            'sync-all',
+            { triggeredBy: undefined },
+            expect.objectContaining({ jobId: expect.stringContaining('ad-sync-scheduled-') }),
+        );
     });
 
-    it('should not call syncAll with triggeredBy', async () => {
+    it('should not queue a job if one is already active', async () => {
+        mockQueue.getJobs.mockResolvedValue([{ id: 'existing-job' }]);
         await task.handleCron();
-        expect(mockSyncService.syncAll).toHaveBeenCalledWith();
+        expect(mockQueue.add).not.toHaveBeenCalled();
     });
 
-    it('should prevent overlapping runs', async () => {
-        let resolveFirst: () => void;
-        const firstCall = new Promise<AdSyncResult>((resolve) => {
-            resolveFirst = () => resolve(mockResult);
-        });
-        mockSyncService.syncAll.mockReturnValueOnce(firstCall);
-
-        const run1 = task.handleCron();
-        expect(task.isRunning()).toBe(true);
-
+    it('should not queue a job if one is waiting', async () => {
+        mockQueue.getJobs.mockResolvedValue([{ id: 'waiting-job' }]);
         await task.handleCron();
-        expect(mockSyncService.syncAll).toHaveBeenCalledTimes(1);
-
-        resolveFirst!();
-        await run1;
-        expect(task.isRunning()).toBe(false);
+        expect(mockQueue.add).not.toHaveBeenCalled();
     });
 
-    it('should reset running flag after successful completion', async () => {
+    it('should queue a job when no active or waiting jobs exist', async () => {
+        mockQueue.getJobs.mockResolvedValue([]);
         await task.handleCron();
-        expect(task.isRunning()).toBe(false);
+        expect(mockQueue.add).toHaveBeenCalledTimes(1);
     });
 
-    it('should reset running flag even if sync throws', async () => {
-        mockSyncService.syncAll.mockRejectedValue(new Error('catastrophic failure'));
+    it('should fall back to direct sync when Redis is unavailable', async () => {
+        mockQueue.client = Promise.reject(new Error('Redis connection refused'));
         await task.handleCron();
-        expect(task.isRunning()).toBe(false);
+        expect(mockQueue.add).not.toHaveBeenCalled();
+        expect(mockAdSyncService.syncAll).toHaveBeenCalled();
     });
 
-    it('should allow subsequent runs after error', async () => {
-        mockSyncService.syncAll
-            .mockRejectedValueOnce(new Error('first fails'))
-            .mockResolvedValueOnce(mockResult);
+    it('should fall back to direct sync when queue is not injected', async () => {
+        const module: TestingModule = await Test.createTestingModule({
+            providers: [
+                AdSyncTask,
+                { provide: getQueueToken(AD_SYNC_QUEUE), useValue: undefined },
+                { provide: AdSyncService, useValue: mockAdSyncService },
+            ],
+        }).compile();
 
-        await task.handleCron();
-        expect(task.isRunning()).toBe(false);
-
-        await task.handleCron();
-        expect(mockSyncService.syncAll).toHaveBeenCalledTimes(2);
-    });
-
-    it('should report running status correctly', () => {
-        expect(task.isRunning()).toBe(false);
+        const taskWithoutQueue = module.get<AdSyncTask>(AdSyncTask);
+        await taskWithoutQueue.handleCron();
+        expect(mockAdSyncService.syncAll).toHaveBeenCalled();
     });
 });

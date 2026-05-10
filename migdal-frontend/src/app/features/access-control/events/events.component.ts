@@ -1,4 +1,4 @@
-import { Component, OnInit, DestroyRef, inject } from '@angular/core';
+﻿import { Component, OnInit, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { TableModule } from 'primeng/table';
@@ -17,57 +17,58 @@ import { AccessControlApiService, AmadeusEvent } from '../services/access-contro
       <h1>{{ 'ACCESS_CONTROL.EVENTS_TITLE' | translate }}</h1>
       <div class="header-actions">
         <span class="listening-badge"><i class="pi pi-circle-fill pulse"></i> {{ 'ACCESS_CONTROL.LISTENING' | translate }}</span>
-        <button class="btn btn-secondary" (click)="clearEvents()" [disabled]="events.length === 0">
-          <i class="pi pi-trash"></i> {{ 'ACCESS_CONTROL.CLEAR_EVENTS' | translate }}
-        </button>
       </div>
     </div>
     <div class="card table-card">
-      @if (events.length === 0) {
-        <div class="empty-state">
-          <i class="pi pi-bell" style="font-size: 3rem; color: var(--text-color-secondary)"></i>
-          <p>{{ 'ACCESS_CONTROL.NO_EVENTS' | translate }}</p>
-        </div>
-      } @else {
-        <p-table
-          [value]="events"
-          [paginator]="true"
-          [rows]="20"
-          [rowsPerPageOptions]="[10, 20, 50, 100]"
-          [showCurrentPageReport]="true"
-          currentPageReportTemplate="{first}-{last} / {totalRecords}"
-          dataKey="externalEventId"
-          styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines"
-          [sortField]="'occurredAt'"
-          [sortOrder]="-1"
-          [paginatorDropdownAppendTo]="'body'"
-        >
-          <ng-template pTemplate="header">
-            <tr>
-              <th pSortableColumn="occurredAt">{{ 'ACCESS_CONTROL.OCCURRED_AT' | translate }} <p-sortIcon field="occurredAt" /></th>
-              <th pSortableColumn="eventType">{{ 'ACCESS_CONTROL.EVENT_TYPE' | translate }} <p-sortIcon field="eventType" /></th>
-              <th pSortableColumn="equipmentName">{{ 'ACCESS_CONTROL.EQUIPMENT' | translate }} <p-sortIcon field="equipmentName" /></th>
-              <th pSortableColumn="equipmentKind">{{ 'ACCESS_CONTROL.EQUIPMENT_KIND' | translate }} <p-sortIcon field="equipmentKind" /></th>
-              <th>{{ 'ACCESS_CONTROL.CARDHOLDER' | translate }}</th>
-              <th>{{ 'ACCESS_CONTROL.CARD_CODE' | translate }}</th>
-              <th>{{ 'COMMON.STATUS' | translate }}</th>
-            </tr>
-          </ng-template>
-          <ng-template pTemplate="body" let-ev>
-            <tr>
-              <td>{{ ev.occurredAt | date:'dd/MM/yyyy HH:mm:ss' }}</td>
-              <td>{{ formatEventType(ev.eventType) }}</td>
-              <td>{{ ev.equipmentName || '-' }}</td>
-              <td>{{ ev.equipmentKind || '-' }}</td>
-              <td>{{ ev.cardholderName || '-' }}</td>
-              <td>{{ ev.cardCode || '-' }}</td>
-              <td>
-                <p-tag [severity]="ev.isActive ? 'success' : 'secondary'" [value]="ev.isActive ? 'Active' : 'Inactive'" />
-              </td>
-            </tr>
-          </ng-template>
-        </p-table>
-      }
+      <p-table
+        [value]="events"
+        [lazy]="true"
+        (onLazyLoad)="onLazyLoad($event)"
+        [loading]="loading"
+        [totalRecords]="totalRecords"
+        [paginator]="true"
+        [rows]="rows"
+        [first]="first"
+        [rowsPerPageOptions]="[10, 25, 50, 100]"
+        [showCurrentPageReport]="true"
+        currentPageReportTemplate="{first}-{last} / {totalRecords}"
+        dataKey="externalEventId"
+        styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines"
+        [paginatorDropdownAppendTo]="'body'"
+      >
+        <ng-template pTemplate="header">
+          <tr>
+            <th>{{ 'ACCESS_CONTROL.OCCURRED_AT' | translate }}</th>
+            <th>{{ 'ACCESS_CONTROL.EVENT_TYPE' | translate }}</th>
+            <th>{{ 'ACCESS_CONTROL.EQUIPMENT' | translate }}</th>
+            <th>{{ 'ACCESS_CONTROL.EQUIPMENT_KIND' | translate }}</th>
+            <th>{{ 'ACCESS_CONTROL.CARDHOLDER' | translate }}</th>
+            <th>{{ 'ACCESS_CONTROL.CARD_CODE' | translate }}</th>
+            <th>{{ 'COMMON.STATUS' | translate }}</th>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="body" let-ev>
+          <tr>
+            <td>{{ ev.occurredAt | date:'dd/MM/yyyy HH:mm:ss' }}</td>
+            <td>{{ formatEventType(ev.eventType) }}</td>
+            <td>{{ ev.equipmentName || '-' }}</td>
+            <td>{{ ev.equipmentKind || '-' }}</td>
+            <td>{{ ev.cardholderName || '-' }}</td>
+            <td>{{ ev.cardCode || '-' }}</td>
+            <td>
+              <p-tag [severity]="ev.isActive ? 'success' : 'secondary'" [value]="ev.isActive ? 'Active' : 'Inactive'" />
+            </td>
+          </tr>
+        </ng-template>
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="7" class="empty-state">
+              <i class="pi pi-bell" style="font-size: 2rem; color: var(--text-color-secondary)"></i>
+              <span>{{ 'ACCESS_CONTROL.NO_EVENTS' | translate }}</span>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
     </div>
   `,
   styles: [`
@@ -88,11 +89,11 @@ import { AccessControlApiService, AmadeusEvent } from '../services/access-contro
     }
     .empty-state {
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 4rem 2rem;
-      gap: 1rem;
+      gap: 0.75rem;
+      padding: 3rem 2rem;
+      color: var(--text-color-secondary);
     }
   `],
 })
@@ -102,23 +103,42 @@ export class EventsComponent implements OnInit {
   private readonly accessControlApi = inject(AccessControlApiService);
 
   events: AmadeusEvent[] = [];
+  totalRecords = 0;
+  rows = 25;
+  first = 0;
+  loading = false;
+
+  private lastLazyEvent: any = { first: 0, rows: 25 };
 
   ngOnInit(): void {
-    this.accessControlApi.getAmadeusEvents()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((events) => {
-        this.events = this.deduplicateEvents(events);
-      });
-
     this.userWs.on<AmadeusEvent>(WsEvent.IntegrationsAmadeusEventReceived)
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((event) => {
-        this.events = this.deduplicateEvents([event, ...this.events]);
+      .subscribe(() => {
+        // Reload first page when a new event arrives
+        this.first = 0;
+        this.loadData({ ...this.lastLazyEvent, first: 0 });
       });
   }
 
-  clearEvents(): void {
-    this.events = [];
+  onLazyLoad(event: any): void {
+    this.loadData(event);
+  }
+
+  loadData(event: any = this.lastLazyEvent): void {
+    this.loading = true;
+    this.lastLazyEvent = event;
+    this.first = event.first ?? 0;
+    this.rows = event.rows ?? 25;
+
+    const page = Math.floor(this.first / this.rows) + 1;
+
+    this.accessControlApi.getAmadeusEvents({ page, limit: this.rows })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((result) => {
+        this.events = result.items;
+        this.totalRecords = result.total;
+        this.loading = false;
+      });
   }
 
   formatEventType(eventType: string): string {
@@ -131,23 +151,6 @@ export class EventsComponent implements OnInit {
       .filter(Boolean)
       .map((part) => this.humanizeEventPart(part))
       .join(' / ');
-  }
-
-  private deduplicateEvents(events: AmadeusEvent[]): AmadeusEvent[] {
-    const seen = new Set<string>();
-    const result: AmadeusEvent[] = [];
-
-    for (const event of events) {
-      const key = event.externalEventId || `${event.eventType}:${event.occurredAt}`;
-      if (seen.has(key)) {
-        continue;
-      }
-
-      seen.add(key);
-      result.push(event);
-    }
-
-    return result;
   }
 
   private humanizeEventPart(value: string): string {

@@ -93,18 +93,29 @@ describe('AccessControlApiService', () => {
     });
 
     describe('triggerFullImport', () => {
-        it('should POST to /api/import and return payload', async () => {
+        it('should POST to /api/import, poll status, and return payload', async () => {
+            jest.useFakeTimers();
             const mockPayload = { controllers: [{ name: 'C1' }] };
-            mockHttpService.post.mockReturnValue(of(mockAxiosResponse(mockPayload)));
 
-            const result = await service.triggerFullImport();
+            // POST → returns jobId
+            mockHttpService.post.mockReturnValueOnce(of(mockAxiosResponse({ jobId: 'job-1' })));
+            // GET status → completed with payload
+            mockHttpService.get.mockReturnValueOnce(
+                of(mockAxiosResponse({ status: 'Completed', payload: mockPayload })),
+            );
 
-            expect(mockHttpService.post).toHaveBeenCalledTimes(1);
+            const promise = service.triggerFullImport();
+            await jest.advanceTimersByTimeAsync(5001);
+            const result = await promise;
+            jest.useRealTimers();
+
             const [url, body] = mockHttpService.post.mock.calls[0];
             expect(url).toBe('http://ac-server:8080/api/import');
-            expect(body).toEqual({
-                action: 'import',
-            });
+            expect(body).toEqual({ action: 'import' });
+
+            const [getUrl] = mockHttpService.get.mock.calls[0];
+            expect(getUrl).toBe('http://ac-server:8080/api/import/status/job-1');
+
             expect(result).toEqual(mockPayload);
         });
 
@@ -118,18 +129,73 @@ describe('AccessControlApiService', () => {
     });
 
     describe('triggerAccessLevelImport', () => {
-        it('should POST to /api/import/access-levels and return payload', async () => {
+        it('should POST to /api/import/access-levels, poll status, and return accessLevelPayload', async () => {
+            jest.useFakeTimers();
             const mockPayload = { accessLevels: [{ name: 'VIP' }] };
-            mockHttpService.post.mockReturnValue(of(mockAxiosResponse(mockPayload)));
 
-            const result = await service.triggerAccessLevelImport();
+            // POST → returns jobId
+            mockHttpService.post.mockReturnValueOnce(of(mockAxiosResponse({ jobId: 'job-al-1' })));
+            // GET status → completed with accessLevelPayload
+            mockHttpService.get.mockReturnValueOnce(
+                of(mockAxiosResponse({ status: 'Completed', accessLevelPayload: mockPayload })),
+            );
 
-            const [url, body] = mockHttpService.post.mock.calls[0];
-            expect(url).toBe('http://ac-server:8080/api/import/access-levels');
-            expect(body).toEqual({
-                action: 'import-access-levels',
-            });
+            const promise = service.triggerAccessLevelImport();
+            await jest.advanceTimersByTimeAsync(5001);
+            const result = await promise;
+            jest.useRealTimers();
+
+            const [postUrl, postBody] = mockHttpService.post.mock.calls[0];
+            expect(postUrl).toBe('http://ac-server:8080/api/import/access-levels');
+            expect(postBody).toEqual({ action: 'import-access-levels' });
+
+            const [getUrl] = mockHttpService.get.mock.calls[0];
+            expect(getUrl).toBe('http://ac-server:8080/api/import/status/job-al-1');
+
             expect(result).toEqual(mockPayload);
+        });
+
+        it('should throw BadGatewayException when job fails', async () => {
+            jest.useFakeTimers();
+            mockHttpService.post.mockReturnValueOnce(of(mockAxiosResponse({ jobId: 'job-al-fail' })));
+            mockHttpService.get.mockReturnValueOnce(
+                of(mockAxiosResponse({ status: 'Failed', errorMessage: 'OData unreachable' })),
+            );
+
+            const promise = service.triggerAccessLevelImport();
+            // Attach rejection handler before advancing timers to avoid unhandled rejection
+            const expectation = expect(promise).rejects.toThrow(BadGatewayException);
+            await jest.advanceTimersByTimeAsync(5001);
+            await expectation;
+            jest.useRealTimers();
+        });
+
+        it('should throw BadGatewayException on HTTP error', async () => {
+            mockHttpService.post.mockReturnValue(
+                throwError(() => ({ response: { status: 500, data: { message: 'Server error' } } })),
+            );
+
+            await expect(service.triggerAccessLevelImport()).rejects.toThrow(BadGatewayException);
+        });
+
+        it('should throw BadGatewayException with descriptive message on ETIMEDOUT', async () => {
+            mockHttpService.post.mockReturnValue(
+                throwError(() => ({ code: 'ETIMEDOUT', message: 'ETIMEDOUT' })),
+            );
+
+            const err = await service.triggerAccessLevelImport().catch(e => e);
+            expect(err).toBeInstanceOf(BadGatewayException);
+            expect(err.message).toBe('Cannot reach Amadeus service (ETIMEDOUT)');
+        });
+
+        it('should throw BadGatewayException with descriptive message on ECONNREFUSED', async () => {
+            mockHttpService.post.mockReturnValue(
+                throwError(() => ({ code: 'ECONNREFUSED', message: 'ECONNREFUSED' })),
+            );
+
+            const err = await service.triggerAccessLevelImport().catch(e => e);
+            expect(err).toBeInstanceOf(BadGatewayException);
+            expect(err.message).toBe('Cannot reach Amadeus service (ECONNREFUSED)');
         });
     });
 

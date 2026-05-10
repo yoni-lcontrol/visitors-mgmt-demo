@@ -5,6 +5,7 @@ import { ExternalEventLog } from '../integrations/common/entities/external-event
 import { InboundEventLogService } from '../integrations/common/services/inbound-event-log.service';
 import { UsersGateway } from '../websocket/gateways/users.gateway';
 import { WsEvent } from '../websocket/enums/ws-events.enum';
+import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 
 export interface AmadeusRealtimeEvent {
     eventType: string;
@@ -33,6 +34,21 @@ export class AmadeusEventsService {
     async getRecentEvents(limit = 200): Promise<AmadeusRealtimeEvent[]> {
         const logs = await this.eventLogService.findRecentByProvider(IntegrationProvider.Amadeus, limit);
         return logs.map((log) => this.mapLogToRealtimeEvent(log));
+    }
+
+    async getEvents(page = 1, limit = 25): Promise<PaginatedResult<AmadeusRealtimeEvent>> {
+        const { items, total } = await this.eventLogService.findByProviderPaginated(
+            IntegrationProvider.Amadeus,
+            page,
+            limit,
+        );
+        return {
+            items: items.map((log) => this.mapLogToRealtimeEvent(log)),
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
     }
 
     async processEvent(event: InboundEvent, logId: string): Promise<void> {

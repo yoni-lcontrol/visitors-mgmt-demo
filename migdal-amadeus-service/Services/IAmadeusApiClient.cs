@@ -26,4 +26,8 @@ public interface IAmadeusApiClient
     Task<AmadeusCardholder> CreateCardholderAsync(object payload, CancellationToken cancellationToken);
     Task UpdateCardholderAsync(string uid, object payload, CancellationToken cancellationToken);
     Task DeleteCardholderAsync(string uid, CancellationToken cancellationToken);
+
+    // Cardholder personal details (license plate)
+    Task<AmadeusCardholderPersonalDetails?> GetCardholderPersonalDetailsAsync(string cardholderUid, CancellationToken cancellationToken);
+    Task<AmadeusCardholderPersonalDetails> UpsertLicensePlateAsync(string cardholderUid, string licensePlate, CancellationToken cancellationToken);
 }

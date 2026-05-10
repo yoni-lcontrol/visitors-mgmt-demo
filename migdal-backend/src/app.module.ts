@@ -1,6 +1,7 @@
-import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { Module, DynamicModule } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { BullModule } from '@nestjs/bullmq';
 import { LoggerModule } from 'nestjs-pino';
 import { DatabaseModule } from './database/database.module';
 import { CommonModule } from './common/common.module';
@@ -26,6 +27,30 @@ import { AmadeusModule } from './amadeus/amadeus.module';
 import { SectorsModule } from './sectors/sectors.module';
 import { AdGroupRoleMappingsModule } from './ad-group-role-mappings/ad-group-role-mappings.module';
 
+function bullModuleIfRedis(): DynamicModule[] {
+    if (!process.env.REDIS_HOST) return [];
+    return [
+        BullModule.forRootAsync({
+            inject: [ConfigService],
+            useFactory: (config: ConfigService) => ({
+                connection: {
+                    host: config.get<string>('REDIS_HOST', 'localhost'),
+                    port: config.get<number>('REDIS_PORT', 6379),
+                    password: config.get<string>('REDIS_PASSWORD') || undefined,
+                    maxRetriesPerRequest: 1,
+                    connectTimeout: 3000,
+                    enableOfflineQueue: false,
+                    lazyConnect: true,
+                    retryStrategy: (times: number) => {
+                        if (times > 3) return null;
+                        return Math.min(times * 500, 3000);
+                    },
+                },
+            }),
+        }),
+    ];
+}
+
 @Module({
     imports: [
         // Global configuration
@@ -47,6 +72,7 @@ import { AdGroupRoleMappingsModule } from './ad-group-role-mappings/ad-group-rol
 
         // Infrastructure
         ScheduleModule.forRoot(),
+        ...bullModuleIfRedis(),
         DatabaseModule,
         CommonModule,
         WebsocketModule,

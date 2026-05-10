@@ -97,6 +97,9 @@ export class AdSyncService {
 
         const result = this.aggregateResults(details, startTime);
 
+        // Determine if all configs failed (= no AD connectivity at all)
+        const allFailed = details.length > 0 && details.every(d => !!d.error);
+
         this.logger.log(
             `AD sync completed in ${result.durationMs}ms — ` +
             `configs: ${result.configsProcessed}/${configs.length}, ` +
@@ -110,7 +113,9 @@ export class AdSyncService {
             module: 'users',
             action: 'UPDATE',
             entity: 'AdSync',
-            description: `AD sync completed: ${result.totalCreated} created, ${result.totalUpdated} updated, ${result.totalDeactivated} deactivated`,
+            description: allFailed
+                ? `AD sync failed: could not connect to any AD configuration`
+                : `AD sync completed: ${result.totalCreated} created, ${result.totalUpdated} updated, ${result.totalDeactivated} deactivated`,
             newValue: {
                 configsProcessed: result.configsProcessed,
                 configsFailed: result.configsFailed,
@@ -121,16 +126,23 @@ export class AdSyncService {
             },
         }).catch(() => { });
 
-        this.usersGateway.broadcastToAll(WsEvent.AdSyncCompleted, {
-            configsProcessed: result.configsProcessed,
-            configsFailed: result.configsFailed,
-            totalCreated: result.totalCreated,
-            totalUpdated: result.totalUpdated,
-            totalDeactivated: result.totalDeactivated,
-            totalSkipped: result.totalSkipped,
-            durationMs: result.durationMs,
-            details: result.details,
-        });
+        if (allFailed) {
+            const errorMessages = details.map(d => `${d.configName}: ${d.error}`).join('; ');
+            this.usersGateway.broadcastToAll(WsEvent.AdSyncFailed, {
+                message: errorMessages,
+            });
+        } else {
+            this.usersGateway.broadcastToAll(WsEvent.AdSyncCompleted, {
+                configsProcessed: result.configsProcessed,
+                configsFailed: result.configsFailed,
+                totalCreated: result.totalCreated,
+                totalUpdated: result.totalUpdated,
+                totalDeactivated: result.totalDeactivated,
+                totalSkipped: result.totalSkipped,
+                durationMs: result.durationMs,
+                details: result.details,
+            });
+        }
 
         return result;
     }

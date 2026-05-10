@@ -222,6 +222,77 @@ public class AmadeusApiClient : IAmadeusApiClient
         _logger.LogInformation("Cardholder {Uid} deleted successfully", uid);
     }
 
+    public async Task<AmadeusCardholderPersonalDetails?> GetCardholderPersonalDetailsAsync(string cardholderUid, CancellationToken cancellationToken)
+    {
+        var relativePath = AmadeusApiDefinitions.OData.CardholderPersonalDetailsByCardholderUid(cardholderUid);
+        _logger.LogInformation("Fetching personal details for cardholder {Uid}", cardholderUid);
+
+        var client = await CreateAuthenticatedClientAsync(cancellationToken);
+        var url = AmadeusApiDefinitions.ODataUrl(_options, relativePath, nameof(AmadeusApiDefinitions.OData.CardholderPersonalDetails));
+        using var response = await client.GetAsync(url, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogError("Personal details fetch failed for cardholder {Uid}. Status: {StatusCode}, Response: {ErrorBody}", cardholderUid, response.StatusCode, errorBody);
+            throw new HttpRequestException($"Personal details fetch failed with status {response.StatusCode}");
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<ODataResponse<AmadeusCardholderPersonalDetails>>(cancellationToken);
+        return result?.Value?.FirstOrDefault();
+    }
+
+    public async Task<AmadeusCardholderPersonalDetails> UpsertLicensePlateAsync(string cardholderUid, string licensePlate, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Upserting license plate for cardholder {Uid}", cardholderUid);
+
+        var existing = await GetCardholderPersonalDetailsAsync(cardholderUid, cancellationToken);
+        var client = await CreateAuthenticatedClientAsync(cancellationToken);
+
+        if (existing?.Uid is not null)
+        {
+            // PATCH existing personal details record
+            var relativePath = AmadeusApiDefinitions.OData.CardholderPersonalDetailsByUid(existing.Uid);
+            var url = AmadeusApiDefinitions.ODataUrl(_options, relativePath, nameof(AmadeusApiDefinitions.OData.CardholderPersonalDetails));
+            var patchPayload = new { carLicensePlate = licensePlate };
+            var json = JsonSerializer.Serialize(patchPayload);
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            using var request = new HttpRequestMessage(HttpMethod.Patch, url) { Content = content };
+            using var response = await client.SendAsync(request, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogError("License plate update failed for cardholder {Uid}. Status: {StatusCode}, Response: {ErrorBody}", cardholderUid, response.StatusCode, errorBody);
+                throw new HttpRequestException($"License plate update failed with status {response.StatusCode}: {errorBody}");
+            }
+
+            existing.CarLicensePlate = licensePlate;
+            _logger.LogInformation("License plate updated for cardholder {Uid}", cardholderUid);
+            return existing;
+        }
+        else
+        {
+            // POST new personal details record
+            var url = AmadeusApiDefinitions.ODataUrl(_options, AmadeusApiDefinitions.OData.CardholderPersonalDetails, nameof(AmadeusApiDefinitions.OData.CardholderPersonalDetails));
+            var postPayload = new { cardholderUID = cardholderUid, carLicensePlate = licensePlate };
+            var json = JsonSerializer.Serialize(postPayload);
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            using var response = await client.PostAsync(url, content, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                _logger.LogError("License plate create failed for cardholder {Uid}. Status: {StatusCode}, Response: {ErrorBody}", cardholderUid, response.StatusCode, errorBody);
+                throw new HttpRequestException($"License plate create failed with status {response.StatusCode}: {errorBody}");
+            }
+
+            var created = await response.Content.ReadFromJsonAsync<AmadeusCardholderPersonalDetails>(cancellationToken);
+            _logger.LogInformation("Personal details with license plate created for cardholder {Uid}", cardholderUid);
+            return created!;
+        }
+    }
+
     private async Task<List<T>> GetODataCollectionAsync<T>(string relativePath, CancellationToken cancellationToken)
     {
         var endpointName = relativePath;

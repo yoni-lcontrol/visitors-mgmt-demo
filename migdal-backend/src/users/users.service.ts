@@ -161,6 +161,7 @@ export class UsersService {
             email: dto.email ?? null,
             phone: dto.phone ?? null,
             idNumber: dto.idNumber ?? null,
+            licensePlate: dto.licensePlate ?? null,
             createdBy: currentUserId ?? null,
             updatedBy: currentUserId ?? null,
         });

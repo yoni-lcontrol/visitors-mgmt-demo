@@ -13,6 +13,7 @@ public class CardholderDto
     public string? SecurityGroupApiKey { get; set; }
     public string? AccessGroupUidsRaw { get; set; }
     public string? AccessGroupApiKeysRaw { get; set; }
+    public string? LicensePlate { get; set; }
     public bool IsDeleted { get; set; }
     public bool IsArchived { get; set; }
     public DateTime CreatedUtc { get; set; }

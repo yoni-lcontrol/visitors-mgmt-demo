@@ -6,8 +6,7 @@ import { TableModule } from 'primeng/table';
 import { InputTextModule } from 'primeng/inputtext';
 import { InputSwitchModule } from 'primeng/inputswitch';
 import { DialogModule } from 'primeng/dialog';
-import { ProgressBarModule } from 'primeng/progressbar';
-import { AccessControlApiService, ControllerImportResult } from '../../services/access-control-api.service';
+import { AccessControlApiService } from '../../services/access-control-api.service';
 import { HasPermissionDirective } from '@core/permissions/has-permission.directive';
 import { NotificationService } from '@core/notifications/notification.service';
 import { ConfirmService } from '@core/services/confirm.service';
@@ -20,7 +19,7 @@ import { Subscription } from 'rxjs';
 @Component({
   selector: 'app-controller-list',
   standalone: true,
-  imports: [TranslateModule, FormsModule, ReactiveFormsModule, HasPermissionDirective, TableModule, InputTextModule, InputSwitchModule, DialogModule, ProgressBarModule],
+  imports: [TranslateModule, FormsModule, ReactiveFormsModule, HasPermissionDirective, TableModule, InputTextModule, InputSwitchModule, DialogModule],
   template: `
     <div class="page-header">
       <h1>{{ 'ACCESS_CONTROL.CONTROLLERS' | translate }}</h1>
@@ -30,17 +29,8 @@ import { Subscription } from 'rxjs';
           <i class="pi pi-cloud-download"></i>
           {{ importing ? ('ACCESS_CONTROL.IMPORTING' | translate) : ('COMMON.IMPORT' | translate) }}
         </button>
-        <button class="btn btn-primary" *hasPermission="'access-control.create'" (click)="openDialog()">
-          <i class="pi pi-plus"></i> {{ 'ACCESS_CONTROL.ADD_CONTROLLER' | translate }}
-        </button>
       </div>
     </div>
-    @if (importing) {
-      <div class="import-progress-container">
-        <p-progressBar [value]="importProgress" [showValue]="true"></p-progressBar>
-        <span class="import-progress-text">{{ importProgressMessage }}</span>
-      </div>
-    }
     <div class="card table-card">
       <p-table
         #dt
@@ -149,43 +139,7 @@ import { Subscription } from 'rxjs';
       </ng-template>
     </p-dialog>
 
-    <!-- Import Results Dialog -->
-    <p-dialog [header]="'ACCESS_CONTROL.IMPORT_RESULTS' | translate"
-      [(visible)]="showImportResults" [modal]="true" [style]="{width: '780px'}" [draggable]="false">
-      @if (showImportResults && importResult) {
-        <div class="import-summary">
-          <span class="import-stat success"><i class="pi pi-plus-circle"></i> {{ 'ACCESS_CONTROL.CREATED' | translate }}: {{ importResult.created }}</span>
-          <span class="import-stat info"><i class="pi pi-refresh"></i> {{ 'ACCESS_CONTROL.UPDATED' | translate }}: {{ importResult.updated }}</span>
-          <span class="import-stat warn"><i class="pi pi-exclamation-circle"></i> {{ 'ACCESS_CONTROL.SKIPPED' | translate }}: {{ importResult.skipped }}</span>
-        </div>
-        @if (importResult.items.length > 0) {
-          <p-table [value]="importResult.items" [paginator]="importResult.items.length > 10" [rows]="10"
-            styleClass="p-datatable-sm p-datatable-striped" [scrollable]="true" scrollHeight="350px">
-            <ng-template pTemplate="header">
-              <tr>
-                <th>{{ 'ACCESS_CONTROL.CONTROLLER_NAME' | translate }}</th>
-                <th>{{ 'ACCESS_CONTROL.TYPE' | translate }}</th>
-                <th>{{ 'ACCESS_CONTROL.MODEL' | translate }}</th>
-                <th>{{ 'ACCESS_CONTROL.IP_ADDRESS' | translate }}</th>
-                <th>{{ 'ACCESS_CONTROL.PORT' | translate }}</th>
-              </tr>
-            </ng-template>
-            <ng-template pTemplate="body" let-item>
-              <tr>
-                <td>{{ item.name }}</td>
-                <td>{{ item.type ?? '-' }}</td>
-                <td>{{ item.model ?? '-' }}</td>
-                <td><code>{{ item.ip ?? '-' }}</code></td>
-                <td>{{ item.port ?? '-' }}</td>
-              </tr>
-            </ng-template>
-          </p-table>
-        }
-      }
-      <ng-template pTemplate="footer">
-        <button class="btn btn-primary" (click)="showImportResults = false">{{ 'COMMON.CLOSE' | translate }}</button>
-      </ng-template>
-    </p-dialog>  `,
+`,
   styles: [`
       :host { display: block; }
       .table-card { padding: 0; overflow: hidden; }
@@ -204,7 +158,7 @@ import { Subscription } from 'rxjs';
       .dialog-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.15rem; }
       .dialog-form-grid .field { display: flex; flex-direction: column; }
       .dialog-form-grid .field label { font-weight: 500; margin-bottom: 0.3rem; font-size: 0.85rem; color: var(--color-text-secondary, #5c5a78); }
-      .import-progress-container { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+
       .import-progress-text { font-size: 0.85rem; color: var(--color-text-secondary, #6b7280); }
       .import-summary { display: flex; gap: 1.5rem; margin-bottom: 1rem; }
       .import-stat { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; font-weight: 500; }
@@ -232,11 +186,6 @@ export class ControllerListComponent implements OnInit, OnDestroy {
   importing = false;
   private lastLazyEvent: any = { first: 0, rows: 20, sortField: 'name', sortOrder: 1, filters: {} };
 
-  // Import progress
-  importProgress = 0;
-  importProgressMessage = '';
-  importResult: ControllerImportResult | null = null;
-  showImportResults = false;
   private wsSubs: Subscription[] = [];
 
   // Dialog
@@ -258,11 +207,10 @@ export class ControllerListComponent implements OnInit, OnDestroy {
 
   private subscribeToImportEvents(): void {
     this.wsSubs.push(
-      this.userWs.on<{ phase: string; message: string; current: number; total: number }>(
-        WsEvent.AccessControlControllersImportProgress,
-      ).subscribe((data) => {
-        this.importProgressMessage = data.message;
-        this.importProgress = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
+      this.userWs.on<{ created: number; updated: number; skipped: number; total: number }>(
+        WsEvent.AccessControlControllersImportCompleted,
+      ).subscribe(() => {
+        this.loadData();
       }),
     );
   }
@@ -327,22 +275,12 @@ export class ControllerListComponent implements OnInit, OnDestroy {
 
   doImport(): void {
     this.importing = true;
-    this.importProgress = 0;
-    this.importProgressMessage = '';
-    this.importResult = null;
     this.acApi.importControllers().subscribe({
-      next: (result) => {
+      next: () => {
         this.importing = false;
-        this.importProgress = 100;
-        this.importResult = result;
-        this.showImportResults = true;
-        this.notify.success('ACCESS_CONTROL.IMPORT_TRIGGERED');
-        this.loadData();
       },
       error: (err) => {
         this.importing = false;
-        this.importProgress = 0;
-        this.importProgressMessage = '';
         this.notify.error(err);
       },
     });

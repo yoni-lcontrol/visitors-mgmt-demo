@@ -95,16 +95,12 @@ export class AcControllerController {
 
     @Post('import')
     @RequirePermissions(PermissionKey.AccessControlImport)
-    @ApiOperation({ summary: 'Import data from remote access control server' })
-    async importData() {
-        const result = await this.importService.triggerRemoteImport();
-        return {
-            message: `Import completed: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped`,
-            created: result.created,
-            updated: result.updated,
-            skipped: result.skipped,
-            items: result.items,
-            errors: result.errors,
-        };
+    @HttpCode(HttpStatus.ACCEPTED)
+    @ApiOperation({ summary: 'Import data from remote access control server (async — progress via WebSocket)' })
+    importData() {
+        this.importService.triggerRemoteImport().catch(() => {
+            // Errors are already broadcast via WsEvent.AccessControlControllersImportFailed
+        });
+        return { success: true, message: 'Import started' };
     }
 }

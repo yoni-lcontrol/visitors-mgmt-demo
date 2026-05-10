@@ -540,19 +540,26 @@ public class DeviceImportService : IDeviceImportService
             return;
         }
 
-        // Find the first door for this controller to associate the IO with
-        var door = await _dbContext.Doors
-            .FirstOrDefaultAsync(d => d.ControllerId == controller.Id, cancellationToken);
+        // Match the IO to the specific door that references it.
+        // Inputs are linked via DoorContactInputExternalId; outputs via PrimaryOutputExternalId.
+        DoorEntity? door = direction == "Input"
+            ? await _dbContext.Doors.FirstOrDefaultAsync(
+                d => d.ControllerId == controller.Id && d.DoorContactInputExternalId == externalId,
+                cancellationToken)
+            : await _dbContext.Doors.FirstOrDefaultAsync(
+                d => d.ControllerId == controller.Id && d.PrimaryOutputExternalId == externalId,
+                cancellationToken);
+
         if (door is null)
         {
-            RecordFailure(
+            RecordSkipped(
                 result,
                 equipmentType: "DoorIo",
                 externalId: externalId,
                 name: name,
                 stage: StageMap,
                 category: CategoryForeignKeyIssue,
-                message: $"Door for controller '{controllerExternalId}' was not found for door IO import.");
+                message: $"No door references {direction} IO '{externalId}' on controller '{controllerExternalId}'. Skipping.");
             return;
         }
 

@@ -27,6 +27,7 @@ import { AccessLevelService } from './services/access-level.service';
 import { ImportService } from './services/import.service';
 import { AccessControlApiService } from './services/ac-api.service';
 import { CardholderService } from './services/cardholder.service';
+import { Building } from '../buildings/entities/building.entity';
 import { WebsocketModule } from '../websocket/websocket.module';
 
 @Module({
@@ -38,6 +39,7 @@ import { WebsocketModule } from '../websocket/websocket.module';
             DoorIo,
             ExtensionIo,
             AccessLevel,
+            Building,
         ]),
         HttpModule.register({
             httpsAgent: new https.Agent({ rejectUnauthorized: false }),

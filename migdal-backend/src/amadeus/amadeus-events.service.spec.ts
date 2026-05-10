@@ -9,7 +9,7 @@ import { createMockWsGateway } from '../test-utils/mock.factory';
 
 describe('AmadeusEventsService', () => {
     let service: AmadeusEventsService;
-    let mockEventLogService: { markProcessed: jest.Mock; findRecentByProvider: jest.Mock };
+    let mockEventLogService: { markProcessed: jest.Mock; findRecentByProvider: jest.Mock; findByProviderPaginated: jest.Mock };
     let mockWsGateway: ReturnType<typeof createMockWsGateway>;
 
     const mockEvent: InboundEvent = {
@@ -41,6 +41,7 @@ describe('AmadeusEventsService', () => {
         mockEventLogService = {
             markProcessed: jest.fn().mockResolvedValue(undefined),
             findRecentByProvider: jest.fn().mockResolvedValue([]),
+            findByProviderPaginated: jest.fn().mockResolvedValue({ items: [], total: 0 }),
         };
         mockWsGateway = createMockWsGateway();
 
@@ -112,37 +113,44 @@ describe('AmadeusEventsService', () => {
         });
     });
 
-    describe('getRecentEvents', () => {
-        it('should load recent Amadeus events from ExternalEventLogs and map payload fields', async () => {
-            mockEventLogService.findRecentByProvider.mockResolvedValue([
-                {
-                    id: 'log-1',
-                    externalEventId: 'evt-100',
-                    eventType: 'Door.LegalCard',
-                    receivedAt: new Date('2024-06-15T10:31:00Z'),
-                    payloadJson: JSON.stringify({
-                        occurredUtc: '2024-06-15T10:30:00Z',
-                        isActive: true,
-                        signalRMethod: 'AccessEventArrived',
-                        equipmentKind: 'Door',
-                        equipmentName: 'Main Entrance',
-                        controllerExternalId: 'ctrl-1',
-                        cardholderFirstName: 'Dana',
-                        cardholderLastName: 'Levi',
-                        cardholderUid: 'ch-1',
-                        cardCode: 'CARD-123',
-                        rawPayloadJson: JSON.stringify({
-                            cardholderFirstName: 'Wrong',
-                            cardholderLastName: 'Name',
+    describe('getEvents', () => {
+        it('should return paginated Amadeus events mapped from ExternalEventLogs', async () => {
+            mockEventLogService.findByProviderPaginated.mockResolvedValue({
+                items: [
+                    {
+                        id: 'log-1',
+                        externalEventId: 'evt-100',
+                        eventType: 'Door.LegalCard',
+                        receivedAt: new Date('2024-06-15T10:31:00Z'),
+                        payloadJson: JSON.stringify({
+                            occurredUtc: '2024-06-15T10:30:00Z',
+                            isActive: true,
+                            signalRMethod: 'AccessEventArrived',
+                            equipmentKind: 'Door',
+                            equipmentName: 'Main Entrance',
+                            controllerExternalId: 'ctrl-1',
+                            cardholderFirstName: 'Dana',
+                            cardholderLastName: 'Levi',
+                            cardholderUid: 'ch-1',
+                            cardCode: 'CARD-123',
+                            rawPayloadJson: JSON.stringify({
+                                cardholderFirstName: 'Wrong',
+                                cardholderLastName: 'Name',
+                            }),
                         }),
-                    }),
-                },
-            ]);
+                    },
+                ],
+                total: 42,
+            });
 
-            const result = await service.getRecentEvents(50);
+            const result = await service.getEvents(2, 25);
 
-            expect(mockEventLogService.findRecentByProvider).toHaveBeenCalledWith(IntegrationProvider.Amadeus, 50);
-            expect(result).toEqual([
+            expect(mockEventLogService.findByProviderPaginated).toHaveBeenCalledWith(IntegrationProvider.Amadeus, 2, 25);
+            expect(result.page).toBe(2);
+            expect(result.limit).toBe(25);
+            expect(result.total).toBe(42);
+            expect(result.totalPages).toBe(2);
+            expect(result.items).toEqual([
                 expect.objectContaining({
                     externalEventId: 'evt-100',
                     eventType: 'Door.LegalCard',
@@ -156,19 +164,22 @@ describe('AmadeusEventsService', () => {
 
         it('should tolerate invalid payload json and fall back to log fields', async () => {
             const receivedAt = new Date('2024-06-15T10:31:00Z');
-            mockEventLogService.findRecentByProvider.mockResolvedValue([
-                {
-                    id: 'log-2',
-                    externalEventId: null,
-                    eventType: 'Amadeus.Generic',
-                    receivedAt,
-                    payloadJson: '{invalid-json}',
-                },
-            ]);
+            mockEventLogService.findByProviderPaginated.mockResolvedValue({
+                items: [
+                    {
+                        id: 'log-2',
+                        externalEventId: null,
+                        eventType: 'Amadeus.Generic',
+                        receivedAt,
+                        payloadJson: '{invalid-json}',
+                    },
+                ],
+                total: 1,
+            });
 
-            const result = await service.getRecentEvents();
+            const result = await service.getEvents();
 
-            expect(result[0]).toEqual(expect.objectContaining({
+            expect(result.items[0]).toEqual(expect.objectContaining({
                 externalEventId: 'log-2',
                 eventType: 'Amadeus.Generic',
                 occurredAt: receivedAt,

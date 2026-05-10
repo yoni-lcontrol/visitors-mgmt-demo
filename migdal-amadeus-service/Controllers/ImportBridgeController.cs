@@ -8,66 +8,119 @@ namespace Amadeus8.Controllers;
 [Route("api/import")]
 public class ImportBridgeController : ControllerBase
 {
-    private readonly IImportBridgeService _importBridgeService;
+    private readonly IImportJobManager _importJobManager;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ILogger<ImportBridgeController> _logger;
 
     public ImportBridgeController(
-        IImportBridgeService importBridgeService,
+        IImportJobManager importJobManager,
+        IServiceScopeFactory serviceScopeFactory,
         ILogger<ImportBridgeController> logger)
     {
-        _importBridgeService = importBridgeService;
+        _importJobManager = importJobManager;
+        _serviceScopeFactory = serviceScopeFactory;
         _logger = logger;
     }
 
     /// <summary>
-    /// Imports controllers/doors/extensions from Amadeus OData and returns the full topology.
+    /// Starts an async device import job and returns immediately with a jobId.
+    /// Poll GET /api/import/status/{jobId} for progress and results.
     /// </summary>
     [HttpPost]
-    public async Task<IActionResult> ImportDevices(CancellationToken cancellationToken)
+    public IActionResult ImportDevices()
     {
-        _logger.LogInformation("Device import request received");
-        try
-        {
-            var payload = await _importBridgeService.ImportDevicesAsync(cancellationToken);
+        _logger.LogInformation("Device import request received — starting async job");
 
-            _logger.LogInformation("Device import completed with {Count} controllers", payload.Controllers.Count);
+        var jobId = _importJobManager.StartJob();
 
-            return Ok(payload);
-        }
-        catch (OperationCanceledException)
+        _ = Task.Run(async () =>
         {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Device import endpoint failed unexpectedly. Returning empty payload as fail-safe response.");
-            return Ok(new ImportCallbackPayload());
-        }
+            using var scope = _serviceScopeFactory.CreateScope();
+            var importBridgeService = scope.ServiceProvider.GetRequiredService<IImportBridgeService>();
+            var jobManager = scope.ServiceProvider.GetRequiredService<IImportJobManager>();
+
+            try
+            {
+                jobManager.UpdateProgress(jobId, "importing", null, null);
+                var payload = await importBridgeService.ImportDevicesAsync(CancellationToken.None);
+                jobManager.CompleteJob(jobId, payload);
+            }
+            catch (Exception ex)
+            {
+                jobManager.FailJob(jobId, ex.Message);
+            }
+        });
+
+        return Accepted(new { jobId });
     }
 
     /// <summary>
-    /// Imports access levels from Amadeus OData and returns them.
+    /// Returns the current status and result of an import job.
+    /// </summary>
+    [HttpGet("status/{jobId}")]
+    public IActionResult GetImportStatus(string jobId)
+    {
+        var job = _importJobManager.GetJob(jobId);
+        if (job == null)
+        {
+            return NotFound(new { message = $"Job {jobId} not found" });
+        }
+
+        if (job.Status == "Completed")
+        {
+            return Ok(new
+            {
+                job.Status,
+                job.Phase,
+                job.Processed,
+                job.Total,
+                job.Payload,
+                job.AccessLevelPayload,
+                job.StartedUtc,
+                job.CompletedUtc,
+            });
+        }
+
+        return Ok(new
+        {
+            job.Status,
+            job.Phase,
+            job.Processed,
+            job.Total,
+            job.ErrorMessage,
+            job.StartedUtc,
+        });
+    }
+
+    /// <summary>
+    /// Starts an async access-level import job and returns immediately with a jobId.
+    /// Poll GET /api/import/status/{jobId} for progress and results.
     /// </summary>
     [HttpPost("access-levels")]
-    public async Task<IActionResult> ImportAccessLevels(CancellationToken cancellationToken)
+    public IActionResult ImportAccessLevels()
     {
-        _logger.LogInformation("Access-level import request received");
-        try
-        {
-            var payload = await _importBridgeService.ImportAccessLevelsAsync(cancellationToken);
+        _logger.LogInformation("Access-level import request received — starting async job");
 
-            _logger.LogInformation("Access-level import completed with {Count} items", payload.AccessLevels.Count);
+        var jobId = _importJobManager.StartJob();
 
-            return Ok(payload);
-        }
-        catch (OperationCanceledException)
+        _ = Task.Run(async () =>
         {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Access-level import endpoint failed unexpectedly. Returning empty payload as fail-safe response.");
-            return Ok(new AccessLevelCallbackPayload());
-        }
+            using var scope = _serviceScopeFactory.CreateScope();
+            var importBridgeService = scope.ServiceProvider.GetRequiredService<IImportBridgeService>();
+            var jobManager = scope.ServiceProvider.GetRequiredService<IImportJobManager>();
+
+            try
+            {
+                jobManager.UpdateProgress(jobId, "importing", null, null);
+                var payload = await importBridgeService.ImportAccessLevelsAsync(CancellationToken.None);
+                jobManager.CompleteAccessLevelJob(jobId, payload);
+            }
+            catch (Exception ex)
+            {
+                jobManager.FailJob(jobId, ex.Message);
+            }
+        });
+
+        return Accepted(new { jobId });
     }
 }

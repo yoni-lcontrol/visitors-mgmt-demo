@@ -36,6 +36,8 @@ public class CardholderEntity
 
     public string? AccessGroupApiKeysRaw { get; set; }
 
+    public string? LicensePlate { get; set; }
+
     public DateTime? LastDownloadTimeUtc { get; set; }
 
     public bool IsDeleted { get; set; }

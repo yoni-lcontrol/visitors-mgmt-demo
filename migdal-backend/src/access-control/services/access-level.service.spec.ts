@@ -98,16 +98,64 @@ describe('AccessLevelService', () => {
             const result = await service.update('1', { name: 'Updated' } as any);
             expect(mockAlRepo.save).toHaveBeenCalledWith(expect.objectContaining({ name: 'Updated' }));
         });
+
+        it('should remove from BuildingAccessLevels when active is set to false', async () => {
+            mockAlRepo.findOne.mockResolvedValue({ id: '1', name: 'Level', active: true, isActive: true });
+            mockAlRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+            await service.update('1', { active: false } as any);
+
+            expect(mockAlRepo.query).toHaveBeenCalledWith(
+                'DELETE FROM BuildingAccessLevels WHERE accessLevelId = @0',
+                ['1'],
+            );
+        });
+
+        it('should remove from BuildingAccessLevels when visitorAccess is set to false', async () => {
+            mockAlRepo.findOne.mockResolvedValue({ id: '1', name: 'Level', active: true, visitorAccess: true, isActive: true });
+            mockAlRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+            await service.update('1', { visitorAccess: false } as any);
+
+            expect(mockAlRepo.query).toHaveBeenCalledWith(
+                'DELETE FROM BuildingAccessLevels WHERE accessLevelId = @0',
+                ['1'],
+            );
+        });
+
+        it('should not touch BuildingAccessLevels when active stays true', async () => {
+            mockAlRepo.findOne.mockResolvedValue({ id: '1', name: 'Level', active: true, isActive: true });
+            mockAlRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+            await service.update('1', { name: 'New Name' } as any);
+
+            expect(mockAlRepo.query).not.toHaveBeenCalled();
+        });
     });
 
     describe('remove', () => {
-        it('should soft-delete access level', async () => {
-            mockAlRepo.findOne.mockResolvedValue({ id: '1', isActive: true });
+        it('should hard-delete access level', async () => {
+            const al = { id: '1', name: 'Level', isActive: true };
+            mockAlRepo.findOne.mockResolvedValue(al);
 
             await service.remove('1');
 
-            // Should soft-delete
-            expect(mockAlRepo.save).toHaveBeenCalledWith(expect.objectContaining({ isActive: false }));
+            expect(mockAlRepo.query).toHaveBeenCalledWith(
+                'DELETE FROM AccessLevels WHERE id = @0',
+                ['1'],
+            );
+            expect(mockAlRepo.save).not.toHaveBeenCalled();
+        });
+
+        it('should remove access level from BuildingAccessLevels on delete', async () => {
+            mockAlRepo.findOne.mockResolvedValue({ id: 'al-1', isActive: true });
+
+            await service.remove('al-1');
+
+            expect(mockAlRepo.query).toHaveBeenCalledWith(
+                'DELETE FROM BuildingAccessLevels WHERE accessLevelId = @0',
+                ['al-1'],
+            );
         });
 
         it('should throw NotFoundException on missing access level', async () => {
@@ -147,6 +195,52 @@ describe('AccessLevelService', () => {
 
             expect(result.action).toBe('updated');
             expect(result.entity.name).toBe('New');
+        });
+
+        it('should remove from BuildingAccessLevels when upsert sets active to false', async () => {
+            const existing = { id: 'al-1', name: 'Level', externalId: 'ext-1', isActive: true, active: true };
+            mockAlRepo.findOne.mockResolvedValue(existing);
+            mockAlRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+            await service.upsertByExternalId({ name: 'Level', externalId: 'ext-1', active: false });
+
+            expect(mockAlRepo.query).toHaveBeenCalledWith(
+                'DELETE FROM BuildingAccessLevels WHERE accessLevelId = @0',
+                ['al-1'],
+            );
+        });
+
+        it('should remove from BuildingAccessLevels when upsert sets visitorAccess to false', async () => {
+            const existing = { id: 'al-1', name: 'Level', externalId: 'ext-1', isActive: true, active: true, visitorAccess: true };
+            mockAlRepo.findOne.mockResolvedValue(existing);
+            mockAlRepo.save.mockImplementation((e: any) => Promise.resolve({ ...existing, visitorAccess: false }));
+
+            await service.upsertByExternalId({ name: 'Level', externalId: 'ext-1', visitorAccess: false });
+
+            expect(mockAlRepo.query).toHaveBeenCalledWith(
+                'DELETE FROM BuildingAccessLevels WHERE accessLevelId = @0',
+                ['al-1'],
+            );
+        });
+
+        it('should not touch BuildingAccessLevels when upsert keeps active true', async () => {
+            const existing = { id: 'al-1', name: 'Level', externalId: 'ext-1', isActive: true, active: true };
+            mockAlRepo.findOne.mockResolvedValue(existing);
+            mockAlRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+            await service.upsertByExternalId({ name: 'New Name', externalId: 'ext-1', active: true });
+
+            expect(mockAlRepo.query).not.toHaveBeenCalled();
+        });
+
+        it('should not overwrite visitorAccess on update', async () => {
+            const existing = { id: '1', name: 'Old', externalId: 'ext-1', isActive: true, visitorAccess: true };
+            mockAlRepo.findOne.mockResolvedValue(existing);
+            mockAlRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+            const result = await service.upsertByExternalId({ name: 'New', externalId: 'ext-1', visitorAccess: false });
+
+            expect(result.entity.visitorAccess).toBe(true);
         });
 
         it('should re-activate soft-deleted record and return created', async () => {

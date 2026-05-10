@@ -146,36 +146,133 @@ export class AccessControlApiService {
 
     private handleHttpError(err: any, method: string, path: string): never {
         const status = err.response?.status;
+        const code: string | undefined = err.code ?? err.cause?.code;
         const msg = err.response?.data?.message
             || err.cause?.message
             || err.message
+            || code
             || 'Unknown error';
-        this.logger.error(`AC server ${method} ${path} failed (${status ?? 'no status'}): ${msg}`);
+        const baseUrl = this.configService.get<string>('ACCESS_CONTROL_REMOTE_URL') ?? '<no URL>';
+        const fullUrl = `${baseUrl}${path}`;
+
+        if (!err.response && (code === 'ETIMEDOUT' || code === 'ECONNREFUSED' || code === 'ENOTFOUND' || code === 'ECONNRESET')) {
+            this.logger.error(
+                `AC server ${method} ${fullUrl} — network error (${code}): cannot reach Amadeus service. ` +
+                `Check ACCESS_CONTROL_REMOTE_URL and that the Amadeus service is running.`,
+            );
+            throw new BadGatewayException(`Cannot reach Amadeus service (${code})`);
+        }
+
+        this.logger.error(`AC server ${method} ${fullUrl} failed (${status ?? 'no status'}): ${msg}`);
         throw new BadGatewayException(`AC server error: ${msg}`);
     }
 
     // ──────────────────────── Import: full topology ─────────────────────────
 
     async triggerFullImport(): Promise<ImportCallbackPayload> {
-        this.logger.log('Triggering full import on remote AC server');
+        this.logger.log('Starting async import job on remote AC server');
 
-        const payload = await this.post<ImportCallbackPayload>('/api/import', {
+        // 1. Start the job (returns immediately with a jobId)
+        const { jobId } = await this.post<{ jobId: string }>('/api/import', {
             action: 'import',
-        }, { timeout: 120_000 });
+        }, { timeout: 30_000 });
 
-        this.logger.log('Full import completed, received response with data');
+        this.logger.log(`Import job started with id=${jobId}, polling for completion`);
+
+        // 2. Poll until done
+        const payload = await this.pollImportJob(jobId);
         return payload;
     }
 
+    private async pollImportJob(jobId: string): Promise<ImportCallbackPayload> {
+        const maxWaitMs = 20 * 60_000; // 20 minutes max
+        const intervalMs = 5_000;       // poll every 5 seconds
+        const startTime = Date.now();
+
+        while (Date.now() - startTime < maxWaitMs) {
+            await this.sleep(intervalMs);
+
+            const status = await this.get<{
+                status: string;
+                phase?: string;
+                processed?: number;
+                total?: number;
+                payload?: ImportCallbackPayload;
+                errorMessage?: string;
+            }>(`/api/import/status/${jobId}`);
+
+            if (status.status === 'Completed' && status.payload) {
+                this.logger.log('Import job completed successfully');
+                return status.payload;
+            }
+
+            if (status.status === 'Failed') {
+                throw new BadGatewayException(
+                    `Remote import failed: ${status.errorMessage ?? 'Unknown error'}`,
+                );
+            }
+
+            this.logger.debug(
+                `Import job ${jobId}: ${status.phase ?? 'unknown'} ${status.processed ?? '?'}/${status.total ?? '?'}`,
+            );
+        }
+
+        throw new BadGatewayException('Import job timed out after 20 minutes');
+    }
+
+    private sleep(ms: number): Promise<void> {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     async triggerAccessLevelImport(): Promise<AccessLevelCallbackPayload> {
-        this.logger.log('Triggering access-level import on remote AC server');
+        this.logger.log('Starting async access-level import job on remote AC server');
 
-        const payload = await this.post<AccessLevelCallbackPayload>('/api/import/access-levels', {
+        // 1. Start the job (returns immediately with a jobId)
+        const { jobId } = await this.post<{ jobId: string }>('/api/import/access-levels', {
             action: 'import-access-levels',
-        }, { timeout: 120_000 });
+        }, { timeout: 30_000 });
 
-        this.logger.log('Access-level import completed, received response with data');
+        this.logger.log(`Access-level import job started with id=${jobId}, polling for completion`);
+
+        // 2. Poll until done
+        const payload = await this.pollAccessLevelImportJob(jobId);
         return payload;
+    }
+
+    private async pollAccessLevelImportJob(jobId: string): Promise<AccessLevelCallbackPayload> {
+        const maxWaitMs = 20 * 60_000; // 20 minutes max
+        const intervalMs = 5_000;       // poll every 5 seconds
+        const startTime = Date.now();
+
+        while (Date.now() - startTime < maxWaitMs) {
+            await this.sleep(intervalMs);
+
+            const status = await this.get<{
+                status: string;
+                phase?: string;
+                processed?: number;
+                total?: number;
+                accessLevelPayload?: AccessLevelCallbackPayload;
+                errorMessage?: string;
+            }>(`/api/import/status/${jobId}`);
+
+            if (status.status === 'Completed' && status.accessLevelPayload) {
+                this.logger.log('Access-level import job completed successfully');
+                return status.accessLevelPayload;
+            }
+
+            if (status.status === 'Failed') {
+                throw new BadGatewayException(
+                    `Remote access-level import failed: ${status.errorMessage ?? 'Unknown error'}`,
+                );
+            }
+
+            this.logger.debug(
+                `Access-level import job ${jobId}: ${status.phase ?? 'unknown'} ${status.processed ?? '?'}/${status.total ?? '?'}`,
+            );
+        }
+
+        throw new BadGatewayException('Access-level import job timed out after 20 minutes');
     }
 
     // ──────────────────────── Cardholders CRUD ──────────────────────────────

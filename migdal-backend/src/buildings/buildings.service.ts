@@ -88,6 +88,8 @@ export class BuildingsService {
         building.accessLevels = accessLevels;
         const saved = await this.buildingRepo.save(building);
 
+        await this.syncAccessLevelExternalIds(saved.id);
+
         this.auditService.log({
             userId: currentUserId,
             module: 'buildings',
@@ -116,6 +118,10 @@ export class BuildingsService {
         }
         const saved = await this.buildingRepo.save(building);
 
+        if (accessLevelIds !== undefined) {
+            await this.syncAccessLevelExternalIds(saved.id);
+        }
+
         this.auditService.log({
             userId: currentUserId,
             module: 'buildings',
@@ -128,6 +134,17 @@ export class BuildingsService {
         }).catch(() => { });
 
         return saved;
+    }
+
+    private async syncAccessLevelExternalIds(buildingId: string): Promise<void> {
+        await this.buildingRepo.query(
+            `UPDATE bal
+             SET bal.accessLevelExternalId = al.externalId
+             FROM [BuildingAccessLevels] bal
+             INNER JOIN [AccessLevels] al ON al.id = bal.accessLevelId
+             WHERE bal.buildingId = @0`,
+            [buildingId],
+        );
     }
 
     private async resolveAccessLevels(accessLevelIds?: string[]): Promise<AccessLevel[]> {

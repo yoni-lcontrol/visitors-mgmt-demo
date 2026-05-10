@@ -24,8 +24,7 @@ export class AccessLevelService {
 
     private buildFindAllQuery(query: AccessLevelQueryDto) {
         const { search, sortBy, sortOrder, filters } = query;
-        const qb = this.accessLevelRepo.createQueryBuilder('al')
-            .where('al.isActive = :isActive', { isActive: true });
+        const qb = this.accessLevelRepo.createQueryBuilder('al');
 
         if (query.active !== undefined) {
             qb.andWhere('al.active = :active', { active: query.active });
@@ -55,7 +54,7 @@ export class AccessLevelService {
     }
 
     async findById(id: string): Promise<AccessLevel> {
-        const al = await this.accessLevelRepo.findOne({ where: { id, isActive: true } });
+        const al = await this.accessLevelRepo.findOne({ where: { id } });
         if (!al) throw new NotFoundException('Access level not found');
         return al;
     }
@@ -83,6 +82,13 @@ export class AccessLevelService {
         Object.assign(al, dto);
         const saved = await this.accessLevelRepo.save(al);
 
+        if (saved.active === false || saved.visitorAccess === false) {
+            await this.accessLevelRepo.query(
+                'DELETE FROM BuildingAccessLevels WHERE accessLevelId = @0',
+                [id],
+            );
+        }
+
         this.auditService.log({
             userId: currentUserId,
             module: 'access-control',
@@ -99,8 +105,16 @@ export class AccessLevelService {
 
     async remove(id: string, currentUserId?: string): Promise<void> {
         const al = await this.findById(id);
-        al.isActive = false;
-        await this.accessLevelRepo.save(al);
+
+        await this.accessLevelRepo.query(
+            'DELETE FROM BuildingAccessLevels WHERE accessLevelId = @0',
+            [id],
+        );
+
+        await this.accessLevelRepo.query(
+            'DELETE FROM AccessLevels WHERE id = @0',
+            [id],
+        );
 
         this.auditService.log({
             userId: currentUserId,
@@ -121,11 +135,20 @@ export class AccessLevelService {
         const existing = await this.accessLevelRepo.findOne({ where: { externalId: safeData.externalId } });
         if (existing) {
             const wasInactive = !existing.isActive;
-            Object.assign(existing, safeData);
+            const { visitorAccess: _visitorAccess, ...updateData } = safeData;
+            Object.assign(existing, updateData);
             if (wasInactive) {
                 existing.isActive = true;
             }
             const saved = await this.accessLevelRepo.save(existing);
+
+            if (saved.active === false || saved.visitorAccess === false) {
+                await this.accessLevelRepo.query(
+                    'DELETE FROM BuildingAccessLevels WHERE accessLevelId = @0',
+                    [saved.id],
+                );
+            }
+
             return { entity: saved, action: wasInactive ? 'created' : 'updated' };
         }
         const created = await this.accessLevelRepo.save(this.accessLevelRepo.create(safeData));

@@ -75,14 +75,6 @@ import { AuthService } from '@core/auth/auth.service';
           </div>
           <div class="form-row">
             <div class="field">
-              <label><i class="pi pi-th-large"></i> {{ 'VISITS.NUCLEUS' | translate }}</label>
-              <p-dropdown [(ngModel)]="form.nucleus" [options]="nucleusOptions" optionLabel="label" optionValue="value"
-                [placeholder]="'PLACEHOLDER.SELECT_NUCLEUS' | translate" appendTo="body" [showClear]="true"
-                [style]="{ width: '100%' }"></p-dropdown>
-            </div>
-          </div>
-          <div class="form-row">
-            <div class="field">
               <label><i class="pi pi-building"></i> {{ 'BUILDINGS.BUILDING' | translate }} <span class="required">*</span></label>
               <p-dropdown [(ngModel)]="form.buildingId" [options]="buildings" optionLabel="name" optionValue="id"
                 [placeholder]="'BUILDINGS.SELECT_BUILDING' | translate" appendTo="body"
@@ -473,14 +465,6 @@ import { AuthService } from '@core/auth/auth.service';
             </div>
             <div class="form-row">
               <div class="field">
-                <label><i class="pi pi-th-large"></i> {{ 'VISITS.NUCLEUS' | translate }}</label>
-                <p-dropdown [(ngModel)]="form.nucleus" [options]="nucleusOptions" optionLabel="label" optionValue="value"
-                  [placeholder]="'PLACEHOLDER.SELECT_NUCLEUS' | translate" appendTo="body" [showClear]="true"
-                  [style]="{ width: '100%' }"></p-dropdown>
-              </div>
-            </div>
-            <div class="form-row">
-              <div class="field">
                 <label><i class="pi pi-building"></i> {{ 'BUILDINGS.BUILDING' | translate }} <span class="required">*</span></label>
                 <p-dropdown [(ngModel)]="form.buildingId" [options]="buildings" optionLabel="name" optionValue="id"
                   [placeholder]="'BUILDINGS.SELECT_BUILDING' | translate" appendTo="body"
@@ -665,6 +649,9 @@ import { AuthService } from '@core/auth/auth.service';
             <div class="section-divider">
               <span class="section-label"><i class="pi pi-shield"></i> {{ 'VISITS.ESCORTS' | translate }}</span>
             </div>
+            @if (escortRequired && !inlineEscorts.length) {
+              <div class="validation-hint validation-hint-error"><i class="pi pi-exclamation-circle"></i> {{ 'VALIDATION.MIN_ESCORT_REQUIRED' | translate }}</div>
+            }
             @for (e of inlineEscorts; track $index) {
               <div class="inline-row">
                 <div class="inline-row-header">
@@ -909,6 +896,9 @@ import { AuthService } from '@core/auth/auth.service';
       border-radius: 8px; color: #b45309;
       font-size: 0.84rem; font-weight: 500;
     }
+    .validation-hint.validation-hint-error {
+      background: #fff1f2; border-color: #fecdd3; color: #dc2626;
+    }
     .validation-hint i { font-size: 0.9rem; flex-shrink: 0; }
     .import-errors {
       background: #fff1f2; border: 1px solid #fecdd3;
@@ -1052,6 +1042,15 @@ export class VisitDialogComponent implements OnDestroy {
 
   canRequestParking = false;
   canImportExcel = false;
+
+  get escortRequired(): boolean {
+    if (this.permissionService.hasPermission('visits.escort.required')) return true;
+    if (
+      this.permissionService.hasPermission('visits.escort.required.self-requester') &&
+      !this.requesterIsSomeoneElse
+    ) return true;
+    return false;
+  }
 
   get currentSectorName(): string {
     return this.authService.currentUser?.sector?.name ?? '';
@@ -1325,6 +1324,7 @@ export class VisitDialogComponent implements OnDestroy {
         if (!v.firstName || !v.lastName || !v.personId) return false;
         if (v.hasVehicle && (!v.carNumber || !v.vehicleType)) return false;
       }
+      if (this.escortRequired && !this.inlineEscorts.length) return false;
       for (const e of this.inlineEscorts) {
         if (!e.firstName || !e.lastName || !e.phone || !e.email) return false;
       }

@@ -655,7 +655,6 @@ export class VisitsService {
             const visit = qr.manager.create(Visit, {
                 title: dto.title,
                 purposeOfVisit: dto.purposeOfVisit ?? null,
-                nucleus: dto.nucleus ?? null,
                 siteId: dto.siteId ?? null,
                 sectorId: currentUser?.sectorId ?? null,
                 buildingId: dto.buildingId ?? null,
@@ -822,7 +821,6 @@ export class VisitsService {
         Object.assign(visit, {
             title: dto.title ?? visit.title,
             purposeOfVisit: dto.purposeOfVisit !== undefined ? dto.purposeOfVisit : visit.purposeOfVisit,
-            nucleus: dto.nucleus !== undefined ? (dto.nucleus ?? null) : visit.nucleus,
             siteId: dto.siteId !== undefined ? dto.siteId : visit.siteId,
             buildingId: dto.buildingId !== undefined ? dto.buildingId : visit.buildingId,
             floor: dto.floor !== undefined ? (dto.floor ?? null) : visit.floor,

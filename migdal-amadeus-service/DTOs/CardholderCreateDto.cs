@@ -12,4 +12,5 @@ public class CardholderCreateDto
     public DateTime? ToDateValid { get; set; }
     public bool? IsFromDateActive { get; set; }
     public bool? IsToDateActive { get; set; }
+    public string? LicensePlate { get; set; }
 }

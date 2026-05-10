@@ -241,6 +241,7 @@ public class AmadeusDbContext : DbContext
             entity.Property(e => e.SecurityGroupApiKey).HasMaxLength(256);
             entity.Property(e => e.AccessGroupUidsRaw).HasMaxLength(4000);
             entity.Property(e => e.AccessGroupApiKeysRaw).HasMaxLength(4000);
+            entity.Property(e => e.LicensePlate).HasMaxLength(64);
 
             entity.HasIndex(e => e.AmadeusUid).IsUnique();
             entity.HasIndex(e => e.CardholderIdNumber);

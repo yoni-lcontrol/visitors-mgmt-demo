@@ -113,6 +113,7 @@ describe('AdSyncAdapterService', () => {
                 idNumber: null,
                 company: null,
                 groupNames: [],
+                groupExternalIds: [],
                 isDisabled: false,
             });
         });

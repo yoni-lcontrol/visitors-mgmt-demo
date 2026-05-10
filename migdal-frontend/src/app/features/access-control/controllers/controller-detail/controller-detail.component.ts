@@ -79,11 +79,6 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
 
       <!-- Doors Tab -->
       @if (activeTab === 'doors') {
-        <div class="section-actions" *hasPermission="'access-control.create'">
-          <button class="btn btn-primary btn-sm" (click)="openDoorDialog()">
-            <i class="pi pi-plus"></i> {{ 'ACCESS_CONTROL.ADD_DOOR' | translate }}
-          </button>
-        </div>
         <div class="card table-card">
           <p-table
             [value]="controller.doors"
@@ -137,9 +132,9 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                       <i class="pi pi-sitemap"></i>
                       {{ 'ACCESS_CONTROL.DOOR_IOS' | translate }}
                       <span class="nested-count">({{ (doorIoMap[door.id] || []).length }})</span>
-                      <button class="btn btn-primary btn-xs" *hasPermission="'access-control.create'" (click)="openDoorIoDialog(door.id)">
+                      <!-- <button class="btn btn-primary btn-xs" *hasPermission="'access-control.create'" (click)="openDoorIoDialog(door.id)" hidden>
                         <i class="pi pi-plus"></i> {{ 'COMMON.ADD' | translate }}
-                      </button>
+                      </button> -->
                     </div>
                     @if (doorIoMap[door.id]) {
                       <table class="nested-table">

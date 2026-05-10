@@ -82,4 +82,18 @@ export class InboundEventLogService {
             take: limit,
         });
     }
+
+    async findByProviderPaginated(
+        provider: string,
+        page: number,
+        limit: number,
+    ): Promise<{ items: ExternalEventLog[]; total: number }> {
+        const [items, total] = await this.repo.findAndCount({
+            where: { provider },
+            order: { receivedAt: 'DESC' },
+            skip: (page - 1) * limit,
+            take: limit,
+        });
+        return { items, total };
+    }
 }

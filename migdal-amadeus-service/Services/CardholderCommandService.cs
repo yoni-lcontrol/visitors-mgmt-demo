@@ -55,6 +55,12 @@ public class CardholderCommandService : ICardholderCommandService
             UpdatedUtc = DateTime.UtcNow
         };
 
+        if (!string.IsNullOrWhiteSpace(dto.LicensePlate))
+        {
+            await _apiClient.UpsertLicensePlateAsync(created.Id, dto.LicensePlate, cancellationToken);
+            entity.LicensePlate = dto.LicensePlate;
+        }
+
         _dbContext.Cardholders.Add(entity);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -273,6 +279,7 @@ public class CardholderCommandService : ICardholderCommandService
             SecurityGroupApiKey = entity.SecurityGroupApiKey,
             AccessGroupUidsRaw = entity.AccessGroupUidsRaw,
             AccessGroupApiKeysRaw = entity.AccessGroupApiKeysRaw,
+            LicensePlate = entity.LicensePlate,
             IsDeleted = entity.IsDeleted,
             IsArchived = entity.IsArchived,
             CreatedUtc = entity.CreatedUtc,

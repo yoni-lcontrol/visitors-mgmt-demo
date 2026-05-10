@@ -75,6 +75,7 @@ public class ImportBridgeController : ControllerBase
                 job.Processed,
                 job.Total,
                 job.Payload,
+                job.AccessLevelPayload,
                 job.StartedUtc,
                 job.CompletedUtc,
             });
@@ -92,30 +93,34 @@ public class ImportBridgeController : ControllerBase
     }
 
     /// <summary>
-    /// Imports access levels from Amadeus OData and returns them.
+    /// Starts an async access-level import job and returns immediately with a jobId.
+    /// Poll GET /api/import/status/{jobId} for progress and results.
     /// </summary>
     [HttpPost("access-levels")]
-    public async Task<IActionResult> ImportAccessLevels(CancellationToken cancellationToken)
+    public IActionResult ImportAccessLevels()
     {
-        _logger.LogInformation("Access-level import request received");
-        try
+        _logger.LogInformation("Access-level import request received — starting async job");
+
+        var jobId = _importJobManager.StartJob();
+
+        _ = Task.Run(async () =>
         {
             using var scope = _serviceScopeFactory.CreateScope();
             var importBridgeService = scope.ServiceProvider.GetRequiredService<IImportBridgeService>();
-            var payload = await importBridgeService.ImportAccessLevelsAsync(cancellationToken);
+            var jobManager = scope.ServiceProvider.GetRequiredService<IImportJobManager>();
 
-            _logger.LogInformation("Access-level import completed with {Count} items", payload.AccessLevels.Count);
+            try
+            {
+                jobManager.UpdateProgress(jobId, "importing", null, null);
+                var payload = await importBridgeService.ImportAccessLevelsAsync(CancellationToken.None);
+                jobManager.CompleteAccessLevelJob(jobId, payload);
+            }
+            catch (Exception ex)
+            {
+                jobManager.FailJob(jobId, ex.Message);
+            }
+        });
 
-            return Ok(payload);
-        }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Access-level import endpoint failed unexpectedly. Returning empty payload as fail-safe response.");
-            return Ok(new AccessLevelCallbackPayload());
-        }
+        return Accepted(new { jobId });
     }
 }

@@ -69,15 +69,10 @@ export class AccessLevelController {
     @RequirePermissions(PermissionKey.AccessControlImport)
     @HttpCode(HttpStatus.ACCEPTED)
     @ApiOperation({ summary: 'Trigger access levels import from remote server' })
-    async importData() {
-        const result = await this.importService.triggerAccessLevelImport();
-        return {
-            message: `Import completed: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped`,
-            created: result.created,
-            updated: result.updated,
-            skipped: result.skipped,
-            items: result.items,
-            errors: result.errors,
-        };
+    importData() {
+        this.importService.triggerAccessLevelImport().catch(() => {
+            // Errors are already broadcast via WsEvent.AccessControlAccessLevelsImportFailed
+        });
+        return { success: true, message: 'Import started' };
     }
 }

@@ -29,9 +29,6 @@ import { Subscription } from 'rxjs';
           <i class="pi pi-cloud-download"></i>
           {{ importing ? ('ACCESS_CONTROL.IMPORTING' | translate) : ('COMMON.IMPORT' | translate) }}
         </button>
-        <button class="btn btn-primary" *hasPermission="'access-control.create'" (click)="openDialog()">
-          <i class="pi pi-plus"></i> {{ 'ACCESS_CONTROL.ADD_CONTROLLER' | translate }}
-        </button>
       </div>
     </div>
     <div class="card table-card">

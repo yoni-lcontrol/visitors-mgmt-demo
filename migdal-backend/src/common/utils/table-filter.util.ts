@@ -23,7 +23,7 @@ export interface TableFilterField {
     constraints?: TableFilterConstraint[];
 }
 
-export type TableFilters = Record<string, TableFilterField | undefined>;
+export type TableFilters = Record<string, TableFilterField | TableFilterConstraint[] | undefined>;
 
 export function parseTableFilters(raw?: string): TableFilters {
     if (!raw) return {};
@@ -96,9 +96,12 @@ export function applyTableFilters<T extends ObjectLiteral>(
         const dbField = fieldMap[uiField];
         if (!dbField) return;
 
-        const constraints = filter.constraints?.length
-            ? filter.constraints
-            : [{ value: filter.value ?? null, matchMode: filter.matchMode }];
+        // PrimeNG v19 sends filters as arrays; older versions use { constraints: [...] }
+        const constraints: TableFilterConstraint[] = Array.isArray(filter)
+            ? filter
+            : filter.constraints?.length
+                ? filter.constraints
+                : [{ value: filter.value ?? null, matchMode: filter.matchMode }];
 
         constraints.forEach((constraint) => {
             const value = constraint?.value;

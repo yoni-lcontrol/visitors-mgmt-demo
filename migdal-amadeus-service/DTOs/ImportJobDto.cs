@@ -9,6 +9,7 @@ public class ImportJobDto
     public int? Total { get; set; }
     public string? ErrorMessage { get; set; }
     public ImportCallbackPayload? Payload { get; set; }
+    public AccessLevelCallbackPayload? AccessLevelPayload { get; set; }
     public DateTime StartedUtc { get; set; }
     public DateTime? CompletedUtc { get; set; }
 }

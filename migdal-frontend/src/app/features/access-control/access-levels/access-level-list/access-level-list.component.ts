@@ -272,6 +272,24 @@ export class AccessLevelListComponent implements OnInit, OnDestroy {
         this.importProgressMessage = data.message;
         this.importProgress = data.total > 0 ? Math.round((data.current / data.total) * 100) : 0;
       }),
+      this.userWs.on<{ created: number; updated: number; skipped: number; total: number; items: AccessLevelImportResult['items'] }>(
+        WsEvent.AccessControlAccessLevelsImportCompleted,
+      ).subscribe((data) => {
+        this.importing = false;
+        this.importProgress = 100;
+        this.importResult = { message: '', created: data.created, updated: data.updated, skipped: data.skipped, items: data.items ?? [], errors: [] };
+        this.showImportResults = true;
+        this.notify.success('ACCESS_CONTROL.IMPORT_TRIGGERED');
+        this.loadData();
+      }),
+      this.userWs.on<{ message: string }>(
+        WsEvent.AccessControlAccessLevelsImportFailed,
+      ).subscribe((data) => {
+        this.importing = false;
+        this.importProgress = 0;
+        this.importProgressMessage = '';
+        this.notify.error(data.message ?? 'ACCESS_CONTROL.IMPORT_FAILED');
+      }),
     );
   }
 
@@ -340,14 +358,6 @@ export class AccessLevelListComponent implements OnInit, OnDestroy {
     this.importProgressMessage = '';
     this.importResult = null;
     this.acApi.importAccessLevels().subscribe({
-      next: (result) => {
-        this.importing = false;
-        this.importProgress = 100;
-        this.importResult = result;
-        this.showImportResults = true;
-        this.notify.success('ACCESS_CONTROL.IMPORT_TRIGGERED');
-        this.loadData();
-      },
       error: (err) => {
         this.importing = false;
         this.importProgress = 0;

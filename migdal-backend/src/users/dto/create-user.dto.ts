@@ -44,6 +44,11 @@ export class CreateUserDto {
     @Matches(/^\d+$/, { message: 'idNumber must contain only digits' })
     idNumber!: string;
 
+    @ApiPropertyOptional({ example: 'ABC-123' })
+    @IsOptional()
+    @IsString()
+    licensePlate?: string;
+
     @ApiPropertyOptional({ example: 'role-uuid-1' })
     @IsOptional()
     @IsString()

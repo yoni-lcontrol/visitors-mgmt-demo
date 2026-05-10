@@ -500,6 +500,7 @@
         "DATE_NOT_IN_PAST": "Date cannot be earlier than today",
         "TIME_NOT_IN_PAST": "Time cannot be earlier than the current time",
         "MIN_VISITORS": "A visit must have at least one visitor",
+        "MIN_ESCORT_REQUIRED": "This visit requires at least one escort",
         "CHECKING_BLACKLIST": "Checking blacklist...",
         "BLACKLISTED": "This person is currently blacklisted and cannot be added as a visitor",
         "VEHICLE_BLACKLISTED": "This vehicle is currently blacklisted",

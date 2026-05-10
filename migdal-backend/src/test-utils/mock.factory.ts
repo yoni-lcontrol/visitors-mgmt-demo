@@ -16,6 +16,7 @@ export function createMockRepository() {
         delete: jest.fn().mockResolvedValue({ affected: 1 }),
         createQueryBuilder: jest.fn(),
         count: jest.fn(),
+        query: jest.fn().mockResolvedValue(undefined),
     };
 }
 

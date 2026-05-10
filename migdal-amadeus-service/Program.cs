@@ -43,8 +43,15 @@ builder.Services.AddDbContext<AmadeusDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // HttpClientFactory (per docs - prefer HttpClientFactory, reuse connections)
-builder.Services.AddHttpClient("Amadeus");
-builder.Services.AddHttpClient("Backend");
+// Timeouts prevent thread-pool starvation when the remote host is unreachable.
+builder.Services.AddHttpClient("Amadeus", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+});
+builder.Services.AddHttpClient("Backend", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 // Services (per docs/architecture-overview.md)
 builder.Services.AddSingleton<IAmadeusAuthService, AmadeusAuthService>();

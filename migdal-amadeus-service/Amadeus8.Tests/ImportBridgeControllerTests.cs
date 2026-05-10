@@ -117,28 +117,45 @@ public class ImportBridgeControllerTests
     }
 
     [Fact]
-    public async Task ImportAccessLevels_ReturnsOkWithAccessLevels()
+    public async Task ImportAccessLevels_ReturnsAcceptedWithJobId()
     {
         var controller = CreateController();
 
-        var result = await controller.ImportAccessLevels(CancellationToken.None);
+        var result = controller.ImportAccessLevels();
 
-        var ok = Assert.IsType<OkObjectResult>(result);
-        var payload = Assert.IsType<AccessLevelCallbackPayload>(ok.Value);
-        Assert.Single(payload.AccessLevels);
-        Assert.Equal("Stub Level", payload.AccessLevels[0].Name);
+        var accepted = Assert.IsType<AcceptedResult>(result);
+        Assert.NotNull(accepted.Value);
+
+        var jobId = accepted.Value!.GetType().GetProperty("jobId")!.GetValue(accepted.Value) as string;
+        Assert.False(string.IsNullOrEmpty(jobId));
+
+        // Wait for background task to complete
+        await Task.Delay(500);
+
+        var job = _jobManager.GetJob(jobId!);
+        Assert.NotNull(job);
+        Assert.Equal("Completed", job!.Status);
+        Assert.NotNull(job.AccessLevelPayload);
+        Assert.Single(job.AccessLevelPayload!.AccessLevels);
+        Assert.Equal("Stub Level", job.AccessLevelPayload.AccessLevels[0].Name);
     }
 
     [Fact]
-    public async Task ImportAccessLevels_WhenServiceThrows_ReturnsOkWithEmptyPayload()
+    public async Task ImportAccessLevels_WhenServiceThrows_JobStatusIsFailed()
     {
         var controller = CreateControllerWithThrowingService();
 
-        var result = await controller.ImportAccessLevels(CancellationToken.None);
+        var result = controller.ImportAccessLevels();
+        var accepted = Assert.IsType<AcceptedResult>(result);
+        var jobId = accepted.Value!.GetType().GetProperty("jobId")!.GetValue(accepted.Value) as string;
 
-        var ok = Assert.IsType<OkObjectResult>(result);
-        var payload = Assert.IsType<AccessLevelCallbackPayload>(ok.Value);
-        Assert.Empty(payload.AccessLevels);
+        // Wait for background task
+        await Task.Delay(500);
+
+        var job = _jobManager.GetJob(jobId!);
+        Assert.NotNull(job);
+        Assert.Equal("Failed", job!.Status);
+        Assert.Contains("simulated failure", job.ErrorMessage);
     }
 
     private class StubImportBridgeService : IImportBridgeService

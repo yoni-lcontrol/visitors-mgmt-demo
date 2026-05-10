@@ -26,7 +26,7 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
         <button class="btn btn-secondary" *hasPermission="'users.sync'" (click)="syncFromAd()" [disabled]="adSyncProgress.isActive">
           <i class="pi" [class.pi-spin]="adSyncProgress.isActive" [class.pi-spinner]="adSyncProgress.isActive" [class.pi-sync]="!adSyncProgress.isActive"></i> {{ 'USERS.SYNC_AD' | translate }}
         </button>
-        <button class="btn btn-primary" *hasPermission="'users.create'" (click)="openDialog()">
+        <button class="btn btn-primary" *hasPermission="'users.create'" (click)="openDialog()" style="display:none">
           <i class="pi pi-plus"></i> {{ 'USERS.ADD_USER' | translate }}
         </button>
       </div>
@@ -117,6 +117,7 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
           <div class="loading">{{ 'COMMON.LOADING' | translate }}</div>
         } @else {
         <form [formGroup]="dialogForm" (ngSubmit)="saveDialog()">
+          <fieldset disabled style="border:none;padding:0;margin:0">
           <div class="dialog-form-grid">
           <div class="field">
             <label>{{ 'USERS.FIRST_NAME' | translate }} <span class="required">*</span></label>
@@ -171,6 +172,8 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
               <small class="field-error">{{ 'VALIDATION.DIGITS_ONLY' | translate }}</small>
             }
           </div>
+          </div>
+          </fieldset>
           <div class="field full-width">
             <label>{{ 'USERS.ROLES' | translate }}</label>
             <div class="roles-grid">
@@ -184,6 +187,7 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
               }
             </div>
           </div>
+          <fieldset disabled style="border:none;padding:0;margin:0">
           @if (editingUser) {
           <div class="field full-width">
             <label>{{ 'COMMON.STATUS' | translate }}</label>
@@ -194,13 +198,13 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
             <span class="readonly-value">{{ editingUser.lastLoginAt || '-' }}</span>
           </div>
           }
-          </div>
+          </fieldset>
         </form>
         }
       }
       <ng-template pTemplate="footer">
         <button class="btn btn-secondary" (click)="showDialog = false">{{ 'COMMON.CANCEL' | translate }}</button>
-        <button class="btn btn-primary" (click)="saveDialog()" [disabled]="(dialogForm.invalid || saving)">{{ 'COMMON.SAVE' | translate }}</button>
+        <button class="btn btn-primary" (click)="saveDialog()" [disabled]="saving">{{ 'COMMON.SAVE' | translate }}</button>
       </ng-template>
     </p-dialog>  `,
   styles: [`
@@ -452,17 +456,10 @@ export class UserListComponent implements OnInit, OnDestroy {
   }
 
   saveDialog(): void {
-    if (this.dialogForm.invalid) return;
     this.saving = true;
-    const { password, ...rest } = this.dialogForm.value;
-    const payload = {
-      ...rest,
-      ...(password ? { password } : {}),
-      roleIds: this.selectedRoleIds,
-    };
     const req$ = this.isEditMode
-      ? this.usersApi.update(this.editingUser!.id, payload)
-      : this.usersApi.create(payload);
+      ? this.usersApi.assignRoles(this.editingUser!.id, this.selectedRoleIds)
+      : (() => { const { password, ...rest } = this.dialogForm.value; const payload = { ...rest, ...(password ? { password } : {}), roleIds: this.selectedRoleIds }; return this.usersApi.create(payload); })();
     req$.subscribe({
       next: () => { this.saving = false; this.showDialog = false; this.notify.success('COMMON.SUCCESS'); this.loadUsers(); },
       error: (err) => { this.saving = false; this.notify.error(err); },

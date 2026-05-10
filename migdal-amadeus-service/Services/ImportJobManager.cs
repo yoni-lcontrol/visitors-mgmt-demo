@@ -50,6 +50,17 @@ public class ImportJobManager : IImportJobManager
         }
     }
 
+    public void CompleteAccessLevelJob(string jobId, AccessLevelCallbackPayload payload)
+    {
+        if (_jobs.TryGetValue(jobId, out var job))
+        {
+            job.Status = "Completed";
+            job.AccessLevelPayload = payload;
+            job.CompletedUtc = DateTime.UtcNow;
+            _logger.LogInformation("Access-level import job {JobId} completed", jobId);
+        }
+    }
+
     public void FailJob(string jobId, string errorMessage)
     {
         if (_jobs.TryGetValue(jobId, out var job))

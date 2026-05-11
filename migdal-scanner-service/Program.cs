@@ -63,6 +63,15 @@ namespace ScannerService
                 Log.Warning("Scanner not available at startup. The lifecycle manager will retry automatically.");
             }
 
+            // Wire up scan-started event: notify backend when scanning begins
+            Action onScanStarted = async () =>
+            {
+                if (_agentClient?.IsRegistered == true)
+                {
+                    await _agentClient.SendScanStarted();
+                }
+            };
+
             // Wire up auto-scan events: when a document is auto-detected in tray,
             // send the result to the backend via the socket client.
             Action<ScanResult> onScanCompleted = async (scanResult) =>
@@ -82,6 +91,7 @@ namespace ScannerService
 
             if (_lifecycle.Scanner != null)
             {
+                _lifecycle.WireScanStartedEvent(onScanStarted);
                 _lifecycle.WireScanCompletedEvent(onScanCompleted);
             }
 
@@ -92,6 +102,7 @@ namespace ScannerService
             {
                 if (current == ScannerState.Connected && _lifecycle.Scanner != null && !eventWired)
                 {
+                    _lifecycle.WireScanStartedEvent(onScanStarted);
                     _lifecycle.WireScanCompletedEvent(onScanCompleted);
                     eventWired = true;
                     Log.Information("Auto-scan event handler wired after first successful connection");

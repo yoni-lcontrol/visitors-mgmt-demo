@@ -26,6 +26,7 @@ import { AddVisitEscortsDto } from './dto/add-visit-escorts.dto';
 import { UpdateVisitVisitorDto } from './dto/update-visit-visitor.dto';
 import { UpdateVisitEscortDto } from './dto/update-visit-escort.dto';
 import { KioskValidateCodeDto } from './dto/kiosk-validate-code.dto';
+import { KioskValidatePersonIdDto } from './dto/kiosk-validate-person-id.dto';
 import { PrintCardDto } from './dto/print-card.dto';
 import { OnSiteQueryDto } from './dto/on-site-query.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -35,6 +36,7 @@ import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { PermissionKey } from '../common/enums/permission-key.enum';
 import { ParseUUIDPipe } from '../common/pipes/parse-uuid.pipe';
 import { PrintingService } from '../printing/services/printing.service';
+import { Public } from '../common/decorators/public.decorator';
 
 @ApiTags('Visits')
 @ApiBearerAuth()
@@ -319,12 +321,21 @@ export class VisitsController {
         return this.checkInCodeService.regenerateCode(visitVisitorId, currentUserId);
     }
 
+    @Public()
     @Post('kiosk/validate-code')
     @ApiOperation({ summary: 'Validate a check-in code at the kiosk' })
     validateKioskCode(@Body() dto: KioskValidateCodeDto) {
         return this.checkInCodeService.validateCode(dto.code);
     }
 
+    @Public()
+    @Post('kiosk/validate-person-id')
+    @ApiOperation({ summary: 'Find today\'s visit by person ID (scanned document)' })
+    validatePersonId(@Body() dto: KioskValidatePersonIdDto) {
+        return this.checkInCodeService.findVisitByPersonId(dto.personId);
+    }
+
+    @Public()
     @Post('kiosk/check-in')
     @ApiOperation({ summary: 'Check in a visitor via kiosk code' })
     kioskCheckIn(@Body() dto: KioskValidateCodeDto) {

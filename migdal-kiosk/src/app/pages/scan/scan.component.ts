@@ -1,11 +1,13 @@
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { NgxSpinnerService } from 'ngx-spinner';
-import { distinctUntilChanged, skip } from 'rxjs';
+import { distinctUntilChanged, filter, first, skip } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { SignalrService, ScanResult, ScanStatus } from '../../kiosk/signalr.service';
+import { KioskSocketService, ScanResult, ScanStatus, ScannerStatus } from '../../kiosk/kiosk-socket.service';
+import { KioskApiService } from '../../kiosk/kiosk-api.service';
 import { ToasterService } from '../../kiosk/toaster.service';
 import { KioskFlowService } from '../../kiosk/kiosk-flow-state.service';
+import { VisitResponse } from '../../models/kiosk-api.models';
 
 @Component({
   selector: 'app-scan',
@@ -22,7 +24,8 @@ export class ScanComponent implements OnInit {
 
   constructor(
     private router: Router,
-    private signalr: SignalrService,
+    private kioskSocket: KioskSocketService,
+    private kioskApi: KioskApiService,
     private spinner: NgxSpinnerService,
     private toasterService: ToasterService,
     private kioskFlowService: KioskFlowService
@@ -31,6 +34,7 @@ export class ScanComponent implements OnInit {
   ngOnInit(): void {
     this.isLoading = false;
 
+    this.checkScannerConnected();
     this.bindScanStatus();
     this.bindScanResults();
 
@@ -48,30 +52,30 @@ export class ScanComponent implements OnInit {
     this.router.navigateByUrl('/home');
   }
 
-  private bindConnection(): void {
-    this.signalr.connected$
+  private checkScannerConnected(): void {
+    // Wait until the kiosk is registered before checking scanner status
+    this.kioskSocket.registered$
       .pipe(
-        skip(1),
-        distinctUntilChanged(),
-        takeUntilDestroyed(this.destroyRef)
+        filter((registered) => registered),
+        first(),
+        takeUntilDestroyed(this.destroyRef),
       )
-      .subscribe((isUp) => {
-        this.connected = isUp;
+      .subscribe(() => {
+        this.kioskSocket.scannerStatus$
+          .pipe(first(), takeUntilDestroyed(this.destroyRef))
+          .subscribe((status: ScannerStatus) => {
+            if (!status.connected || !status.deviceConnected) {
+              this.toasterService.showError('ERROR.SCANNER_CONNECTION_ERROR');
+              this.router.navigate(['/home']);
+            }
+          });
 
-        if (isUp) {
-          this.isLoading = false;
-          this.spinner.hide();
-          return;
-        }
-
-        this.spinner.hide();
-        this.toasterService.showError('ERROR.SCANNER_CONNECTION_ERROR');
-        this.router.navigate(['/home']);
+        this.kioskSocket.checkScannerStatus();
       });
   }
 
   private bindScanStatus(): void {
-    this.signalr.scanStatus$
+    this.kioskSocket.scanStatus$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((status: ScanStatus) => {
         if (status.state === 'scanning') {
@@ -82,14 +86,13 @@ export class ScanComponent implements OnInit {
   }
 
   private bindScanResults(): void {
-    this.signalr.scanResults$
+    this.kioskSocket.scanResults$
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((scan: ScanResult) => this.handleScanResult(scan));
   }
 
   private handleScanResult(scan: ScanResult): void {
-    // TODO: restore visit-based person ID matching when visit flow is ready
-    // const expectedPersonId = this.kioskFlowService.visit?.visitor?.personId;
+    console.log('[ScanComponent] Received scan result:', scan);
 
     const stopUi = () => {
       this.spinner.hide();
@@ -102,32 +105,43 @@ export class ScanComponent implements OnInit {
       return;
     }
 
-    if (scan.error) {
+    if (!scan.success || !scan.result) {
       stopUi();
       this.toasterService.showError('ERROR.DOCUMENT_SCAN_ERROR');
       return;
     }
 
-    if (!scan.personId) {
+    const data = scan.result;
+
+    if (!data.personId) {
       stopUi();
       this.toasterService.showError('ERROR.NO_ID_DETECTED_IN_SCAN');
       return;
     }
 
-    // TODO: restore person ID matching when visit flow is ready
-    // if (!expectedPersonId || scan.personId !== expectedPersonId) {
-    //   stopUi();
-    //   this.toasterService.showError('ERROR.SCANNED_ID_NOT_MATCH');
-    //   return;
-    // }
+    // Look up today's visit for this personId
+    this.kioskApi.validatePersonId(data.personId).subscribe({
+      next: (visit: VisitResponse) => {
+        stopUi();
+        debugger
+        if (visit.ok === false) {
+          this.router.navigateByUrl('/visit-not-found');
+          return;
+        }
 
-    // update the visitor image in the stored visitResponse
-    if (scan.image)
-      this.kioskFlowService.updateVisitor({ image: this.toDataUrl(scan.image) });
+        this.kioskFlowService.setVisit(visit);
 
-    // success
-    this.kioskFlowService.setScanPassed();
-    this.router.navigate(['/details']);
+        if (data.image)
+          this.kioskFlowService.updateVisitor({ image: this.toDataUrl(data.image) });
+
+        this.kioskFlowService.setScanPassed();
+        this.router.navigate(['/details']);
+      },
+      error: () => {
+        stopUi();
+        this.toasterService.showError('ERROR.DOCUMENT_SCAN_ERROR');
+      },
+    });
   }
 
   private toDataUrl(imgBase64: string): string {

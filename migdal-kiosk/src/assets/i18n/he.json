@@ -23,7 +23,7 @@
         "PROCESS_STEPS": "שלבי התהליך"
     },
     "SCAN": {
-        "SCAN_TITLE": "סריקה....",
+        "SCAN_TITLE": "סריקת תעודת זהות",
         "VERIFY_DETAILS": "אימות פרטים...",
         "WAITING_FOR_SCAN": "ממתין לכם לסריקת תעודת זהות...",
         "SCAN_INSTRUCTION": "אנא סרקו את תעודת הזהות שלכם באזור<br/>המיועד למטה"

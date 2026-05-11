@@ -1,4 +1,6 @@
 export interface KioskConfig {
+    KIOSK_ID: string;
+    WORKSTATION_CODE: string;
     HOME_URL: string;
     ERROR_URL: string;
     IDLE_TIMEOUT_MS: number;

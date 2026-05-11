@@ -1,4 +1,6 @@
 {
+    "KIOSK_ID": "kiosk-01",
+    "WORKSTATION_CODE": "KIOSK-0OKZFS",
     "APP_VERSION": "1.0.1",
     "HOME_URL": "/home",
     "ERROR_URL": "/error",

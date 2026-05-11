@@ -162,3 +162,28 @@ export interface AgentStatusUpdatePayload {
     deviceConnected?: boolean;
     [key: string]: unknown;
 }
+
+/** Kiosk -> Backend: register kiosk on a workstation */
+export interface KioskRegisterPayload {
+    kioskId: string;
+    workstationCode: string;
+}
+
+/** Backend -> Kiosk: registration confirmed */
+export interface KioskRegisteredPayload {
+    kioskId: string;
+    workstationCode: string;
+}
+
+/** Kiosk -> Backend: request a scan on the workstation's scanner */
+export interface KioskRequestScanPayload {
+    kioskId: string;
+}
+
+/** Backend -> Kiosk: scan result forwarded from scanner agent */
+export interface KioskScanResultPayload {
+    correlationId: string;
+    success: boolean;
+    result?: Record<string, unknown>;
+    errorMessage?: string;
+}

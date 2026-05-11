@@ -23,7 +23,7 @@
         "CANCEL": "Cancel"
     },
     "SCAN": {
-        "SCAN_TITLE": "Scan...",
+        "SCAN_TITLE": "ID Card Scan",
         "VERIFY_DETAILS": "Verifying Details...",
         "WAITING_FOR_SCAN": "Waiting for ID Scan...",
         "SCAN_INSTRUCTION": "Please scan your ID card in the designated area below"

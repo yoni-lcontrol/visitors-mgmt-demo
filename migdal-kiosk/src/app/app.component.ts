@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { KioskService } from './kiosk/kiosk.service';
 import { NetworkService } from './kiosk/status/network.service';
 import { LanguageService } from './kiosk/language.service';
-import { SignalrService } from './kiosk/signalr.service';
+import { KioskSocketService } from './kiosk/kiosk-socket.service';
 
 @Component({
   selector: 'app-root',
@@ -14,7 +14,7 @@ export class AppComponent implements OnInit {
     private kiosk: KioskService,
     private network: NetworkService,
     private languageService: LanguageService,
-    private ws: SignalrService,
+    private ws: KioskSocketService,
   ) { }
 
   ngOnInit(): void {

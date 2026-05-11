@@ -290,6 +290,72 @@ export class VisitCheckInCodeService {
         };
     }
 
+    async findVisitByPersonId(personId: string) {
+        const trimmed = personId.trim();
+        if (!trimmed) return { ok: false };
+
+        const visitor = await this.visitorRepo.findOne({
+            where: { personId: trimmed, isActive: true },
+        });
+        if (!visitor) return { ok: false };
+
+        const now = new Date();
+        const startOfDay = new Date(now);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const visitVisitor = await this.visitVisitorRepo
+            .createQueryBuilder('vv')
+            .innerJoinAndSelect('vv.visit', 'visit')
+            .leftJoinAndSelect('vv.status', 'status')
+            .where('vv.visitorId = :visitorId', { visitorId: visitor.id })
+            .andWhere('vv.isActive = :active', { active: true })
+            .andWhere('visit.isActive = :active', { active: true })
+            .andWhere('visit.plannedStartTimeUtc <= :endOfDay', { endOfDay })
+            .andWhere('(visit.plannedEndTimeUtc >= :startOfDay OR visit.plannedEndTimeUtc IS NULL)', { startOfDay })
+            .orderBy('visit.plannedStartTimeUtc', 'DESC')
+            .getOne();
+
+        if (!visitVisitor) return { ok: false };
+
+        const visit = visitVisitor.visit;
+
+        return {
+            ok: true,
+            visit: {
+                visitId: visit.id,
+                visitName: visit.title,
+                fromDate: visit.plannedStartTimeUtc?.toISOString() ?? null,
+                toDate: visit.plannedEndTimeUtc?.toISOString() ?? null,
+                siteId: visit.siteId,
+                departmentId: visit.sectorId,
+                visitorType: null,
+                driverType: null,
+                comment: visit.purposeOfVisit,
+                isExternal: false,
+            },
+            visitor: {
+                visitorId: visitor.id,
+                visitId: visit.id,
+                firstName: visitor.firstName,
+                lastName: visitor.lastName,
+                personId: visitor.personId,
+                carNumber: visitor.carNumber,
+                accessLevelId: null,
+                visitCode: null,
+                phone: visitor.phone,
+                email: visitor.email,
+                image: null,
+                checkInTime: visitVisitor.status?.checkedInAtUtc?.toISOString() ?? null,
+                checkOutTime: visitVisitor.status?.checkedOutAtUtc?.toISOString() ?? null,
+                rejectDate: null,
+                approveDate: null,
+                visitorStatus: visitVisitor.status?.currentStatus ?? 0,
+            },
+        };
+    }
+
     async consumeCodeAndCheckIn(code: string): Promise<{
         visitVisitorId: string;
         visitorName: string;

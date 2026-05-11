@@ -97,6 +97,7 @@
         "BUILDINGS": "Buildings",
         "VEHICLE_MODELS": "Vehicle Models",
         "PERMANENT_ESCORTS": "Permanent Escorts",
+        "SECTORS": "Sectors",
         "WORKSTATIONS": "Workstations",
         "AUDIT_LOGS": "Audit Logs"
     },
@@ -1254,5 +1255,10 @@
         "ROLE": "Role",
         "SELECT_ROLE": "Select role",
         "CONFIRM_DELETE": "Are you sure you want to delete mapping \"{{groupName}}\"?"
+    },
+    "SECTORS": {
+        "TITLE": "Sectors",
+        "DESCRIPTION": "List of sectors in the system",
+        "NAME": "Sector Name"
     }
 }

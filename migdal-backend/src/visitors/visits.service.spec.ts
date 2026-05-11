@@ -334,24 +334,20 @@ describe('VisitsService', () => {
             const statusQb = createMockQueryBuilder([{ visitId: 'v1', total: '2', pending: '1', arrived: '1', checkedIn: '0', checkedOut: '0' }]);
             mockStatusRepo.createQueryBuilder.mockReturnValue(statusQb);
 
-            const result = await service.findVisitsByDateRange('2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z');
+            const result = await service.findVisitsByDateRange('2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z', undefined, 'user-1');
 
             expect(result).toHaveLength(1);
             expect(result[0].visitRequester).toBeDefined();
             expect(result[0].visitRequester.firstName).toBe('John');
             expect(result[0].statusSummary).toBeDefined();
-            expect(visitQb.andWhere).toHaveBeenCalledWith('v.plannedStartTimeUtc < :rangeEnd', { rangeEnd: '2025-02-01T00:00:00Z' });
-            expect(visitQb.andWhere).toHaveBeenCalledWith(
-                '(v.plannedEndTimeUtc IS NOT NULL AND v.plannedEndTimeUtc > :rangeStart) OR (v.plannedEndTimeUtc IS NULL AND v.plannedStartTimeUtc >= :rangeStart)',
-                { rangeStart: '2025-01-01T00:00:00Z' },
-            );
+            expect(visitQb.andWhere).toHaveBeenCalledWith('v.visitRequesterUserId = :calendarUserId', { calendarUserId: 'user-1' });
         });
 
         it('should apply search filter when provided', async () => {
             const visitQb = createMockQueryBuilder([]);
             mockVisitRepo.createQueryBuilder.mockReturnValue(visitQb);
 
-            await service.findVisitsByDateRange('2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z', 'test');
+            await service.findVisitsByDateRange('2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z', 'test', 'user-1');
 
             expect(visitQb.andWhere).toHaveBeenCalledWith(
                 '(v.title LIKE :s OR v.purposeOfVisit LIKE :s OR v.visitRequesterFirstName LIKE :s OR v.visitRequesterLastName LIKE :s OR reqUser.firstName LIKE :s OR reqUser.lastName LIKE :s)',
@@ -359,13 +355,55 @@ describe('VisitsService', () => {
             );
         });
 
-        it('should return empty array when no visits found', async () => {
+        it('should return empty array when no currentUserId provided', async () => {
             const visitQb = createMockQueryBuilder([]);
             mockVisitRepo.createQueryBuilder.mockReturnValue(visitQb);
 
             const result = await service.findVisitsByDateRange('2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z');
 
             expect(result).toEqual([]);
+            expect(visitQb.andWhere).toHaveBeenCalledWith('1 = 0');
+        });
+    });
+
+    describe('findMyCalendarVisits', () => {
+        it('should filter visits to created by or requested for the logged user', async () => {
+            const visits = [{ id: 'v1', title: 'My Visit', visitRequesterFirstName: 'John', visitRequesterLastName: 'Doe', visitRequesterPhone: '123', visitRequesterEmail: 'j@d.com' }];
+            const visitQb = createMockQueryBuilder(visits);
+            mockVisitRepo.createQueryBuilder.mockReturnValue(visitQb);
+
+            const statusQb = createMockQueryBuilder([{ visitId: 'v1', total: '1', pending: '1', arrived: '0', checkedIn: '0', checkedOut: '0' }]);
+            mockStatusRepo.createQueryBuilder.mockReturnValue(statusQb);
+
+            const result = await service.findMyCalendarVisits('2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z', undefined, 'user-1');
+
+            expect(result).toHaveLength(1);
+            expect(visitQb.andWhere).toHaveBeenCalledWith(
+                'v.visitRequesterUserId = :myUserId',
+                { myUserId: 'user-1' },
+            );
+        });
+
+        it('should return no visits when currentUserId is not provided', async () => {
+            const visitQb = createMockQueryBuilder([]);
+            mockVisitRepo.createQueryBuilder.mockReturnValue(visitQb);
+
+            const result = await service.findMyCalendarVisits('2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z');
+
+            expect(result).toEqual([]);
+            expect(visitQb.andWhere).toHaveBeenCalledWith('1 = 0');
+        });
+
+        it('should apply search filter when provided', async () => {
+            const visitQb = createMockQueryBuilder([]);
+            mockVisitRepo.createQueryBuilder.mockReturnValue(visitQb);
+
+            await service.findMyCalendarVisits('2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z', 'test', 'user-1');
+
+            expect(visitQb.andWhere).toHaveBeenCalledWith(
+                '(v.title LIKE :s OR v.purposeOfVisit LIKE :s OR v.visitRequesterFirstName LIKE :s OR v.visitRequesterLastName LIKE :s OR reqUser.firstName LIKE :s OR reqUser.lastName LIKE :s)',
+                { s: '%test%' },
+            );
         });
     });
 

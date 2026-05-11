@@ -96,6 +96,18 @@ export class VisitsController {
         return this.visitsService.findVisitsByDateRange(start, end, search, currentUserId, permissions);
     }
 
+    @Get('my-calendar')
+    @RequirePermissions(PermissionKey.VisitsRead)
+    @ApiOperation({ summary: 'Get only logged user visits for calendar (created by or for the user)' })
+    getMyCalendarVisits(
+        @Query('start') start: string,
+        @Query('end') end: string,
+        @Query('search') search?: string,
+        @CurrentUser('sub') currentUserId?: string,
+    ) {
+        return this.visitsService.findMyCalendarVisits(start, end, search, currentUserId);
+    }
+
     @Get('on-site')
     @RequirePermissions(PermissionKey.VisitsRead)
     @ApiOperation({ summary: 'Get on-site visitors (arrived/checked-in) for a date' })

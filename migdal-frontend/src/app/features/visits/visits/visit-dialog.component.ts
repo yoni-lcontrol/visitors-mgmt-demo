@@ -1080,10 +1080,6 @@ export class VisitDialogComponent implements OnDestroy {
     { label: 'עבודת תחזוקה', value: 'עבודת תחזוקה' },
     { label: 'אחר', value: 'אחר' },
   ];
-  nucleusOptions = [
-    { label: "גרעין א'", value: "גרעין א'" },
-    { label: "גרעין ב'", value: "גרעין ב'" },
-  ];
   vehicleTypeOptions: { label: string; items: { label: string; value: string }[] }[] = [];
   escortSectorOptions: SectorLookupItem[] = [];
 
@@ -1099,7 +1095,6 @@ export class VisitDialogComponent implements OnDestroy {
   form: {
     title: string;
     purposeOfVisit: string;
-    nucleus: string;
     buildingId: string;
     floor: number | null;
     plannedStartDate: Date | null;
@@ -1109,7 +1104,6 @@ export class VisitDialogComponent implements OnDestroy {
   } = {
       title: '',
       purposeOfVisit: '',
-      nucleus: '',
       buildingId: '',
       floor: null,
       plannedStartDate: null,
@@ -1176,7 +1170,6 @@ export class VisitDialogComponent implements OnDestroy {
       this.form = {
         title: visit.title,
         purposeOfVisit: visit.purposeOfVisit ?? '',
-        nucleus: visit.nucleus ?? '',
         buildingId: visit.buildingId ?? '',
         floor: visit.floor ?? null,
         plannedStartDate: startDate,
@@ -1216,7 +1209,7 @@ export class VisitDialogComponent implements OnDestroy {
 
   private resetDialogState(): void {
     this.editing = null;
-    this.form = { title: '', purposeOfVisit: '', nucleus: '', buildingId: '', floor: null, plannedStartDate: null, plannedStartTime: null, plannedEndDate: null, plannedEndTime: null };
+    this.form = { title: '', purposeOfVisit: '', buildingId: '', floor: null, plannedStartDate: null, plannedStartTime: null, plannedEndDate: null, plannedEndTime: null };
     this.visitRequester = { firstName: '', lastName: '', phone: '', email: '' };
     this.requesterIsSomeoneElse = false;
     this.requesterLockedToOnBehalf = false;
@@ -1451,7 +1444,6 @@ export class VisitDialogComponent implements OnDestroy {
       const body: any = {
         title: this.form.title,
         purposeOfVisit: this.form.purposeOfVisit || null,
-        nucleus: this.form.nucleus || null,
         buildingId: this.form.buildingId,
         floor: this.form.floor,
         plannedStartTimeUtc: this.combineDateTimeToIso(this.form.plannedStartDate!, this.form.plannedStartTime!),
@@ -1466,7 +1458,6 @@ export class VisitDialogComponent implements OnDestroy {
       const body: any = {
         title: this.form.title,
         purposeOfVisit: this.form.purposeOfVisit || null,
-        nucleus: this.form.nucleus || null,
         buildingId: this.form.buildingId,
         floor: this.form.floor,
         plannedStartTimeUtc: this.combineDateTimeToIso(this.form.plannedStartDate!, this.form.plannedStartTime!),

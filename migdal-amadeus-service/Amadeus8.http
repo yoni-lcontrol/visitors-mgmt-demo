@@ -1,6 +1,41 @@
-@Amadeus8_HostAddress = http://localhost:5005
+@Amadeus8_HostAddress = http://localhost:5050
 
 GET {{Amadeus8_HostAddress}}/weatherforecast/
 Accept: application/json
+
+###
+
+# Create cardholder WITHOUT license plate
+POST {{Amadeus8_HostAddress}}/api/cardholders
+Content-Type: application/json
+
+{
+  "cardholderIdNumber": "TEST-002",
+  "firstName": "David",
+  "lastName": "Cohen",
+  "description": "Test cardholder without license plate",
+  "fromDateValid": "2026-05-10T00:00:00Z",
+  "toDateValid": "2027-05-10T00:00:00Z",
+  "isFromDateActive": true,
+  "isToDateActive": true
+}
+
+###
+
+# Create cardholder WITH license plate
+POST {{Amadeus8_HostAddress}}/api/cardholders
+Content-Type: application/json
+
+{
+  "cardholderIdNumber": "TEST-001",
+  "firstName": "Moshe",
+  "lastName": "Levi",
+  "description": "Test cardholder with license plate",
+  "fromDateValid": "2026-05-10T00:00:00Z",
+  "toDateValid": "2027-05-10T00:00:00Z",
+  "isFromDateActive": true,
+  "isToDateActive": true,
+  "licensePlate": "12-345-67"
+}
 
 ###

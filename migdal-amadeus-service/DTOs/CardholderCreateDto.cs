@@ -6,6 +6,7 @@ public class CardholderCreateDto
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? Description { get; set; }
+    public string? CardholderTypeUid { get; set; }
     public string? SecurityGroupApiKey { get; set; }
     public List<string>? AccessGroupApiKeys { get; set; }
     public DateTime? FromDateValid { get; set; }

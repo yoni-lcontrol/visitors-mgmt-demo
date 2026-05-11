@@ -19,13 +19,13 @@ const routes: Routes = [
 
   { path: 'check-in', component: CheckInComponent },
 
-  { path: 'scan', component: ScanComponent /*, canActivate: [VisitRequiredGuard] */ },
+  { path: 'scan', component: ScanComponent },
 
   { path: 'details', component: DetailsComponent, canActivate: [VisitRequiredGuard, ScanRequiredGuard] },
 
   { path: 'consent', component: ConsentComponent, canActivate: [VisitRequiredGuard, ScanRequiredGuard, DetailsConfirmedGuard] },
 
-  { path: 'success', component: SuccessComponent },
+  { path: 'success', component: SuccessComponent, canActivate: [VisitRequiredGuard] },
 
   { path: 'visit-not-found', component: VisitNotFoundComponent },
 

@@ -8,6 +8,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, LessThan, MoreThan, And } from 'typeorm';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 import { VisitVisitorCheckInCode } from './entities/visit-visitor-check-in-code.entity';
 import { VisitVisitor } from './entities/visit-visitor.entity';
 import { VisitVisitorStatus } from './entities/visit-visitor-status.entity';
@@ -354,6 +356,73 @@ export class VisitCheckInCodeService {
                 visitorStatus: visitVisitor.status?.currentStatus ?? 0,
             },
         };
+    }
+
+    async checkInByPersonId(visitId: string, visitorId: string, personId: string, file?: Express.Multer.File) {
+        const visitor = await this.visitorRepo.findOne({
+            where: { id: visitorId, personId: personId.trim(), isActive: true },
+        });
+        if (!visitor) throw new BadRequestException('Visitor not found');
+
+        const visitVisitor = await this.visitVisitorRepo.findOne({
+            where: { visitId, visitorId, isActive: true },
+            relations: ['visit'],
+        });
+        if (!visitVisitor) throw new BadRequestException('Visitor is not part of this visit');
+
+        // Save consent PDF if provided
+        if (file) {
+            const uploadDir = path.join(process.cwd(), 'uploads', 'consent-pdfs');
+            fs.mkdirSync(uploadDir, { recursive: true });
+            const filename = `${visitVisitor.id}_${Date.now()}.pdf`;
+            fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+        }
+
+        const now = new Date();
+
+        // Update or create status
+        let status = await this.statusRepo.findOne({
+            where: { visitVisitorId: visitVisitor.id },
+        });
+        if (status) {
+            status.currentStatus = VisitorStatus.CheckedIn;
+            status.arrivedAtUtc = status.arrivedAtUtc ?? now;
+            status.checkedInAtUtc = now;
+            status.lastEventTimeUtc = now;
+            status.updatedAt = now;
+            await this.statusRepo.save(status);
+        } else {
+            status = this.statusRepo.create({
+                visitVisitorId: visitVisitor.id,
+                visitId,
+                visitorId,
+                currentStatus: VisitorStatus.CheckedIn,
+                arrivedAtUtc: now,
+                checkedInAtUtc: now,
+                lastEventTimeUtc: now,
+            });
+            await this.statusRepo.save(status);
+        }
+
+        const visitorName = `${visitor.firstName} ${visitor.lastName}`;
+        const visitTitle = visitVisitor.visit?.title ?? 'Unknown';
+
+        this.wsGateway.broadcastToAll('visits:visitor:self-checked-in', {
+            visitId,
+            visitVisitorId: visitVisitor.id,
+            visitorName,
+        });
+
+        this.auditService.log({
+            module: 'visitors',
+            action: 'KIOSK_CHECK_IN',
+            entity: 'VisitVisitor',
+            entityId: visitVisitor.id,
+            description: `Visitor "${visitorName}" checked-in via kiosk scan for visit "${visitTitle}"`,
+            newValue: { visitId, personId },
+        }).catch(() => { });
+
+        return { ok: true, visitVisitorId: visitVisitor.id, visitorName, visitTitle };
     }
 
     async consumeCodeAndCheckIn(code: string): Promise<{

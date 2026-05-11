@@ -19,6 +19,9 @@ export class StepsComponent implements OnInit {
   /** active step: 1..4 */
   @Input({ required: true }) active!: KioskStepId;
 
+  /** whether the current step is in error state */
+  @Input() error = false;
+
   /** labels per step (optional). */
   @Input() labels: string[] = ['שלב 1', 'שלב 2', 'שלב 3', 'שלב 4'];
 

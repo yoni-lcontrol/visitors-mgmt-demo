@@ -19,6 +19,7 @@ export class ScanComponent implements OnInit {
   connected = false;
   isLoading = true;
   scanningStarted = false;
+  scanError = false;
 
   private readonly destroyRef = inject(DestroyRef);
 
@@ -101,13 +102,13 @@ export class ScanComponent implements OnInit {
 
     if (!scan) {
       stopUi();
-      this.toasterService.showError('ERROR.NO_ID_DETECTED_IN_SCAN');
+      this.scanError = true;
       return;
     }
 
     if (!scan.success || !scan.result) {
       stopUi();
-      this.toasterService.showError('ERROR.DOCUMENT_SCAN_ERROR');
+      this.scanError = true;
       return;
     }
 
@@ -115,7 +116,7 @@ export class ScanComponent implements OnInit {
 
     if (!data.personId) {
       stopUi();
-      this.toasterService.showError('ERROR.NO_ID_DETECTED_IN_SCAN');
+      this.scanError = true;
       return;
     }
 
@@ -123,7 +124,6 @@ export class ScanComponent implements OnInit {
     this.kioskApi.validatePersonId(data.personId).subscribe({
       next: (visit: VisitResponse) => {
         stopUi();
-        debugger
         if (visit.ok === false) {
           this.router.navigateByUrl('/visit-not-found');
           return;
@@ -139,7 +139,7 @@ export class ScanComponent implements OnInit {
       },
       error: () => {
         stopUi();
-        this.toasterService.showError('ERROR.DOCUMENT_SCAN_ERROR');
+        this.scanError = true;
       },
     });
   }

@@ -5,6 +5,7 @@ import { VisitResponse } from '../../models/kiosk-api.models';
 import { PDFDocument, rgb } from 'pdf-lib';
 import { KioskApiService } from '../../kiosk/kiosk-api.service';
 import { KioskFlowService } from '../../kiosk/kiosk-flow-state.service';
+import { KioskConfigService } from '../../config/kiosk-config.service';
 import { firstValueFrom } from 'rxjs';
 import { ToasterService } from '../../kiosk/toaster.service';
 import { PrintVisitorCard } from '../../models/print-visitor-card';
@@ -41,6 +42,7 @@ export class ConsentComponent implements OnInit {
     private toasterService: ToasterService,
     private kioskApiService: KioskApiService,
     private kioskFlowService: KioskFlowService,
+    private kioskCfg: KioskConfigService,
   ) { }
 
   ngOnInit() {
@@ -135,24 +137,17 @@ export class ConsentComponent implements OnInit {
 
       if (!result.ok) {
         this.toasterService.showError('ERROR.GENERAL_TRY_AGAIN');
-
-        // check blacklist if needed
-
         return;
       }
 
-      // 6) get templates
-      const templates = await firstValueFrom(this.kioskApiService.fetchCardTemplates());
-      if (!templates?.length) {
-        this.toasterService.showError('ERROR.NO_CARD_TEMPLATES');
-        return;
-      }
+      // 6) print card via backend (routes to workstation printer)
+      await firstValueFrom(this.kioskApiService.printCard({
+        workstationCode: this.kioskCfg.config.WORKSTATION_CODE,
+        visitId: String(this.currentVisit?.visit?.visitId ?? ''),
+        visitorId: String(visitorId),
+      }));
 
-      // 7) print
-      const payload = this.buildPrintVisitorCardPayload(templates[0].templateJson);
-      await firstValueFrom(this.kioskApiService.printVisitorCard(payload));
-
-      // 8) done
+      // 7) done
       await this.router.navigateByUrl('/success');
     } catch (err) {
       console.error('check-in / print failed', err);

@@ -2,6 +2,7 @@
     height: 100vh;
     width: 100vw;
     overflow: hidden;
+    position: relative;
 
     background: var(--kiosk-background-color, #D8D6F0);
 
@@ -130,10 +131,7 @@
 
     display: flex;
     align-items: center;
-
-    /* RTL/LTR friendly: icon near the end side */
     justify-content: flex-start;
-    flex-direction: row-reverse;
 
     gap: clamp(10px, 1.6vh, 14px);
 }
@@ -141,7 +139,6 @@
 .info-text {
     flex: 1 1 auto;
 
-    /* RTL/LTR friendly */
     text-align: start;
 
     font-size: clamp(18px, 2.4vh, 34px);
@@ -174,19 +171,22 @@
     height: clamp(20px, 2.8vh, 30px);
 }
 
-/* Warning row styling */
-.info-row.warn .info-text {
-    color: var(--kiosk-error-text-color, #E85575);
+/* Accent row styling */
+.info-row.accent .info-text {
+    color: var(--kiosk-section-title-color, #3B38A8);
     font-weight: 900;
 }
 
-.info-row.warn .info-ic {
-    color: var(--kiosk-error-text-color, #E85575);
-    background: rgba(232, 85, 117, 0.08);
+.info-row.accent .info-ic {
+    color: #FFFFFF;
+    background: var(--kiosk-section-title-color, #3B38A8);
 }
 
 /* Bottom */
 .bottom {
+    position: relative;
+    z-index: 1000;
+
     width: min(720px, 96vw);
 
     display: flex;
@@ -199,6 +199,9 @@
 /* Continue button */
 .continue {
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     width: clamp(260px, 44vw, 420px);
     height: clamp(74px, 8.5vh, 100px);
@@ -226,6 +229,11 @@
 
 .continue-text {
     position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: clamp(22px, 3vh, 40px);
     font-weight: 900;
     letter-spacing: 0.01em;
@@ -240,4 +248,30 @@
 
 .continue:active:not(:disabled) {
     transform: translateY(1px) scale(0.99);
+}
+
+/* ---------- Battlement ---------- */
+.battlement {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    height: 55px;
+    pointer-events: none;
+    z-index: 999;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.battlement::before {
+    content: '';
+    position: absolute;
+    top: -28px;
+    left: 0;
+    width: 100%;
+    height: 28px;
+    background: repeating-linear-gradient(90deg,
+            rgba(255, 255, 255, 0.5) 0px,
+            rgba(255, 255, 255, 0.5) 150px,
+            transparent 150px,
+            transparent 180px);
 }

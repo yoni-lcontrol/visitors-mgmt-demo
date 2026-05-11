@@ -11,7 +11,6 @@ import { KioskConfigService } from '../config/kiosk-config.service';
 export class KioskApiService {
 
   private readonly baseUrl = `${this.kioskCfg.config.API_BASE_URL}`;
-  private readonly printerUrl = `${this.kioskCfg.config.API_PRINTER_URL}`;
 
   constructor(
     private http: HttpClient,
@@ -33,24 +32,25 @@ export class KioskApiService {
   }
 
   checkIn(params: { visitorId: number | string; visitId: number | undefined; siteId: number | undefined; personId?: string; file: File; }): Observable<any> {
-    const form = new FormData();
-    form.append('file', params.file, params.file.name);
-    form.append('visitorId', String(params.visitorId ?? ''));
-    form.append('visitId', String(params.visitId ?? ''));
-    form.append('siteId', String(params.siteId ?? ''));
-    if (params.personId)
-      form.append('personId', params.personId);
+    const formData = new FormData();
+    formData.append('visitId', String(params.visitId ?? ''));
+    formData.append('visitorId', String(params.visitorId ?? ''));
+    formData.append('siteId', String(params.siteId ?? ''));
+    formData.append('personId', params.personId ?? '');
+    formData.append('file', params.file, params.file.name);
 
-    return this.http.post(`${this.baseUrl}/api/visits/kiosk/check-in`, form);
+    return this.http.post<{ data: any }>(`${this.baseUrl}/api/visits/kiosk/check-in`, formData)
+      .pipe(this.unwrap());
   }
 
   fetchCardTemplates(): Observable<CardTemplate[]> {
-    return this.http.get<CardTemplate[]>(`${this.baseUrl}/api/visits/kiosk/card-templates`);
+    return this.http.get<{ data: CardTemplate[] }>(`${this.baseUrl}/api/visits/kiosk/card-templates`)
+      .pipe(this.unwrap());
   }
 
-  printVisitorCard(printVisitorCard: PrintVisitorCard): Observable<unknown> {
-    return this.http.post(`${this.printerUrl}/api/print/card-from-template`, printVisitorCard);
+  printCard(params: { workstationCode: string; visitId: string; visitorId: string; cardTemplateId?: string; }): Observable<any> {
+    return this.http.post<{ data: any }>(`${this.baseUrl}/api/visits/kiosk/print-card`, params)
+      .pipe(this.unwrap());
   }
-
 
 }

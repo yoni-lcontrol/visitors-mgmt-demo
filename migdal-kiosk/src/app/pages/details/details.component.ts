@@ -23,7 +23,6 @@ export class DetailsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.currentVisit = this.kioskFlowService.visit;
-    console.log(this.currentVisit)
   }
 
   ngOnDestroy(): void {

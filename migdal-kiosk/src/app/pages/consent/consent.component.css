@@ -2,6 +2,7 @@
     height: 100vh;
     width: 100vw;
     overflow: hidden;
+    position: relative;
 
     background: var(--kiosk-background-color, #D8D6F0);
 
@@ -180,8 +181,10 @@
     position: absolute;
     inset: 0;
 
-    display: grid;
-    place-items: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(10px, 1.5vw, 20px);
 
     font-weight: 900;
     font-size: clamp(20px, 2.4vh, 36px);
@@ -191,6 +194,12 @@
 
     pointer-events: none;
     user-select: none;
+}
+
+.sign-arrow-right,
+.sign-arrow-left {
+    font-size: clamp(28px, 3.2vh, 48px);
+    line-height: 1;
 }
 
 /* Actions row */
@@ -207,27 +216,39 @@
     height: clamp(25px, 3vh, 86px);
     padding: 0 clamp(14px, 2vh, 20px);
     border-radius: var(--kiosk-button-radius, 999px);
-    border: 3px solid var(--kiosk-accent-green-border, rgba(130, 212, 158, 0.8));
+    border: 5px solid rgb(226, 252, 222);
 
-    background: var(--kiosk-accent-green-gradient, linear-gradient(180deg, #B8EC92 0%, #82D49E 55%, #6FCF8A 100%));
+    background: rgb(159, 231, 148);
 
     box-shadow:
-        0 10px 16px rgba(27, 20, 100, 0.14),
-        inset 0 2px 0 rgba(255, 255, 255, 0.35);
+        0 8px 28px rgba(27, 20, 100, 0.22),
+        0 2px 8px rgba(92, 192, 122, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.5);
 
     font-size: clamp(18px, 2.1vh, 28px);
     font-weight: 900;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.02em;
+    line-height: 1;
 
     color: var(--kiosk-primary-color, #1B1464);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
     cursor: pointer;
     user-select: none;
 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
     touch-action: manipulation;
+    transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
 
 .btn-clear:active {
-    transform: translateY(1px) scale(0.99);
+    transform: translateY(2px) scale(0.97);
+    box-shadow:
+        0 4px 14px rgba(27, 20, 100, 0.18),
+        0 1px 4px rgba(92, 192, 122, 0.2),
+        inset 0 2px 0 rgba(255, 255, 255, 0.25);
 }
 
 .btn-clear:focus-visible {
@@ -252,6 +273,9 @@
 
 /* Bottom buttons */
 .bottom {
+    position: relative;
+    z-index: 1000;
+
     width: min(720px, 96vw);
 
     display: flex;
@@ -265,6 +289,9 @@
 /* Prev button */
 .btn-prev {
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     width: clamp(210px, 40vw, 360px);
     height: clamp(74px, 8.5vh, 100px);
@@ -276,6 +303,7 @@
     outline: none;
 
     touch-action: manipulation;
+    transition: transform 0.15s ease;
 }
 
 .btn-prev-bg {
@@ -283,28 +311,49 @@
     inset: 0;
     border-radius: var(--kiosk-button-radius, 999px);
 
-    background: var(--kiosk-accent-pink-gradient, linear-gradient(180deg, #FF9FB8 0%, #FF7B9C 55%, #FF6B8A 100%));
-    border: 4px solid var(--kiosk-accent-pink-border, rgba(255, 180, 200, 0.85));
+    background: rgb(255, 116, 151);
+    border: 5px solid rgb(255, 194, 209);
 
-    box-shadow: var(--kiosk-button-shadow);
+    box-shadow:
+        0 8px 28px rgba(100, 20, 20, 0.22),
+        0 2px 8px rgba(255, 116, 151, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.5);
+
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
 }
 
 .btn-prev-text {
     position: relative;
-    font-size: clamp(22px, 3vh, 40px);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(30px, 4.5vh, 56px);
     font-weight: 900;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.02em;
     line-height: 1;
-    color: var(--kiosk-primary-color, #1B1464);
+    color: rgb(7, 0, 63);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .btn-prev:active {
-    transform: translateY(1px) scale(0.99);
+    transform: translateY(2px) scale(0.97);
+}
+
+.btn-prev:active .btn-prev-bg {
+    box-shadow:
+        0 4px 14px rgba(100, 20, 20, 0.18),
+        0 1px 4px rgba(255, 116, 151, 0.2),
+        inset 0 2px 0 rgba(255, 255, 255, 0.25);
 }
 
 /* Continue */
 .continue {
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
     width: clamp(210px, 40vw, 360px);
     height: clamp(74px, 8.5vh, 100px);
@@ -316,6 +365,7 @@
     outline: none;
 
     touch-action: manipulation;
+    transition: transform 0.15s ease;
 }
 
 .continue-bg {
@@ -323,19 +373,30 @@
     inset: 0;
     border-radius: var(--kiosk-button-radius, 999px);
 
-    background: var(--kiosk-accent-green-gradient, linear-gradient(180deg, #B8EC92 0%, #82D49E 55%, #6FCF8A 100%));
-    border: 4px solid var(--kiosk-accent-green-border, rgba(130, 212, 158, 0.8));
+    background: rgb(159, 231, 148);
+    border: 5px solid rgb(226, 252, 222);
 
-    box-shadow: var(--kiosk-button-shadow);
+    box-shadow:
+        0 8px 28px rgba(27, 20, 100, 0.22),
+        0 2px 8px rgba(92, 192, 122, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.5);
+
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
 }
 
 .continue-text {
     position: relative;
-    font-size: clamp(22px, 3vh, 40px);
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(30px, 4.5vh, 56px);
     font-weight: 900;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.02em;
     line-height: 1;
     color: var(--kiosk-primary-color, #1B1464);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .continue:disabled {
@@ -344,5 +405,38 @@
 }
 
 .continue:active:not(:disabled) {
-    transform: translateY(1px) scale(0.99);
+    transform: translateY(2px) scale(0.97);
+}
+
+.continue:active:not(:disabled) .continue-bg {
+    box-shadow:
+        0 4px 14px rgba(27, 20, 100, 0.18),
+        0 1px 4px rgba(92, 192, 122, 0.2),
+        inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* ---------- Battlement ---------- */
+.battlement {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    height: 55px;
+    pointer-events: none;
+    z-index: 999;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.battlement::before {
+    content: '';
+    position: absolute;
+    top: -28px;
+    left: 0;
+    width: 100%;
+    height: 28px;
+    background: repeating-linear-gradient(90deg,
+            rgba(255, 255, 255, 0.5) 0px,
+            rgba(255, 255, 255, 0.5) 150px,
+            transparent 150px,
+            transparent 180px);
 }

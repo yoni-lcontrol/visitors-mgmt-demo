@@ -44,6 +44,18 @@
     color: #FFFFFF;
 }
 
+.step.active:not(.current) {
+    background: rgb(159, 231, 148);
+    border-color: rgb(226, 252, 222);
+    color: #1B6B2E;
+}
+
+.steps.error .step.active {
+    background: #E53935;
+    border-color: #E53935;
+    color: #FFFFFF;
+}
+
 .step.current {
     background: var(--kiosk-step-active, #2B2870);
     border-color: var(--kiosk-step-active, #2B2870);

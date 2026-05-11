@@ -8,7 +8,7 @@ export interface KioskConfig {
     RELOAD_AFTER_IDLE_MS: number;
     APP_VERSION: string;
     API_BASE_URL: string;
-    API_PRINTER_URL: string;
     WS_URL: string;
     WS_API_KEY: string;
+    HEARTBEAT_INTERVAL_MS: number;
 }

@@ -353,7 +353,6 @@ export class VisitsService {
         currentUserId?: string,
         userPermissions?: string[],
     ): Promise<any[]> {
-        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userPermissions);
         const qb = this.visitRepo
             .createQueryBuilder('v')
             .leftJoinAndSelect('v.sector', 'sector')
@@ -365,7 +364,55 @@ export class VisitsService {
                 { rangeStart },
             );
 
-        this.applyCreatorScopeToVisitsQuery(qb, creatorUserIds);
+        if (currentUserId) {
+            qb.andWhere('v.visitRequesterUserId = :calendarUserId', { calendarUserId: currentUserId });
+        } else {
+            qb.andWhere('1 = 0');
+        }
+
+        if (search) {
+            qb.andWhere(
+                '(v.title LIKE :s OR v.purposeOfVisit LIKE :s OR v.visitRequesterFirstName LIKE :s OR v.visitRequesterLastName LIKE :s OR reqUser.firstName LIKE :s OR reqUser.lastName LIKE :s)',
+                { s: `%${search}%` },
+            );
+        }
+
+        qb.orderBy('v.plannedStartTimeUtc', 'ASC');
+
+        const items = await qb.getMany();
+        const visitIds = items.map((i) => i.id);
+        const summaries = visitIds.length ? await this.getStatusSummaries(visitIds) : {};
+
+        return items.map((visit) => ({
+            ...visit,
+            sector: visit.sector ? { id: visit.sector.id, name: visit.sector.name } : null,
+            visitRequester: this.resolveVisitRequester(visit),
+            statusSummary: summaries[visit.id] ?? { total: 0, pending: 0, arrived: 0, checkedIn: 0, checkedOut: 0 },
+        }));
+    }
+
+    async findMyCalendarVisits(
+        rangeStart: string,
+        rangeEnd: string,
+        search?: string,
+        currentUserId?: string,
+    ): Promise<any[]> {
+        const qb = this.visitRepo
+            .createQueryBuilder('v')
+            .leftJoinAndSelect('v.sector', 'sector')
+            .leftJoinAndSelect('v.visitRequesterUser', 'reqUser')
+            .where('v.isActive = :active', { active: true })
+            .andWhere('v.plannedStartTimeUtc < :rangeEnd', { rangeEnd })
+            .andWhere(
+                '(v.plannedEndTimeUtc IS NOT NULL AND v.plannedEndTimeUtc > :rangeStart) OR (v.plannedEndTimeUtc IS NULL AND v.plannedStartTimeUtc >= :rangeStart)',
+                { rangeStart },
+            );
+
+        if (currentUserId) {
+            qb.andWhere('v.visitRequesterUserId = :myUserId', { myUserId: currentUserId });
+        } else {
+            qb.andWhere('1 = 0');
+        }
 
         if (search) {
             qb.andWhere(

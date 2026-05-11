@@ -110,12 +110,6 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
               <span class="info-value">{{ visit.sector.name }}</span>
             </div>
           }
-          @if (visit.nucleus) {
-            <div class="info-item">
-              <span class="info-label">{{ 'VISITS.NUCLEUS' | translate }}</span>
-              <span class="info-value">{{ visit.nucleus }}</span>
-            </div>
-          }
           @if (visit.building) {
             <div class="info-item">
               <span class="info-label">{{ 'BUILDINGS.BUILDING' | translate }}</span>

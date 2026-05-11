@@ -17,7 +17,7 @@ public static class AmadeusApiDefinitions
 
         public static string CardholderPersonalDetailsByCardholderUid(string cardholderUid)
         {
-            return $"{CardholderPersonalDetails}?$filter=cardholderUID eq '{cardholderUid}'";
+            return $"{CardholderPersonalDetails}?$filter=uid eq {cardholderUid}";
         }
 
         public static string CardholderPersonalDetailsByUid(string uid)

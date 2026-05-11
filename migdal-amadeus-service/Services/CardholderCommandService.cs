@@ -446,16 +446,17 @@ public class CardholderCommandService : ICardholderCommandService
     {
         var payload = new Dictionary<string, object?>();
 
-        if (dto.CardholderIdNumber is not null) payload["CardholderIdNumber"] = dto.CardholderIdNumber;
-        if (dto.FirstName is not null) payload["FirstName"] = dto.FirstName;
-        if (dto.LastName is not null) payload["LastName"] = dto.LastName;
-        if (dto.Description is not null) payload["Description"] = dto.Description;
-        if (dto.SecurityGroupApiKey is not null) payload["SecurityGroupApiKey"] = dto.SecurityGroupApiKey;
-        if (dto.AccessGroupApiKeys is not null) payload["AccessGroupApiKeys"] = string.Join(",", dto.AccessGroupApiKeys);
-        if (dto.FromDateValid.HasValue) payload["FromDateValid"] = dto.FromDateValid.Value;
-        if (dto.ToDateValid.HasValue) payload["ToDateValid"] = dto.ToDateValid.Value;
-        if (dto.IsFromDateActive.HasValue) payload["IsFromDateActive"] = dto.IsFromDateActive.Value;
-        if (dto.IsToDateActive.HasValue) payload["IsToDateActive"] = dto.IsToDateActive.Value;
+        if (dto.CardholderIdNumber is not null) payload["cardholderIdNumber"] = dto.CardholderIdNumber;
+        if (dto.FirstName is not null) payload["firstName"] = dto.FirstName;
+        if (dto.LastName is not null) payload["lastName"] = dto.LastName;
+        if (dto.Description is not null) payload["description"] = dto.Description;
+        if (dto.CardholderTypeUid is not null) payload["cardholderTypeUID"] = dto.CardholderTypeUid;
+        if (dto.SecurityGroupApiKey is not null) payload["securityGroupApiKey"] = dto.SecurityGroupApiKey;
+        if (dto.AccessGroupApiKeys is not null) payload["accessGroupApiKeys"] = string.Join(",", dto.AccessGroupApiKeys);
+        if (dto.FromDateValid.HasValue) payload["fromDateValid"] = dto.FromDateValid.Value;
+        if (dto.ToDateValid.HasValue) payload["toDateValid"] = dto.ToDateValid.Value;
+        if (dto.IsFromDateActive.HasValue) payload["isFromDateActive"] = dto.IsFromDateActive.Value;
+        if (dto.IsToDateActive.HasValue) payload["isToDateActive"] = dto.IsToDateActive.Value;
 
         return payload;
     }
@@ -464,16 +465,16 @@ public class CardholderCommandService : ICardholderCommandService
     {
         var payload = new Dictionary<string, object?>();
 
-        if (dto.CardholderIdNumber is not null) payload["CardholderIdNumber"] = dto.CardholderIdNumber;
-        if (dto.FirstName is not null) payload["FirstName"] = dto.FirstName;
-        if (dto.LastName is not null) payload["LastName"] = dto.LastName;
-        if (dto.Description is not null) payload["Description"] = dto.Description;
-        if (dto.SecurityGroupApiKey is not null) payload["SecurityGroupApiKey"] = dto.SecurityGroupApiKey;
-        if (dto.AccessGroupApiKeys is not null) payload["AccessGroupApiKeys"] = string.Join(",", dto.AccessGroupApiKeys);
-        if (dto.FromDateValid.HasValue) payload["FromDateValid"] = dto.FromDateValid.Value;
-        if (dto.ToDateValid.HasValue) payload["ToDateValid"] = dto.ToDateValid.Value;
-        if (dto.IsFromDateActive.HasValue) payload["IsFromDateActive"] = dto.IsFromDateActive.Value;
-        if (dto.IsToDateActive.HasValue) payload["IsToDateActive"] = dto.IsToDateActive.Value;
+        if (dto.CardholderIdNumber is not null) payload["cardholderIdNumber"] = dto.CardholderIdNumber;
+        if (dto.FirstName is not null) payload["firstName"] = dto.FirstName;
+        if (dto.LastName is not null) payload["lastName"] = dto.LastName;
+        if (dto.Description is not null) payload["description"] = dto.Description;
+        if (dto.SecurityGroupApiKey is not null) payload["securityGroupApiKey"] = dto.SecurityGroupApiKey;
+        if (dto.AccessGroupApiKeys is not null) payload["accessGroupApiKeys"] = string.Join(",", dto.AccessGroupApiKeys);
+        if (dto.FromDateValid.HasValue) payload["fromDateValid"] = dto.FromDateValid.Value;
+        if (dto.ToDateValid.HasValue) payload["toDateValid"] = dto.ToDateValid.Value;
+        if (dto.IsFromDateActive.HasValue) payload["isFromDateActive"] = dto.IsFromDateActive.Value;
+        if (dto.IsToDateActive.HasValue) payload["isToDateActive"] = dto.IsToDateActive.Value;
 
         return payload;
     }

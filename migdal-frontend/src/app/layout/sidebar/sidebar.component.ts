@@ -182,6 +182,12 @@ import { TranslateModule } from '@ngx-translate/core';
                 <span>{{ 'NAV.PERMANENT_ESCORTS' | translate }}</span>
               </a>
             </li>
+            <li *hasPermission="'settings.read'">
+              <a routerLink="/settings/sectors" routerLinkActive="active" (click)="menuItemClicked.emit()">
+                <i class="pi pi-th-large"></i>
+                <span>{{ 'NAV.SECTORS' | translate }}</span>
+              </a>
+            </li>
           </ul>
         </li>
         <li *hasPermission="'workstations.read'">

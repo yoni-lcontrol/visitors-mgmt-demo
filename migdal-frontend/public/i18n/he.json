@@ -97,6 +97,7 @@
         "BUILDINGS": "מבנים",
         "VEHICLE_MODELS": "דגמי רכבים",
         "PERMANENT_ESCORTS": "מלווים קבועים",
+        "SECTORS": "תחומים",
         "WORKSTATIONS": "עמדות עבודה",
         "AUDIT_LOGS": "יומן פעולות"
     },
@@ -1254,5 +1255,10 @@
         "ROLE": "תפקיד",
         "SELECT_ROLE": "בחר תפקיד",
         "CONFIRM_DELETE": "האם למחוק את המיפוי \"{{groupName}}\"?"
+    },
+    "SECTORS": {
+        "TITLE": "תחומים",
+        "DESCRIPTION": "רשימת התחומים במערכת",
+        "NAME": "שם תחום"
     }
 }

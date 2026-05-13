@@ -144,7 +144,8 @@ export class ConsentComponent implements OnInit {
       // 6) done (print is handled by backend)
       await this.router.navigateByUrl('/success');
     } catch (err) {
-      this.toasterService.showError('ERROR');
+      console.error('arrive failed', err);
+      await this.router.navigateByUrl('/error');
     } finally {
       this.spinner.hide();
     }

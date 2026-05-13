@@ -20,7 +20,8 @@
         "CONFIRM_CONTINUE": "Let's Go",
         "LOADING": "Loading",
         "PREVIOUS": "Previous",
-        "CANCEL": "Cancel"
+        "CANCEL": "Cancel",
+        "TRY_AGAIN": "Let's try again"
     },
     "SCAN": {
         "SCAN_TITLE": "ID Card Scan",
@@ -69,8 +70,10 @@
         "FINISH_PROCESS": "Finish"
     },
     "ERROR": {
-        "TITLE": "Something Went Wrong",
-        "MESSAGE": "Please try again.",
+        "TITLE": "Oops, something didn't work",
+        "MESSAGE": "We hit a small bump along the way",
+        "HINT": "No worries — you can try again or ask the reception team for help",
+        "RECEPTION_HELP": "The reception team is here for you",
         "SCANNER_CONNECTION_ERROR": "Scanner connection error",
         "NO_ID_DETECTED_IN_SCAN": "No ID number was detected in the scanned document.",
         "DOCUMENT_SCAN_ERROR": "An error occurred while scanning the document. Please try again.",

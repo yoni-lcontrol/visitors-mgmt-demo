@@ -1,7 +1,7 @@
 import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class KioskCheckInByPersonIdDto {
+export class KioskArriveByPersonIdDto {
     @ApiProperty({ description: 'Visit ID' })
     @IsString()
     @IsNotEmpty()
@@ -21,4 +21,9 @@ export class KioskCheckInByPersonIdDto {
     @IsString()
     @IsNotEmpty()
     personId!: string;
+
+    @ApiPropertyOptional({ description: 'Workstation code for printing' })
+    @IsString()
+    @IsOptional()
+    workstationCode?: string;
 }

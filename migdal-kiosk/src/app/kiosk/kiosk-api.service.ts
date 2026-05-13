@@ -31,15 +31,18 @@ export class KioskApiService {
       .pipe(this.unwrap());
   }
 
-  checkIn(params: { visitorId: number | string; visitId: number | undefined; siteId: number | undefined; personId?: string; file: File; }): Observable<any> {
+  arrive(params: { visitorId: number | string; visitId: number | undefined; siteId: number | undefined; personId?: string; workstationCode?: string; file: File; }): Observable<any> {
     const formData = new FormData();
     formData.append('visitId', String(params.visitId ?? ''));
     formData.append('visitorId', String(params.visitorId ?? ''));
     formData.append('siteId', String(params.siteId ?? ''));
     formData.append('personId', params.personId ?? '');
+    if (params.workstationCode) {
+      formData.append('workstationCode', params.workstationCode);
+    }
     formData.append('file', params.file, params.file.name);
 
-    return this.http.post<{ data: any }>(`${this.baseUrl}/api/visits/kiosk/check-in`, formData)
+    return this.http.post<{ data: any }>(`${this.baseUrl}/api/visits/kiosk/arrive`, formData)
       .pipe(this.unwrap());
   }
 

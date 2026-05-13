@@ -13,7 +13,7 @@ import { VisitCheckInCodeService } from './visit-check-in-code.service';
 import { PrintingService } from '../printing/services/printing.service';
 import { KioskValidateCodeDto } from './dto/kiosk-validate-code.dto';
 import { KioskValidatePersonIdDto } from './dto/kiosk-validate-person-id.dto';
-import { KioskCheckInByPersonIdDto } from './dto/kiosk-check-in-by-person-id.dto';
+import { KioskArriveByPersonIdDto } from './dto/kiosk-check-in-by-person-id.dto';
 import { KioskPrintCardDto } from './dto/kiosk-print-card.dto';
 import { KioskAuth } from '../common/decorators/kiosk-auth.decorator';
 
@@ -38,15 +38,15 @@ export class KioskController {
         return this.checkInCodeService.findVisitByPersonId(dto.personId);
     }
 
-    @Post('check-in')
+    @Post('arrive')
     @UseInterceptors(FileInterceptor('file'))
     @ApiConsumes('multipart/form-data')
-    @ApiOperation({ summary: 'Check in a visitor via person ID (kiosk scan)' })
-    checkIn(
-        @Body() dto: KioskCheckInByPersonIdDto,
+    @ApiOperation({ summary: 'Register visitor arrival via person ID (kiosk scan)' })
+    arrive(
+        @Body() dto: KioskArriveByPersonIdDto,
         @UploadedFile() file?: Express.Multer.File,
     ) {
-        return this.checkInCodeService.checkInByPersonId(dto.visitId, dto.visitorId, dto.personId, file);
+        return this.checkInCodeService.arriveByPersonId(dto.visitId, dto.visitorId, dto.personId, file, dto.workstationCode);
     }
 
     @Post('print-card')

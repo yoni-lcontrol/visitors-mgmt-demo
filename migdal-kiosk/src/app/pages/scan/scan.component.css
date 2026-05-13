@@ -35,6 +35,17 @@
     color: var(--kiosk-text-header, #FFFFFF);
 }
 
+.header-title.error {
+    color: #E53935;
+}
+
+.header-subtitle {
+    font-size: clamp(36px, 3vh, 64px);
+    font-weight: 700;
+    color: #E53935;
+    margin-top: clamp(4px, 0.5vh, 10px);
+}
+
 /* Body */
 .body {
     flex: 1 1 auto;

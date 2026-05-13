@@ -2,7 +2,6 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { ErrorPageComponent } from './pages/error-page/error-page.component';
 import { HomeComponent } from './pages/home/home.component';
-import { CheckInComponent } from './pages/check-in/check-in.component';
 import { SuccessComponent } from './pages/success/success.component';
 import { ScanComponent } from './pages/scan/scan.component';
 import { DetailsComponent } from './pages/details/details.component';
@@ -16,8 +15,6 @@ import { DetailsConfirmedGuard } from './guards/details-confiremed.guard';
 
 const routes: Routes = [
   { path: 'home', component: HomeComponent },
-
-  { path: 'check-in', component: CheckInComponent },
 
   { path: 'scan', component: ScanComponent },
 

@@ -126,32 +126,25 @@ export class ConsentComponent implements OnInit {
       // 4) create File to upload
       const file = this.buildPdfFile(signedPdfBytes, 'signed.pdf');
 
-      // 5) check-in (upload)
-      const result = await firstValueFrom(this.kioskApiService.checkIn({
+      // 5) arrive (upload + Amadeus + print)
+      const result = await firstValueFrom(this.kioskApiService.arrive({
         visitorId,
         visitId: this.currentVisit?.visit?.visitId,
         siteId: this.currentVisit?.visit?.siteId,
         personId: this.currentVisit?.visitor?.personId ?? undefined,
+        workstationCode: this.kioskCfg.config.WORKSTATION_CODE,
         file
       }));
 
       if (!result.ok) {
-        this.toasterService.showError('ERROR.GENERAL_TRY_AGAIN');
+        await this.router.navigateByUrl('/error');
         return;
       }
 
-      // 6) print card via backend (routes to workstation printer)
-      await firstValueFrom(this.kioskApiService.printCard({
-        workstationCode: this.kioskCfg.config.WORKSTATION_CODE,
-        visitId: String(this.currentVisit?.visit?.visitId ?? ''),
-        visitorId: String(visitorId),
-      }));
-
-      // 7) done
+      // 6) done (print is handled by backend)
       await this.router.navigateByUrl('/success');
     } catch (err) {
-      console.error('check-in / print failed', err);
-      this.toasterService.showError('ERROR.CHECKIN_PRINT_FAILED');
+      this.toasterService.showError('ERROR');
     } finally {
       this.spinner.hide();
     }

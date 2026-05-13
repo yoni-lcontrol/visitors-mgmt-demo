@@ -21,8 +21,13 @@ async function bootstrap() {
     app.setGlobalPrefix('api');
 
     // CORS
+    const corsOrigins = [
+        configService.get<string>('FRONTEND_URL', 'http://localhost:4200'),
+        configService.get<string>('KIOSK_URL', 'http://localhost:4201'),
+        'http://10.0.0.147:8080'
+    ].filter(Boolean);
     app.enableCors({
-        origin: configService.get<string>('FRONTEND_URL', 'http://localhost:4200'),
+        origin: corsOrigins,
         credentials: true,
     });
 

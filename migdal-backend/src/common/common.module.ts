@@ -5,6 +5,7 @@ import { TransformResponseInterceptor } from './interceptors/transform-response.
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
+import { KioskApiKeyGuard } from './guards/kiosk-api-key.guard';
 
 @Global()
 @Module({
@@ -16,6 +17,10 @@ import { PermissionsGuard } from './guards/permissions.guard';
         {
             provide: APP_GUARD,
             useClass: JwtAuthGuard,
+        },
+        {
+            provide: APP_GUARD,
+            useClass: KioskApiKeyGuard,
         },
         {
             provide: APP_GUARD,

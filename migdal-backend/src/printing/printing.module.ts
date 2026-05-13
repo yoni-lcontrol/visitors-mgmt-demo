@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { PrintingService } from './services/printing.service';
 import { DeviceCommandsModule } from '../device-commands/device-commands.module';
 import { WorkstationsModule } from '../workstations/workstations.module';
+import { AgentsModule } from '../agents/agents.module';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { CardTemplate } from '../settings/entities/card-template.entity';
 import { Visitor } from '../visitors/entities/visitor.entity';
@@ -12,6 +13,7 @@ import { Visit } from '../visitors/entities/visit.entity';
     imports: [
         DeviceCommandsModule,
         WorkstationsModule,
+        AgentsModule,
         WebsocketModule,
         TypeOrmModule.forFeature([CardTemplate, Visitor, Visit]),
     ],

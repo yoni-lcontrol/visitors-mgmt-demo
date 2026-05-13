@@ -1,0 +1,85 @@
+<!-- <div class="pair-page">
+    <div class="card">
+        <h2>Kiosk Pairing</h2>
+        <p class="muted">
+            Paste the <b>deviceId</b> and <b>deviceSecret</b> you got from the admin registration API.
+            This is a one-time action on this kiosk machine.
+        </p>
+
+        <form [formGroup]="form"
+              (ngSubmit)="onSubmit()"
+              autocomplete="off">
+            <label>
+                Device ID
+                <input formControlName="deviceId"
+                       placeholder="kiosk_1234abcd..."
+                       [class.invalid]="deviceIdCtrl?.touched && deviceIdCtrl?.invalid" />
+            </label>
+
+            <div class="field-error"
+                 *ngIf="deviceIdCtrl?.touched && deviceIdCtrl?.hasError('required')">
+                Device ID is required.
+            </div>
+
+            <label>
+                Device Secret
+                <input formControlName="deviceSecret"
+                       placeholder="very-long-secret..."
+                       [class.invalid]="deviceSecretCtrl?.touched && deviceSecretCtrl?.invalid" />
+            </label>
+
+            <div class="field-error"
+                 *ngIf="deviceSecretCtrl?.touched && deviceSecretCtrl?.hasError('required')">
+                Device Secret is required.
+            </div>
+
+            <div class="field-error"
+                 *ngIf="deviceSecretCtrl?.touched && deviceSecretCtrl?.hasError('minlength')">
+                Device Secret must be at least 8 characters.
+            </div>
+
+            <div class="row">
+                <button type="submit"
+                        [disabled]="loading || form.invalid">
+                    {{ loading ? 'Pairing...' : 'Pair & Login' }}
+                </button>
+
+                <button type="button"
+                        class="secondary"
+                        (click)="clear()"
+                        [disabled]="loading">
+                    Clear
+                </button>
+            </div>
+        </form>
+
+        <div *ngIf="error"
+             class="error">
+            {{ error }}
+        </div>
+
+        <div *ngIf="success"
+             class="success">
+            ✅ Paired successfully! Redirecting to home...
+        </div>
+
+        <hr />
+
+        <details>
+            <summary>Advanced</summary>
+
+            <div class="advanced">
+                <button type="button"
+                        class="danger"
+                        (click)="unpair()"
+                        [disabled]="loading">
+                    Unpair this kiosk (delete local creds)
+                </button>
+
+                <p class="muted small">
+                    Unpair removes local device credentials and tokens from this machine.
+                </p>
+            </div>
+        </details>
+    </div>
+</div> -->

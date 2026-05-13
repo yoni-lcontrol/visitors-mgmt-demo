@@ -1,0 +1,105 @@
+<div class="scan-container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-title">
+      {{ 'COMPLETE.CHECKIN_COMPLETED' | translate }}
+    </div>
+
+    <div class="header-sub"
+         *ngIf="'COMPLETE.HAVE_A_NICE_VISIT' | translate as sub">
+      <ng-container *ngIf="sub">{{ sub }}</ng-container>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- Steps -->
+    <app-steps [active]="4"></app-steps>
+
+    <!-- Center -->
+    <div class="center">
+      <img class="ok-img"
+           src="assets/kiosk/אייקונים/PNG/flat-color-icons_ok.png"
+           alt=""
+           aria-hidden="true" />
+    </div>
+
+    <!-- Subtitle -->
+    <div class="subtitle"
+         [innerHTML]="'COMPLETE.SUCCESS_MESSAGE' | translate">
+    </div>
+
+    <!-- Info card -->
+    <div class="info-card"
+         aria-live="polite">
+
+      <div class="info-card-top"></div>
+
+      <div class="info-card-content">
+
+        <div class="info-row">
+          <div class="info-ic"
+               aria-hidden="true">
+            <svg viewBox="0 0 24 24"
+                 class="info-svg">
+              <path fill="currentColor"
+                    d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2Zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2Z" />
+            </svg>
+          </div>
+          <div class="info-text">
+            {{ 'COMPLETE.HOST_NOTIFIED' | translate }}
+          </div>
+        </div>
+
+        <div class="info-row">
+          <div class="info-ic"
+               aria-hidden="true">
+            <svg viewBox="0 0 24 24"
+                 class="info-svg">
+              <path fill="currentColor"
+                    d="M20 12V6c0-1.1-.9-2-2-2H6c-1.1 0-2 .9-2 2v6c-1.1 0-2 .9-2 2v5h2v-2h16v2h2v-5c0-1.1-.9-2-2-2ZM6 12V6h12v6H6Zm14 5H4v-1c0-.55.45-1 1-1h14c.55 0 1 .45 1 1v1Z" />
+            </svg>
+          </div>
+          <div class="info-text">
+            {{ 'COMPLETE.WAIT_IN_LOBBY' | translate }}
+          </div>
+        </div>
+
+        <div class="info-row accent">
+          <div class="info-ic"
+               aria-hidden="true">
+            <svg viewBox="0 0 24 24"
+                 class="info-svg">
+              <path fill="currentColor"
+                    d="M20 15.5c-1.25 0-2.45-.2-3.57-.57a1.02 1.02 0 0 0-1.02.24l-2.2 2.2a15.045 15.045 0 0 1-6.59-6.59l2.2-2.21a.96.96 0 0 0 .25-1A11.36 11.36 0 0 1 8.5 4c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.5c0-.55-.45-1-1-1Z" />
+            </svg>
+          </div>
+          <div class="info-text">
+            {{ 'COMPLETE.NEED_HELP' | translate }}
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Bottom -->
+    <div class="bottom">
+      <button type="button"
+              class="continue"
+              (click)="continue()">
+        <span class="continue-bg"></span>
+        <span class="continue-text">
+          {{ 'COMPLETE.FINISH_PROCESS' | translate }}
+        </span>
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Battlement -->
+  <div class="battlement"
+       aria-hidden="true"></div>
+
+</div>

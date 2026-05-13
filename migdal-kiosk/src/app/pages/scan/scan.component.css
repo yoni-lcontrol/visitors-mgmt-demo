@@ -1,0 +1,317 @@
+.scan-container {
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    position: relative;
+
+    background: var(--kiosk-background-color, #D8D6F0);
+
+    display: flex;
+    flex-direction: column;
+
+    padding-top: clamp(65px, 8.2vh, 81px);
+
+    line-height: 1.1;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Header */
+.header {
+    flex: 0 0 auto;
+    background: var(--kiosk-header-gradient, linear-gradient(to bottom, #1B1464 0%, #2B2870 50%, #3B38A8 100%));
+
+    padding: clamp(26px, 4vh, 70px) 0 clamp(28px, 4.5vh, 88px);
+
+    text-align: center;
+    box-shadow: 0 6px 18px rgba(27, 20, 100, 0.18);
+}
+
+.header-title {
+    font-size: clamp(64px, 5.4vh, 120px);
+    font-weight: 900;
+    letter-spacing: 0.01em;
+    line-height: 1.02;
+    color: var(--kiosk-text-header, #FFFFFF);
+}
+
+.header-title.error {
+    color: #E53935;
+}
+
+.header-subtitle {
+    font-size: clamp(36px, 3vh, 64px);
+    font-weight: 700;
+    color: #E53935;
+    margin-top: clamp(4px, 0.5vh, 10px);
+}
+
+/* Body */
+.body {
+    flex: 1 1 auto;
+    position: relative;
+
+    padding: clamp(14px, 2.2vh, 22px) clamp(14px, 3vw, 26px);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    min-height: 0;
+}
+
+.subtitle {
+    margin-top: clamp(14px, 2.6vh, 46px);
+    text-align: center;
+
+    font-size: clamp(22px, 2.8vh, 52px);
+    font-weight: 900;
+    letter-spacing: 0.01em;
+    line-height: 1.1;
+    color: var(--kiosk-text-color, #1B1464);
+
+    max-width: min(860px, 94vw);
+}
+
+/* Scan card */
+.scan-card {
+    width: min(720px, 92vw);
+
+    margin-top: clamp(14px, 2.6vh, 44px);
+    margin-bottom: clamp(14px, 2.6vh, 40px);
+
+    border-radius: var(--kiosk-card-radius, 18px);
+    background: var(--kiosk-card-background, #FFFFFF);
+    box-shadow: var(--kiosk-card-shadow, 0 18px 50px rgba(27, 20, 100, 0.12));
+    border: 1px solid var(--kiosk-card-border, rgba(27, 20, 100, 0.08));
+    overflow: hidden;
+}
+
+.scan-card-top {
+    height: 10px;
+    background: var(--kiosk-card-stripe, #4848C0);
+}
+
+/* Error state for scan card */
+.scan-card.error {
+    border-color: rgba(229, 57, 53, 0.3);
+    background: rgba(229, 57, 53, 0.06);
+}
+
+.scan-card.error .scan-card-top {
+    background: #E53935;
+}
+
+.scan-card.error .scan-id-icon {
+    color: #E53935;
+}
+
+.scan-card.error .scan-card-text {
+    color: #C62828;
+}
+
+.scan-card-content {
+    padding: clamp(18px, 2.6vh, 30px) clamp(16px, 2.2vh, 24px) clamp(20px, 3vh, 42px);
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    gap: clamp(10px, 1.8vh, 18px);
+}
+
+.scan-id-icon {
+    width: clamp(40px, 4.8vh, 86px);
+    height: clamp(40px, 4.8vh, 86px);
+    color: var(--kiosk-muted-text-color, #6B68A0);
+}
+
+.scan-card-text {
+    text-align: center;
+
+    font-size: clamp(18px, 2.2vh, 32px);
+    font-weight: 800;
+    letter-spacing: 0.005em;
+    line-height: 1.25;
+
+    color: var(--kiosk-muted-text-color, #6B68A0);
+
+    max-width: min(620px, 90vw);
+}
+
+/* Spinner */
+.scan-animation {
+    margin-top: clamp(16px, 3vh, 36px);
+    width: clamp(160px, 26vh, 260px);
+    height: clamp(130px, 22vh, 220px);
+}
+
+.scan-animation svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Bottom buttons row */
+.bottom {
+    position: relative;
+    z-index: 1000;
+
+    width: min(720px, 96vw);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: clamp(14px, 3vw, 26px);
+    padding: clamp(14px, 2.6vh, 26px) 0 clamp(22px, 4.5vh, 54px);
+}
+
+/* Cancel button */
+.btn-cancel {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: clamp(210px, 40vw, 360px);
+    height: clamp(74px, 8.5vh, 100px);
+
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    outline: none;
+
+    touch-action: manipulation;
+    transition: transform 0.15s ease;
+}
+
+.btn-cancel-bg {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--kiosk-button-radius, 999px);
+
+    background: rgb(255, 116, 151);
+    border: 5px solid rgb(255, 194, 209);
+
+    box-shadow:
+        0 8px 28px rgba(100, 20, 20, 0.22),
+        0 2px 8px rgba(255, 116, 151, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.5);
+
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.btn-cancel-text {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(30px, 4.5vh, 56px);
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    color: rgb(7, 0, 63);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.btn-cancel:active {
+    transform: translateY(2px) scale(0.97);
+}
+
+.btn-cancel:active .btn-cancel-bg {
+    box-shadow:
+        0 4px 14px rgba(100, 20, 20, 0.18),
+        0 1px 4px rgba(255, 116, 151, 0.2),
+        inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Continue button */
+.continue {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: clamp(210px, 40vw, 360px);
+    height: clamp(74px, 8.5vh, 100px);
+
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    outline: none;
+
+    touch-action: manipulation;
+    transition: transform 0.15s ease;
+}
+
+.continue-bg {
+    position: absolute;
+    inset: 0;
+    border-radius: var(--kiosk-button-radius, 999px);
+
+    background: rgb(159, 231, 148);
+    border: 5px solid rgb(226, 252, 222);
+
+    box-shadow:
+        0 8px 28px rgba(27, 20, 100, 0.22),
+        0 2px 8px rgba(92, 192, 122, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.5);
+
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.continue-text {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: clamp(30px, 4.5vh, 56px);
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    line-height: 1;
+    color: var(--kiosk-primary-color, #1B1464);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.continue:active {
+    transform: translateY(2px) scale(0.97);
+}
+
+.continue:active .continue-bg {
+    box-shadow:
+        0 4px 14px rgba(27, 20, 100, 0.18),
+        0 1px 4px rgba(92, 192, 122, 0.2),
+        inset 0 2px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* ---------- Battlement ---------- */
+.battlement {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    height: 55px;
+    pointer-events: none;
+    z-index: 999;
+    background: rgba(255, 255, 255, 0.5);
+}
+
+.battlement::before {
+    content: '';
+    position: absolute;
+    top: -28px;
+    left: 0;
+    width: 100%;
+    height: 28px;
+    background: repeating-linear-gradient(90deg,
+            rgba(255, 255, 255, 0.5) 0px,
+            rgba(255, 255, 255, 0.5) 150px,
+            transparent 150px,
+            transparent 180px);
+}

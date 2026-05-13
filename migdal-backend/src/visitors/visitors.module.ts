@@ -15,6 +15,7 @@ import { BlacklistController } from './blacklist.controller';
 import { VisitorLogController } from './visitor-log.controller';
 import { VisitorLogService } from './visitor-log.service';
 import { VisitsController } from './visits.controller';
+import { KioskController } from './kiosk.controller';
 import { VisitsService } from './visits.service';
 import { VisitParticipantService } from './visit-participant.service';
 import { VisitStatusService } from './visit-status.service';
@@ -29,6 +30,7 @@ import { PrintingModule } from '../printing/printing.module';
 import { SettingsModule } from '../settings/settings.module';
 import { User } from '../users/entities/user.entity';
 import { Building } from '../buildings/entities/building.entity';
+import { AmadeusModule } from '../amadeus/amadeus.module';
 
 @Module({
     imports: [
@@ -43,6 +45,7 @@ import { Building } from '../buildings/entities/building.entity';
         WebsocketModule,
         PrintingModule,
         SettingsModule,
+        AmadeusModule,
     ],
     controllers: [
         BlacklistController,
@@ -50,6 +53,7 @@ import { Building } from '../buildings/entities/building.entity';
         VisitorAccessLogController, VisitVisitorsController,
         VisitorLogController,
         VisitsController, VisitorsController,
+        KioskController,
     ],
     providers: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService],
     exports: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService],

@@ -174,6 +174,17 @@ namespace ScannerService
         }
 
         /// <summary>
+        /// Set up the scan-started event handler that notifies the agent when scanning begins.
+        /// </summary>
+        public void WireScanStartedEvent(Action handler)
+        {
+            if (_device != null)
+            {
+                _device.OnScanStarted += handler;
+            }
+        }
+
+        /// <summary>
         /// Set up the auto-scan event handler that routes scan results through the agent.
         /// </summary>
         public void WireScanCompletedEvent(Action<ScanResult> handler)

@@ -9,13 +9,14 @@ import {
     MessageBody,
     ConnectedSocket,
 } from '@nestjs/websockets';
-import { Logger } from '@nestjs/common';
+import { Logger, Inject, forwardRef } from '@nestjs/common';
 import { Namespace, Socket } from 'socket.io';
 import { AgentHmacAuthService } from '../../agents/services/agent-hmac-auth.service';
 import { AgentRegistryService } from '../../agents/services/agent-registry.service';
 import { DeviceCommandRoutingService } from '../../device-commands/services/device-command-routing.service';
 import { WorkstationSessionService } from '../../workstations/services/workstation-session.service';
 import { WorkstationsService } from '../../workstations/services/workstations.service';
+import { KioskGateway } from './kiosk.gateway';
 import { WsEvent } from '../enums/ws-events.enum';
 import {
     AgentRegisterPayload,
@@ -45,6 +46,8 @@ export class AgentsGateway
         private readonly commandRouting: DeviceCommandRoutingService,
         private readonly workstationSession: WorkstationSessionService,
         private readonly workstationsService: WorkstationsService,
+        @Inject(forwardRef(() => KioskGateway))
+        private readonly kioskGateway: KioskGateway,
     ) { }
 
     afterInit(): void {
@@ -250,6 +253,18 @@ export class AgentsGateway
                 true,
                 deviceConnected,
             );
+
+            // Forward "scanning" status to kiosks on this workstation
+            if (payload?.status === 'scanning') {
+                this.kioskGateway.emitScanStatusToWorkstation(agent.workstationId, {
+                    state: 'scanning',
+                    message: 'Scanning document...',
+                    scanning: 'true',
+                    processing: false,
+                    progress: 0,
+                    serverTimeUtc: new Date().toISOString(),
+                });
+            }
         }
     }
 
@@ -273,6 +288,19 @@ export class AgentsGateway
                     correlationId: payload.correlationId,
                 });
             }
+        }
+
+        // Notify kiosks on this workstation that scanning has started
+        const workstationId = (client as any).workstationId;
+        if (workstationId) {
+            this.kioskGateway.emitScanStatusToWorkstation(workstationId, {
+                state: 'scanning',
+                message: 'Scanning document...',
+                scanning: 'true',
+                processing: false,
+                progress: 0,
+                serverTimeUtc: new Date().toISOString(),
+            });
         }
     }
 
@@ -306,6 +334,14 @@ export class AgentsGateway
             for (const session of sessions) {
                 this.emitToUser(session.userSocketId, session.userId, event, data);
             }
+
+            // Also forward scan results to any kiosks on this workstation
+            this.kioskGateway.emitScanResultToWorkstation(workstationId, {
+                correlationId: payload.correlationId,
+                success: payload.success,
+                result: payload.result,
+                errorMessage: payload.errorMessage,
+            });
         } else if (userInfo) {
             // Route printer results to print-specific events
             if (payload.success) {

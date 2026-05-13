@@ -1,0 +1,124 @@
+@import 'kiosk-theme';
+
+@font-face {
+    font-family: "Heebo";
+    src: url("/assets/fonts/Heebo-Regular.ttf") format("truetype");
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Heebo";
+    src: url("/assets/fonts/Heebo-SemiBold.ttf") format("truetype");
+    font-weight: 600;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Heebo";
+    src: url("/assets/fonts/Heebo-Bold.ttf") format("truetype");
+    font-weight: 700;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Heebo";
+    src: url("/assets/fonts/Heebo-ExtraBold.ttf") format("truetype");
+    font-weight: 800;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: "Heebo";
+    src: url("/assets/fonts/Heebo-Black.ttf") format("truetype");
+    font-weight: 900;
+    font-display: swap;
+}
+
+html,
+body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: "Heebo", Arial, sans-serif;
+    line-height: 1.1;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    touch-action: pan-x pan-y;
+}
+
+body {
+    overflow: hidden;
+    touch-action: manipulation;
+    overscroll-behavior: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
+}
+
+/* Make Angular root take full screen */
+app-root {
+    display: block;
+    height: 100%;
+    width: 100%;
+    touch-action: pan-x pan-y;
+}
+
+/* Optional but helps: remove default image dragging/select */
+img,
+button {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+/* Optional: make Hebrew look nicer */
+html[lang="he"] body {
+    letter-spacing: 0.01em;
+}
+
+.toast-container {
+    z-index: 999999 !important;
+}
+
+
+/* KIOSK TOAST STYLE */
+.toast-container {
+    z-index: 999999 !important;
+}
+
+.toast-container .ngx-toastr {
+    width: 560px !important;
+    min-height: 110px !important;
+    padding: 22px 24px 22px 70px !important;
+    border-radius: 18px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25) !important;
+    font-size: 24px !important;
+    line-height: 1.4 !important;
+    background-size: 32px !important;
+}
+
+.toast-container .toast-title {
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    margin-bottom: 8px !important;
+}
+
+.toast-container .toast-message {
+    font-size: 24px !important;
+    line-height: 1.5 !important;
+}
+
+.toast-container .toast-close-button {
+    font-size: 28px !important;
+    font-weight: bold !important;
+    right: 12px !important;
+    top: 8px !important;
+}
+
+.toast-container .toast-progress {
+    height: 8px !important;
+    opacity: 1 !important;
+    border-radius: 0 0 18px 18px !important;
+}

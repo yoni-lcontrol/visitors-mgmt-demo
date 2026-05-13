@@ -31,5 +31,6 @@ import { AmadeusUsersService } from './services/amadeus-users.service';
     ],
     controllers: [AmadeusController, AmadeusEventsController, AmadeusUsersController],
     providers: [AmadeusService, AmadeusEventsService, AmadeusEventAdapter, AmadeusUsersService],
+    exports: [AmadeusUsersService],
 })
 export class AmadeusModule { }

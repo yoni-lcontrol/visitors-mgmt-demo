@@ -71,6 +71,7 @@ namespace ScannerService
         public string ScannerName { get; set; } = "FakeScanner-RTE9K";
 
         public event Action<ScanResult> OnScanCompleted;
+        public event Action OnScanStarted;
         public event Action<ScannerState, ScannerState> OnStateChanged;
 
         public bool InitSDK()

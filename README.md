@@ -12,7 +12,7 @@ Migdal is an enterprise-grade platform for managing access control systems, visi
 - **Role-Based Access Control (RBAC)** with 47 granular permissions across 14 modules
 - **Access Control Management** — controllers, doors, extensions, IOs, access levels, cardholders
 - **Visitor Management** — visits, calendar, on-site tracking, check-in codes, visitor card printing
-- **Blacklist Management** — person and vehicle blacklisting with notification alerts
+- **Blacklist Management** — person blacklisting with notification alerts
 - **Parking Management** — parking requests and approval workflows
 - **Workstation & Device Agents** — scanner and printer hardware management via WebSocket
 - **Building Management** — multi-building configuration

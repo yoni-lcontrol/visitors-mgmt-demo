@@ -322,7 +322,6 @@ All date/time values must be displayed in the **business timezone** (`Asia/Jerus
 When checking or looking up multiple records, use batch methods to avoid N+1 query patterns:
 
 - `BlacklistService.checkBlacklistStatusBatch(ids[])` — single query for multiple person IDs
-- `BlacklistService.checkVehicleBlacklistStatusBatch(carNumbers[])` — single query for multiple car numbers
 - Never loop over individual `checkBlacklistStatus()` calls when processing multiple visitors
 
 ---

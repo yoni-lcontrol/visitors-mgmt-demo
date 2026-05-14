@@ -3,19 +3,23 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { AuditService, CreateAuditLogParams } from './audit.service';
 import { AuditLog } from '../common/entities/audit-log.entity';
+import { SyslogService } from './syslog.service';
 import { createMockRepository, createMockQueryBuilder } from '../test-utils/mock.factory';
 
 describe('AuditService', () => {
     let service: AuditService;
     let mockRepo: ReturnType<typeof createMockRepository>;
+    let mockSyslogService: { send: jest.Mock; isEnabled: jest.Mock };
 
     beforeEach(async () => {
         mockRepo = createMockRepository();
+        mockSyslogService = { send: jest.fn().mockResolvedValue(true), isEnabled: jest.fn().mockReturnValue(false) };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 AuditService,
                 { provide: getRepositoryToken(AuditLog), useValue: mockRepo },
+                { provide: SyslogService, useValue: mockSyslogService },
             ],
         }).compile();
 

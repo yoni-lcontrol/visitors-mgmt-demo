@@ -278,7 +278,7 @@ import { AuthService } from '@core/auth/auth.service';
                         (ngModelChange)="onPersonIdChange($index, $event)"
                         (focus)="onPersonIdFocus($index)"
                         (blur)="onPersonIdBlur($index)"
-                        [class.input-invalid]="blacklistMap.get($index)?.blacklisted"
+                        [class.input-warning]="blacklistMap.get($index)?.blacklisted"
                         [placeholder]="'PLACEHOLDER.ENTER_PERSON_ID' | translate"
                         autocomplete="off" />
                       @if (blacklistMap.get($index)?.checking || searchLoading.get($index)) {
@@ -312,7 +312,7 @@ import { AuthService } from '@core/auth/auth.service';
                       </small>
                     }
                     @if (blacklistMap.get($index)?.blacklisted) {
-                      <small class="field-error">{{ 'VALIDATION.BLACKLISTED' | translate }}</small>
+                      <small class="field-warning"><i class="pi pi-exclamation-triangle"></i> {{ 'VALIDATION.BLACKLISTED_WARNING' | translate }}</small>
                     }
                     @if (isDuplicatePersonId($index)) {
                       <small class="field-warning"><i class="pi pi-exclamation-triangle"></i> {{ 'VALIDATION.DUPLICATE_PERSON_ID' | translate }}</small>
@@ -368,18 +368,10 @@ import { AuthService } from '@core/auth/auth.service';
                       <label><i class="pi pi-car"></i> {{ 'VISITORS.CAR_NUMBER' | translate }} <span class="required">*</span></label>
                       <div class="input-wrapper">
                         <input type="text" [(ngModel)]="v.carNumber" required #vCarNumber="ngModel"
-                          (ngModelChange)="onCarNumberChange($index, $event)"
-                          [class.input-invalid]="vehicleBlacklistMap.get($index)?.blacklisted"
                           [placeholder]="'PLACEHOLDER.ENTER_CAR_NUMBER' | translate" />
-                        @if (vehicleBlacklistMap.get($index)?.checking) {
-                          <i class="pi pi-spin pi-spinner input-spinner"></i>
-                        }
                       </div>
                       @if (vCarNumber.invalid && vCarNumber.touched) {
                         <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
-                      }
-                      @if (vehicleBlacklistMap.get($index)?.blacklisted) {
-                        <small class="field-error">{{ 'VALIDATION.VEHICLE_BLACKLISTED' | translate }}</small>
                       }
                     </div>
                     <div class="field">
@@ -913,6 +905,7 @@ import { AuthService } from '@core/auth/auth.service';
     .import-error-row { color: #7f1d1d; padding: 0.15rem 0; }
     .required { color: #dc2626; }
     .input-invalid { border-color: #dc2626 !important; }
+    .input-warning { border-color: #d97706 !important; }
     ::ng-deep .input-invalid .p-dropdown,
     ::ng-deep p-dropdown.ng-invalid.ng-touched .p-dropdown { border-color: #dc2626 !important; }
 
@@ -1123,11 +1116,6 @@ export class VisitDialogComponent implements OnDestroy {
   private blacklistSubjects = new Map<number, Subject<string>>();
   private blacklistSubs: Subscription[] = [];
 
-  // Vehicle blacklist state
-  vehicleBlacklistMap = new Map<number, { checking: boolean; blacklisted: boolean; reason?: string }>();
-  private vehicleBlacklistSubjects = new Map<number, Subject<string>>();
-  private vehicleBlacklistSubs: Subscription[] = [];
-
   // Visitor search state
   visitorSuggestions = new Map<number, VisitorSuggestion[]>();
   showNoResults = new Map<number, boolean>();
@@ -1273,34 +1261,6 @@ export class VisitDialogComponent implements OnDestroy {
     }
   }
 
-  onCarNumberChange(index: number, value: string): void {
-    if (!value || !value.trim()) {
-      this.vehicleBlacklistMap.delete(index);
-      return;
-    }
-    let subj = this.vehicleBlacklistSubjects.get(index);
-    if (!subj) {
-      subj = new Subject<string>();
-      this.vehicleBlacklistSubjects.set(index, subj);
-      const sub = subj.pipe(
-        debounceTime(500),
-        switchMap(carNum => {
-          this.vehicleBlacklistMap.set(index, { checking: true, blacklisted: false });
-          return this.blacklistCheck.checkVehicle(carNum).pipe(
-            catchError(() => {
-              this.vehicleBlacklistMap.set(index, { checking: false, blacklisted: false });
-              return EMPTY;
-            }),
-          );
-        }),
-      ).subscribe(result => {
-        this.vehicleBlacklistMap.set(index, { checking: false, blacklisted: result.isBlacklisted, reason: result.reason });
-      });
-      this.vehicleBlacklistSubs.push(sub);
-    }
-    subj.next(value.trim());
-  }
-
   isFormValid(): boolean {
     if (!this.form.title || !this.form.buildingId || this.form.floor == null) return false;
     if (!this.form.plannedStartDate || !this.form.plannedStartTime) return false;
@@ -1310,18 +1270,21 @@ export class VisitDialogComponent implements OnDestroy {
     if (this.requesterLockedToOnBehalf && !this.requesterIsSomeoneElse) return false;
     if (this.requesterIsSomeoneElse) {
       if (!this.visitRequester.firstName || !this.visitRequester.lastName || !this.visitRequester.phone || !this.visitRequester.email) return false;
+      if (!EMAIL_PATTERN.test(this.visitRequester.email)) return false;
     }
     if (!this.editing) {
       if (!this.inlineVisitors.length) return false;
       for (const v of this.inlineVisitors) {
-        if (!v.firstName || !v.lastName || !v.personId) return false;
+        if (!v.firstName || !v.lastName || !v.personId || !v.phone) return false;
+        if (!/^[0-9]*$/.test(v.personId)) return false;
+        if (v.email && !EMAIL_PATTERN.test(v.email)) return false;
         if (v.hasVehicle && (!v.carNumber || !v.vehicleType)) return false;
       }
       if (this.escortRequired && !this.inlineEscorts.length) return false;
       for (const e of this.inlineEscorts) {
         if (!e.firstName || !e.lastName || !e.phone || !e.email) return false;
+        if (!EMAIL_PATTERN.test(e.email)) return false;
       }
-      if (this.hasBlacklistedVisitor()) return false;
     }
     return true;
   }
@@ -1585,17 +1548,10 @@ export class VisitDialogComponent implements OnDestroy {
     // Trigger blacklist check for the selected personId
     const subj = this.blacklistSubjects.get(index);
     if (subj) subj.next(visitor.personId);
-    // Trigger vehicle blacklist check if visitor has a vehicle
-    if (v.hasVehicle && v.carNumber) {
-      this.onCarNumberChange(index, v.carNumber);
-    }
   }
 
   hasBlacklistedVisitor(): boolean {
     for (const [, status] of this.blacklistMap) {
-      if (status.blacklisted) return true;
-    }
-    for (const [, status] of this.vehicleBlacklistMap) {
       if (status.blacklisted) return true;
     }
     return false;
@@ -1618,10 +1574,6 @@ export class VisitDialogComponent implements OnDestroy {
     this.blacklistSubs.forEach(s => s.unsubscribe());
     this.blacklistSubs = [];
     this.blacklistSubjects.clear();
-    this.vehicleBlacklistMap.clear();
-    this.vehicleBlacklistSubs.forEach(s => s.unsubscribe());
-    this.vehicleBlacklistSubs = [];
-    this.vehicleBlacklistSubjects.clear();
     this.searchSubs = [];
     this.searchSubjects.clear();
   }

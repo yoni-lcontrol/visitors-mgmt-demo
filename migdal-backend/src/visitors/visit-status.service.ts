@@ -1,6 +1,7 @@
 import {
     Injectable,
     NotFoundException,
+    ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -21,6 +22,8 @@ import { NotificationEvent } from '../settings/enums/notification-event.enum';
 import { AuditService } from '../audit/audit.service';
 import { resolveVisitRequester, buildSmsData } from './visit.utils';
 import { getDayBoundsUtc } from '../common/utils/date.util';
+import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
+import { BlacklistOverrideStatus } from './enums/blacklist-override-status.enum';
 
 @Injectable()
 export class VisitStatusService {
@@ -203,6 +206,23 @@ export class VisitStatusService {
         });
         if (!vv) throw new NotFoundException('Visit visitor not found');
 
+        // Block status changes for visitors with pending or denied blacklist override
+        // Exception: Check-Out is always allowed (need to record exit of visitor already inside)
+        if (dto.eventType !== VisitorAccessEventType.CheckedOut) {
+            const blockingOverride = await this.dataSource.getRepository(BlacklistOverrideRequest).findOne({
+                where: [
+                    { visitVisitorId: vv.id, status: BlacklistOverrideStatus.Pending, isActive: true },
+                    { visitVisitorId: vv.id, status: BlacklistOverrideStatus.Denied, isActive: true },
+                ],
+            });
+            if (blockingOverride) {
+                const reason = blockingOverride.status === BlacklistOverrideStatus.Pending
+                    ? 'Cannot change status for a visitor with a pending blacklist override approval'
+                    : 'Cannot change status for a visitor whose blacklist override was denied';
+                throw new ForbiddenException(reason);
+            }
+        }
+
         const eventTime = dto.eventTimeUtc ? new Date(dto.eventTimeUtc) : new Date();
 
         const qr = this.dataSource.createQueryRunner();
@@ -282,10 +302,7 @@ export class VisitStatusService {
                 const visitor = await this.visitorRepo.findOne({ where: { id: vv.visitorId } });
                 if (visit && visitor) {
                     const blResult = await this.blacklistService.checkBlacklistStatus(visitor.personId).catch(() => ({ isBlacklisted: false }));
-                    const vehBlResult = visitor.carNumber
-                        ? await this.blacklistService.checkVehicleBlacklistStatus(visitor.carNumber).catch(() => ({ isBlacklisted: false }))
-                        : { isBlacklisted: false };
-                    const event = (blResult.isBlacklisted || vehBlResult.isBlacklisted)
+                    const event = blResult.isBlacklisted
                         ? NotificationEvent.VisitorBlacklisted
                         : NotificationEvent.VisitorArrived;
                     this.smsNotification.triggerSms(event, buildSmsData(visit, visitor))

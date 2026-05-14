@@ -4,7 +4,7 @@
     BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, SelectQueryBuilder } from 'typeorm';
+import { Repository, DataSource, SelectQueryBuilder, Brackets } from 'typeorm';
 import { Visit } from './entities/visit.entity';
 import { VisitVisitor } from './entities/visit-visitor.entity';
 import { VisitEscort } from './entities/visit-escort.entity';
@@ -27,6 +27,8 @@ import { VisitParticipantService } from './visit-participant.service';
 import { VisitCheckInCodeService } from './visit-check-in-code.service';
 import { ParkingRequest } from './entities/parking-request.entity';
 import { ParkingRequestStatus } from './enums/parking-request-status.enum';
+import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
+import { BlacklistOverrideStatus } from './enums/blacklist-override-status.enum';
 import { PermissionKey } from '../common/enums/permission-key.enum';
 import { resolveVisitRequester, buildSmsData } from './visit.utils';
 import { getDayBoundsUtc } from '../common/utils/date.util';
@@ -37,6 +39,7 @@ import {
     resolveCreatorScopeRequirements,
     shouldRestrictDeletionToOwnVisits,
 } from './visit-role-policy';
+import { AmadeusParkingSyncService } from '../amadeus/services/amadeus-parking-sync.service';
 
 @Injectable()
 export class VisitsService {
@@ -59,6 +62,7 @@ export class VisitsService {
         private readonly visitorPersistence: VisitorPersistenceService,
         private readonly participantService: VisitParticipantService,
         private readonly checkInCodeService: VisitCheckInCodeService,
+        private readonly amadeusParkingSync: AmadeusParkingSyncService,
     ) { }
 
     resolveVisitRequester(visit: Visit): { firstName: string; lastName: string; phone: string; email: string } | null {
@@ -445,6 +449,16 @@ export class VisitsService {
         const visitIds = items.map((i) => i.id);
         const summaries = visitIds.length ? await this.getStatusSummaries(visitIds) : {};
 
+        // Load visitors for each visit in the page
+        const visitorsMap: Record<string, any[]> = {};
+        const escortsMap: Record<string, any[]> = {};
+        if (visitIds.length) {
+            for (const visitId of visitIds) {
+                visitorsMap[visitId] = await this.participantService.getVisitVisitors(visitId);
+                escortsMap[visitId] = await this.participantService.getVisitEscorts(visitId);
+            }
+        }
+
         const result = items.map((visit) => ({
             ...visit,
             buildingName: visit.building?.name ?? null,
@@ -452,6 +466,8 @@ export class VisitsService {
             floor: visit.floor ?? null,
             visitRequester: this.resolveVisitRequester(visit),
             statusSummary: summaries[visit.id] ?? { total: 0, pending: 0, arrived: 0, checkedIn: 0, checkedOut: 0 },
+            visitVisitors: visitorsMap[visit.id] ?? [],
+            visitEscorts: escortsMap[visit.id] ?? [],
         }));
 
         return { items: result, total, page, limit, totalPages: Math.ceil(total / limit) };
@@ -533,7 +549,7 @@ export class VisitsService {
     }
 
     private async buildVisitsQuery(query: VisitsQueryDto, currentUserId?: string, userPermissions?: string[]) {
-        const { search, sortBy, sortOrder, filters, timeFilter } = query;
+        const { search, sortBy, sortOrder, filters, timeFilter, searchField } = query;
         const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userPermissions);
         const qb = this.visitRepo
             .createQueryBuilder('v')
@@ -549,9 +565,44 @@ export class VisitsService {
         }
 
         if (search) {
+            const field = searchField || 'all';
+            const s = `%${search}%`;
             qb.andWhere(
-                '(v.title LIKE :s OR v.purposeOfVisit LIKE :s OR building.name LIKE :s)',
-                { s: `%${search}%` },
+                new Brackets((wb) => {
+                    if (field === 'all' || field === 'title') {
+                        wb.orWhere('v.title LIKE :s', { s });
+                        wb.orWhere('v.purposeOfVisit LIKE :s', { s });
+                    }
+                    if (field === 'all' || field === 'building') {
+                        wb.orWhere('building.name LIKE :s', { s });
+                    }
+                    if (field === 'all' || field === 'requester') {
+                        wb.orWhere('v.visitRequesterFirstName LIKE :s', { s });
+                        wb.orWhere('v.visitRequesterLastName LIKE :s', { s });
+                        wb.orWhere('reqUser.firstName LIKE :s', { s });
+                        wb.orWhere('reqUser.lastName LIKE :s', { s });
+                    }
+                    if (field === 'all' || field === 'visitor') {
+                        wb.orWhere(`v.id IN (
+                            SELECT vv."visitId" FROM "VisitVisitors" vv
+                            INNER JOIN "Visitors" vis ON vis."id" = vv."visitorId"
+                            WHERE vis."firstName" LIKE :s OR vis."lastName" LIKE :s OR vis."phone" LIKE :s
+                        )`, { s });
+                    }
+                    if (field === 'all' || field === 'personId') {
+                        wb.orWhere(`v.id IN (
+                            SELECT vv."visitId" FROM "VisitVisitors" vv
+                            INNER JOIN "Visitors" vis ON vis."id" = vv."visitorId"
+                            WHERE vis."personId" LIKE :s
+                        )`, { s });
+                    }
+                    if (field === 'all' || field === 'escort') {
+                        wb.orWhere(`v.id IN (
+                            SELECT ve."visitId" FROM "VisitEscorts" ve
+                            WHERE ve."firstName" LIKE :s OR ve."lastName" LIKE :s OR ve."phone" LIKE :s
+                        )`, { s });
+                    }
+                }),
             );
         }
 
@@ -685,8 +736,8 @@ export class VisitsService {
             : null;
         const escortsToCreate = this.getCreateEscorts(dto, isSelfRequester, currentUser, escortRequired);
 
-        // Check blacklist for all visitors
-        await this.participantService.validateVisitorsNotBlacklisted(dto.visitors);
+        // Check blacklist for all visitors (returns map of blacklisted personIds)
+        const blacklistedMap = await this.participantService.validateVisitorsNotBlacklisted(dto.visitors);
 
         const plannedStart = new Date(dto.plannedStartTimeUtc);
         const plannedEnd = new Date(dto.plannedEndTimeUtc);
@@ -718,6 +769,8 @@ export class VisitsService {
                 updatedBy: currentUserId ?? null,
             });
             const savedVisit = await qr.manager.save(visit);
+
+            const approvedParkingRequestIds: string[] = [];
 
             for (const v of dto.visitors) {
                 const { visitor: savedVisitor } = await this.visitorPersistence.upsertByPersonId({
@@ -757,7 +810,23 @@ export class VisitsService {
                         reviewedAt: autoApprove ? new Date() : null,
                         createdBy: currentUserId ?? null,
                     });
-                    await qr.manager.save(parkingReq);
+                    const savedParkingReq = await qr.manager.save(parkingReq);
+                    if (autoApprove) {
+                        approvedParkingRequestIds.push(savedParkingReq.id);
+                    }
+                }
+
+                // Create blacklist override request if visitor is blacklisted
+                const personBlacklist = v.personId ? blacklistedMap.get(v.personId) : undefined;
+                if (personBlacklist) {
+                    const overrideReq = qr.manager.create(BlacklistOverrideRequest, {
+                        visitVisitorId: savedVv.id,
+                        blacklistId: personBlacklist.blacklistId ?? null,
+                        blacklistReason: personBlacklist.reason ?? null,
+                        status: BlacklistOverrideStatus.Pending,
+                        createdBy: currentUserId ?? null,
+                    });
+                    await qr.manager.save(overrideReq);
                 }
             }
 
@@ -777,6 +846,11 @@ export class VisitsService {
 
             await qr.commitTransaction();
             this.wsGateway.broadcastToAll('visits:created', { id: savedVisit.id, title: savedVisit.title });
+
+            // Sync approved parking visitors to Amadeus (fire-and-forget, after commit)
+            for (const prId of approvedParkingRequestIds) {
+                this.amadeusParkingSync.syncApprovedParkingVisitorToAmadeus(prId).catch(() => { });
+            }
 
             this.auditService.log({
                 userId: currentUserId,

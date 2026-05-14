@@ -64,10 +64,7 @@ export function createMockBlacklistService() {
     return {
         checkBlacklistStatus: jest.fn().mockResolvedValue({ isBlacklisted: false }),
         checkBlacklistStatusBatch: jest.fn().mockResolvedValue(new Map()),
-        checkVehicleBlacklistStatus: jest.fn().mockResolvedValue({ isBlacklisted: false }),
-        checkVehicleBlacklistStatusBatch: jest.fn().mockResolvedValue(new Map()),
         findActiveByIdNumber: jest.fn().mockResolvedValue([]),
-        findActiveByCarNumber: jest.fn().mockResolvedValue([]),
         findActiveByName: jest.fn().mockResolvedValue([]),
         notifyBlacklistArrival: jest.fn(),
     };
@@ -93,6 +90,7 @@ export function createMockDataSource() {
 
     return {
         createQueryRunner: jest.fn().mockReturnValue(queryRunner),
+        getRepository: jest.fn().mockReturnValue(createMockRepository()),
         _queryRunner: queryRunner,
         _qrManager: qrManager,
     };

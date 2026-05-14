@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { VisitCheckInCodeService } from './visit-check-in-code.service';
 import { VisitVisitorCheckInCode } from './entities/visit-visitor-check-in-code.entity';
@@ -241,7 +241,9 @@ describe('VisitCheckInCodeService', () => {
             };
             const qrManagerQb = createMockQueryBuilder([{ ...mockCodeRecord }]);
             mockDs._qrManager.createQueryBuilder = jest.fn().mockReturnValue(qrManagerQb);
-            mockDs._qrManager.findOne.mockResolvedValue(mockStatus);
+            mockDs._qrManager.findOne
+                .mockResolvedValueOnce(null)       // BlacklistOverrideRequest — no pending override
+                .mockResolvedValueOnce(mockStatus); // VisitVisitorStatus
             mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
             mockVisitRepo.findOne.mockResolvedValue(mockVisit);
 
@@ -279,9 +281,19 @@ describe('VisitCheckInCodeService', () => {
         it('should rollback transaction on error', async () => {
             const qrManagerQb = createMockQueryBuilder([{ ...mockCodeRecord }]);
             mockDs._qrManager.createQueryBuilder = jest.fn().mockReturnValue(qrManagerQb);
+            mockDs._qrManager.findOne.mockResolvedValueOnce(null); // no pending override
             mockDs._qrManager.save.mockRejectedValueOnce(new Error('DB error'));
 
             await expect(service.consumeCodeAndCheckIn('012345')).rejects.toThrow('DB error');
+            expect(mockDs._queryRunner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should throw ForbiddenException when visitor has pending blacklist override', async () => {
+            const qrManagerQb = createMockQueryBuilder([{ ...mockCodeRecord }]);
+            mockDs._qrManager.createQueryBuilder = jest.fn().mockReturnValue(qrManagerQb);
+            mockDs._qrManager.findOne.mockResolvedValueOnce({ id: 'override-1', visitVisitorId: 'vv-1', status: 'pending' });
+
+            await expect(service.consumeCodeAndCheckIn('012345')).rejects.toThrow(ForbiddenException);
             expect(mockDs._queryRunner.rollbackTransaction).toHaveBeenCalled();
         });
     });

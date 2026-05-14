@@ -8,43 +8,42 @@ import { TableModule } from 'primeng/table';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
 import { MultiSelectModule } from 'primeng/multiselect';
-import { CalendarModule } from 'primeng/calendar';
 import { TooltipModule } from 'primeng/tooltip';
-import { DropdownModule } from 'primeng/dropdown';
+import { CalendarModule } from 'primeng/calendar';
 import { ApiService } from '@core/api/api.service';
 import { HasPermissionDirective } from '@core/permissions/has-permission.directive';
 import { NotificationService } from '@core/notifications/notification.service';
 import { ConfirmService } from '@core/services/confirm.service';
 import { downloadBlob } from '@core/utils/download.util';
-import { buildVehicleTypeOptions, getVehicleTypeLabel } from '@core/utils/vehicle-type.util';
 import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.model';
 
 @Component({
   selector: 'app-blacklist-list',
   standalone: true,
-  imports: [NgClass, DateFormatPipe, TranslateModule, FormsModule, HasPermissionDirective, TableModule, InputTextModule, DialogModule, MultiSelectModule, CalendarModule, TooltipModule, DropdownModule],
+  imports: [NgClass, DateFormatPipe, TranslateModule, FormsModule, HasPermissionDirective, TableModule, InputTextModule, DialogModule, MultiSelectModule, TooltipModule, CalendarModule],
   template: `
     <div class="page-header">
       <h1>{{ 'BLACKLIST.TITLE' | translate }}</h1>
       <div class="header-actions">
-        <div class="type-toggle">
-          <button class="toggle-btn" [class.active]="activeType === 'person'" (click)="switchType('person')">
-            <i class="pi pi-user"></i> {{ 'BLACKLIST.PERSON_TAB' | translate }}
+        <div class="view-toggle">
+          <button class="btn" [class.btn-primary]="viewMode === 'active'" [class.btn-outline]="viewMode !== 'active'" (click)="switchView('active')">
+            {{ 'BLACKLIST.ACTIVE' | translate }}
           </button>
-          <button class="toggle-btn" [class.active]="activeType === 'vehicle'" (click)="switchType('vehicle')">
-            <i class="pi pi-car"></i> {{ 'BLACKLIST.VEHICLE_TAB' | translate }}
+          <button class="btn" [class.btn-primary]="viewMode === 'removed'" [class.btn-outline]="viewMode !== 'removed'" (click)="switchView('removed')">
+            {{ 'BLACKLIST.REMOVED' | translate }}
           </button>
         </div>
+        @if (viewMode === 'active') {
         <button class="btn btn-outline" *hasPermission="'blacklist.read'" (click)="exportData()" [disabled]="exporting">
           <i class="pi" [ngClass]="exporting ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i> {{ 'COMMON.EXPORT' | translate }}
         </button>
         <button class="btn btn-primary" *hasPermission="'blacklist.create'" (click)="openDialog()">
-          <i class="pi pi-plus"></i> {{ (activeType === 'person' ? 'BLACKLIST.ADD_PERSON' : 'BLACKLIST.ADD_VEHICLE') | translate }}
+          <i class="pi pi-plus"></i> {{ 'BLACKLIST.ADD_PERSON' | translate }}
         </button>
+        }
       </div>
     </div>
     <div class="card table-card">
-      @if (activeType === 'person') {
       <p-table
         #dt
         [value]="items"
@@ -77,8 +76,8 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
             <th pSortableColumn="idNumber">{{ 'BLACKLIST.ID_NUMBER' | translate }} <p-sortIcon field="idNumber" /> <p-columnFilter field="idNumber" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="phoneNumber">{{ 'BLACKLIST.PHONE_NUMBER' | translate }} <p-sortIcon field="phoneNumber" /> <p-columnFilter field="phoneNumber" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="reason">{{ 'BLACKLIST.REASON' | translate }} <p-sortIcon field="reason" /> <p-columnFilter field="reason" type="text" display="menu"></p-columnFilter></th>
-            <th>{{ 'BLACKLIST.DURATION' | translate }}</th>
             <th pSortableColumn="blockedAt">{{ 'BLACKLIST.BLOCKED_AT' | translate }} <p-sortIcon field="blockedAt" /> <p-columnFilter field="blockedAt" type="date" display="menu"></p-columnFilter></th>
+            <th pSortableColumn="blockedUntil">{{ 'BLACKLIST.BLOCKED_UNTIL' | translate }} <p-sortIcon field="blockedUntil" /> <p-columnFilter field="blockedUntil" type="date" display="menu"></p-columnFilter></th>
             <th pSortableColumn="createdByUser.firstName">{{ 'BLACKLIST.CREATED_BY' | translate }} <p-sortIcon field="createdByUser.firstName" /> <p-columnFilter field="createdByUser.firstName" type="text" display="menu"></p-columnFilter></th>
             <th>{{ 'BLACKLIST.NOTIFY_USERS' | translate }}</th>
             <th>{{ 'COMMON.ACTIONS' | translate }}</th>
@@ -90,14 +89,8 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
             <td>{{ entry.idNumber }}</td>
             <td>{{ entry.phoneNumber }}</td>
             <td>{{ entry.reason }}</td>
-            <td>
-              @if (entry.isPermanent) {
-                <span class="duration-badge permanent"><i class="pi pi-ban"></i> {{ 'BLACKLIST.PERMANENT' | translate }}</span>
-              } @else {
-                <span class="duration-badge limited"><i class="pi pi-calendar"></i> <span dir="ltr">{{ entry.startDate | dateFormat:'date' }}</span> – <span dir="ltr">{{ entry.endDate | dateFormat:'date' }}</span></span>
-              }
-            </td>
             <td dir="ltr">{{ entry.blockedAt | dateFormat }}</td>
+            <td dir="ltr">{{ entry.blockedUntil ? (entry.blockedUntil | dateFormat) : ('BLACKLIST.PERMANENT' | translate) }}</td>
             <td>{{ getCreatedByName(entry) }}</td>
             <td>
               @if (entry.notifyUsers?.length) {
@@ -114,12 +107,18 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
               }
             </td>
             <td class="actions">
+              @if (viewMode === 'active') {
               <button class="btn-icon" *hasPermission="'blacklist.update'" (click)="openDialog(entry)" [title]="'COMMON.EDIT' | translate">
                 <i class="pi pi-pencil"></i>
               </button>
               <button class="btn-icon danger" *hasPermission="'blacklist.delete'" (click)="onDelete(entry)" [title]="'COMMON.DELETE' | translate">
                 <i class="pi pi-trash"></i>
               </button>
+              } @else {
+              <button class="btn-icon success" *hasPermission="'blacklist.create'" (click)="onRestore(entry)" [title]="'BLACKLIST.RESTORE' | translate">
+                <i class="pi pi-replay"></i>
+              </button>
+              }
             </td>
           </tr>
         </ng-template>
@@ -127,95 +126,12 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
           <tr><td colspan="9" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
         </ng-template>
       </p-table>
-      } @else {
-      <p-table
-        #dtVehicle
-        [value]="items"
-        [lazy]="true"
-        (onLazyLoad)="onLazyLoad($event)"
-        [loading]="loading"
-        [totalRecords]="totalRecords"
-        [paginator]="true"
-        [rows]="rows"
-        [first]="first"
-        [showCurrentPageReport]="true"
-        [rowsPerPageOptions]="[10, 20, 50]"
-        [globalFilterFields]="['carNumber', 'vehicleType', 'reason']"
-        dataKey="id"
-        styleClass="p-datatable-sm p-datatable-striped p-datatable-gridlines"
-        currentPageReportTemplate="{first}-{last} / {totalRecords}"
-        paginatorDropdownAppendTo="body"
-      >
-        <ng-template pTemplate="caption">
-          <div class="table-header">
-            <span class="p-input-icon-left">
-              <i class="pi pi-search"></i>
-              <input pInputText type="text" (input)="dtVehicle.filterGlobal($any($event.target).value, 'contains')" [placeholder]="'COMMON.SEARCH' | translate" />
-            </span>
-          </div>
-        </ng-template>
-        <ng-template pTemplate="header">
-          <tr>
-            <th pSortableColumn="carNumber">{{ 'BLACKLIST.CAR_NUMBER' | translate }} <p-sortIcon field="carNumber" /> <p-columnFilter field="carNumber" type="text" display="menu"></p-columnFilter></th>
-            <th pSortableColumn="vehicleType">{{ 'VISITORS.VEHICLE_TYPE' | translate }} <p-sortIcon field="vehicleType" /> <p-columnFilter field="vehicleType" type="text" display="menu"></p-columnFilter></th>
-            <th pSortableColumn="reason">{{ 'BLACKLIST.REASON' | translate }} <p-sortIcon field="reason" /> <p-columnFilter field="reason" type="text" display="menu"></p-columnFilter></th>
-            <th>{{ 'BLACKLIST.DURATION' | translate }}</th>
-            <th pSortableColumn="blockedAt">{{ 'BLACKLIST.BLOCKED_AT' | translate }} <p-sortIcon field="blockedAt" /> <p-columnFilter field="blockedAt" type="date" display="menu"></p-columnFilter></th>
-            <th pSortableColumn="createdByUser.firstName">{{ 'BLACKLIST.CREATED_BY' | translate }} <p-sortIcon field="createdByUser.firstName" /> <p-columnFilter field="createdByUser.firstName" type="text" display="menu"></p-columnFilter></th>
-            <th>{{ 'BLACKLIST.NOTIFY_USERS' | translate }}</th>
-            <th>{{ 'COMMON.ACTIONS' | translate }}</th>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="body" let-entry>
-          <tr>
-            <td class="name-cell">{{ entry.carNumber }}</td>
-            <td>{{ getVehicleTypeLabel(entry.vehicleType) }}</td>
-            <td>{{ entry.reason }}</td>
-            <td>
-              @if (entry.isPermanent) {
-                <span class="duration-badge permanent"><i class="pi pi-ban"></i> {{ 'BLACKLIST.PERMANENT' | translate }}</span>
-              } @else {
-                <span class="duration-badge limited"><i class="pi pi-calendar"></i> <span dir="ltr">{{ entry.startDate | dateFormat:'date' }}</span> – <span dir="ltr">{{ entry.endDate | dateFormat:'date' }}</span></span>
-              }
-            </td>
-            <td dir="ltr">{{ entry.blockedAt | dateFormat }}</td>
-            <td>{{ getCreatedByName(entry) }}</td>
-            <td>
-              @if (entry.notifyUsers?.length) {
-                <span class="notify-badge active" [pTooltip]="getNotifyTooltip(entry)" tooltipPosition="top">
-                  <i class="pi pi-bell"></i>
-                  <span class="notify-badge-count">{{ entry.notifyUsers.length }}</span>
-                  <span class="notify-badge-label">{{ 'BLACKLIST.NOTIFY_ACTIVE' | translate }}</span>
-                </span>
-              } @else {
-                <span class="notify-badge inactive" [pTooltip]="('BLACKLIST.NOTIFY_NONE' | translate)" tooltipPosition="top">
-                  <i class="pi pi-bell-slash"></i>
-                  <span class="notify-badge-label">{{ 'BLACKLIST.NOTIFY_OFF' | translate }}</span>
-                </span>
-              }
-            </td>
-            <td class="actions">
-              <button class="btn-icon" *hasPermission="'blacklist.update'" (click)="openDialog(entry)" [title]="'COMMON.EDIT' | translate">
-                <i class="pi pi-pencil"></i>
-              </button>
-              <button class="btn-icon danger" *hasPermission="'blacklist.delete'" (click)="onDelete(entry)" [title]="'COMMON.DELETE' | translate">
-                <i class="pi pi-trash"></i>
-              </button>
-            </td>
-          </tr>
-        </ng-template>
-        <ng-template pTemplate="emptymessage">
-          <tr><td colspan="8" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
-        </ng-template>
-      </p-table>
-      }
 
     <!-- Create / Edit Dialog -->
-    <p-dialog [header]="editing ? ('BLACKLIST.EDIT_ENTRY' | translate) : (activeType === 'person' ? ('BLACKLIST.ADD_PERSON' | translate) : ('BLACKLIST.ADD_VEHICLE' | translate))"
+    <p-dialog [header]="editing ? ('BLACKLIST.EDIT_ENTRY' | translate) : ('BLACKLIST.ADD_PERSON' | translate)"
       [(visible)]="showDialog" (onHide)="onDialogHide()" [modal]="true" [style]="{width: '600px'}" [draggable]="false">
       @if (showDialog) {
       <div class="dialog-form">
-        @if (activeType === 'person') {
         <!-- Person fields -->
         <div class="form-row">
           <div class="field"><label>{{ 'BLACKLIST.FIRST_NAME' | translate }} <span class="required">*</span></label>
@@ -246,31 +162,6 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
             <input type="text" [(ngModel)]="form.phoneNumber" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" />
           </div>
         </div>
-        } @else {
-        <!-- Vehicle fields -->
-        <div class="form-row">
-          <div class="field"><label>{{ 'BLACKLIST.CAR_NUMBER' | translate }} <span class="required">*</span></label>
-            <input type="text" [(ngModel)]="form.carNumber" required #carNumberField="ngModel" [placeholder]="'PLACEHOLDER.ENTER_CAR_NUMBER' | translate" />
-            @if (carNumberField.invalid && carNumberField.touched) {
-              <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
-            }
-          </div>
-          <div class="field"><label>{{ 'VISITORS.VEHICLE_TYPE' | translate }} <span class="required">*</span></label>
-            <p-dropdown
-              [(ngModel)]="form.vehicleType"
-              [options]="vehicleTypeOptions"
-              [placeholder]="'VISITORS.SELECT_VEHICLE_TYPE' | translate"
-              required
-              #vehicleTypeField="ngModel"
-              appendTo="body"
-              [style]="{'width':'100%'}"
-            ></p-dropdown>
-            @if (vehicleTypeField.invalid && vehicleTypeField.touched) {
-              <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
-            }
-          </div>
-        </div>
-        }
 
         <div class="field"><label>{{ 'BLACKLIST.REASON' | translate }} <span class="required">*</span></label>
           <input type="text" [(ngModel)]="form.reason" required #reasonField="ngModel" [placeholder]="'PLACEHOLDER.ENTER_REASON' | translate" />
@@ -279,60 +170,9 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
           }
         </div>
 
-        <!-- Duration Section -->
-        <div class="section-divider">
-          <span class="section-label"><i class="pi pi-clock"></i> {{ 'BLACKLIST.DURATION' | translate }}</span>
+        <div class="field"><label>{{ 'BLACKLIST.BLOCKED_UNTIL' | translate }}</label>
+          <p-calendar [(ngModel)]="form.blockedUntil" [showIcon]="true" [minDate]="minBlockedUntilDate" dateFormat="dd/mm/yy" [showButtonBar]="true" [placeholder]="'BLACKLIST.PERMANENT' | translate" appendTo="body" [style]="{'width':'100%'}" />
         </div>
-
-        <div class="duration-toggle">
-          <button type="button" class="toggle-btn" [class.active]="form.isPermanent" (click)="form.isPermanent = true">
-            <i class="pi pi-ban"></i> {{ 'BLACKLIST.PERMANENT' | translate }}
-          </button>
-          <button type="button" class="toggle-btn" [class.active]="!form.isPermanent" (click)="form.isPermanent = false">
-            <i class="pi pi-calendar"></i> {{ 'BLACKLIST.LIMITED_RANGE' | translate }}
-          </button>
-        </div>
-
-        @if (!form.isPermanent) {
-          <div class="form-row">
-            <div class="field"><label>{{ 'BLACKLIST.START_DATE' | translate }} <span class="required">*</span></label>
-              <p-calendar
-                [(ngModel)]="form.startDate"
-                [dateFormat]="'dd/mm/yy'"
-                [showIcon]="true"
-                [placeholder]="'BLACKLIST.START_DATE' | translate"
-                required
-                #startDateField="ngModel"
-                appendTo="body"
-                [style]="{'width':'100%'}"
-                [inputStyle]="{'width':'100%'}"
-              ></p-calendar>
-              @if (startDateField.invalid && startDateField.touched) {
-                <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
-              }
-            </div>
-            <div class="field"><label>{{ 'BLACKLIST.END_DATE' | translate }} <span class="required">*</span></label>
-              <p-calendar
-                [(ngModel)]="form.endDate"
-                [dateFormat]="'dd/mm/yy'"
-                [showIcon]="true"
-                [placeholder]="'BLACKLIST.END_DATE' | translate"
-                [minDate]="form.startDate"
-                required
-                #endDateField="ngModel"
-                appendTo="body"
-                [style]="{'width':'100%'}"
-                [inputStyle]="{'width':'100%'}"
-              ></p-calendar>
-              @if (endDateField.invalid && endDateField.touched) {
-                <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
-              }
-              @if (form.startDate && form.endDate && form.endDate < form.startDate) {
-                <small class="field-error">{{ 'VALIDATION.END_BEFORE_START' | translate }}</small>
-              }
-            </div>
-          </div>
-        }
 
         <!-- Notification Section -->
         <div class="section-divider">
@@ -409,21 +249,17 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
     .p-input-icon-left input { padding-inline-start: 2.25rem; }
     .name-cell { font-weight: 500; }
     .header-actions { display: flex; gap: 0.75rem; align-items: center; }
-    .type-toggle { display: flex; gap: 0; border: 1.5px solid var(--color-border, #e0dfe6); border-radius: 999px; overflow: hidden; }
-    .type-toggle .toggle-btn { border: none; border-radius: 0; padding: 0.45rem 1rem; font-size: 0.85rem; }
-    .type-toggle .toggle-btn:first-child { border-radius: 999px 0 0 999px; }
-    .type-toggle .toggle-btn:last-child { border-radius: 0 999px 999px 0; }
+    .view-toggle { display: flex; gap: 0.25rem; }
+    .view-toggle .btn { padding: 0.35rem 0.85rem; font-size: 0.82rem; }
     .actions { display: flex; gap: 0.3rem; align-items: center; }
+    .btn-icon.success { color: #16a34a; }
+    .btn-icon.success:hover { color: #15803d; background: rgba(22,163,74,0.08); }
     .empty { text-align: center; color: var(--color-text-muted); padding: 2rem !important; font-size: 0.88rem; }
     .text-muted { color: var(--color-text-muted); }
     .dialog-form { display: flex; flex-direction: column; gap: 1rem; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     .dialog-form .field { display: flex; flex-direction: column; gap: 0.3rem; }
     .dialog-form .field label { font-weight: 500; font-size: 0.85rem; color: var(--color-text-secondary); }
-    .duration-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.2rem 0.65rem; border-radius: 999px; font-size: 0.78rem; font-weight: 500; }
-    .duration-badge.permanent { background: rgba(239,68,68,0.10); color: #dc2626; }
-    .duration-badge.limited { background: rgba(59,130,246,0.10); color: #2563eb; }
-    .duration-badge i { font-size: 0.75rem; }
     .notify-badge { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.7rem; border-radius: 999px; font-size: 0.78rem; font-weight: 500; cursor: default; transition: all 0.2s ease; }
     .notify-badge i { font-size: 0.8rem; }
     .notify-badge.active { background: rgba(34,197,94,0.10); color: #16a34a; }
@@ -435,11 +271,6 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
     .section-divider { border-top: 1.5px solid var(--color-border, #e4e2f0); padding-top: 0.75rem; margin-top: 0.25rem; }
     .section-label { display: flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.85rem; color: var(--color-primary, #020140); }
     .section-label i { color: var(--color-accent, #6c63ff); font-size: 0.9rem; }
-    .duration-toggle { display: flex; gap: 0.5rem; }
-    .toggle-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.5rem 1.1rem; border-radius: 999px; font-size: 0.85rem; font-weight: 500; border: 1.5px solid var(--color-border, #e0dfe6); background: var(--color-surface, #fff); color: var(--color-text-muted, #9896ad); cursor: pointer; transition: all 0.2s ease; font-family: inherit; }
-    .toggle-btn:hover { border-color: var(--color-text-secondary, #6b7280); }
-    .toggle-btn.active { background: var(--color-accent, #6c63ff); color: #fff; border-color: var(--color-accent, #6c63ff); }
-    .toggle-btn i { font-size: 0.85rem; }
     .user-option { padding: 0.35rem 0; }
     .user-option-main { display: flex; align-items: center; gap: 0.4rem; }
     .user-option-name { font-weight: 600; font-size: 0.88rem; color: var(--color-text, #1a1a2e); }
@@ -461,23 +292,13 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
     :host ::ng-deep .p-multiselect-panel .p-multiselect-item.p-disabled { opacity: 1; pointer-events: none; }
     :host ::ng-deep .p-multiselect-panel .p-multiselect-item.p-disabled .p-checkbox { opacity: 0.35; }
     :host ::ng-deep .p-multiselect-filter-container { padding: 0.5rem; }
-    :host ::ng-deep .p-calendar { width: 100%; }
-    :host ::ng-deep .p-calendar .p-inputtext { width: 100%; }
-    :host ::ng-deep p-dropdown.ng-invalid.ng-touched .p-dropdown,
-    :host ::ng-deep p-dropdown.ng-invalid.ng-dirty .p-dropdown { border-color: var(--color-danger, #e53935); background: rgba(229, 57, 53, 0.02); }
-    :host ::ng-deep p-dropdown.ng-invalid.ng-touched .p-dropdown.p-focus,
-    :host ::ng-deep p-dropdown.ng-invalid.ng-dirty .p-dropdown.p-focus { border-color: var(--color-danger, #e53935); box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.10); }
-    :host ::ng-deep p-dropdown.ng-valid.ng-touched .p-dropdown,
-    :host ::ng-deep p-dropdown.ng-valid.ng-dirty .p-dropdown { border-color: var(--color-success, #2e7d32); }
-    :host ::ng-deep p-dropdown.ng-valid.ng-touched .p-dropdown.p-focus,
-    :host ::ng-deep p-dropdown.ng-valid.ng-dirty .p-dropdown.p-focus { border-color: var(--color-success, #2e7d32); box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.10); }
   `],
 })
 export class BlacklistListComponent implements OnInit {
   private api = inject(ApiService);
   private notify = inject(NotificationService);
 
-  activeType: 'person' | 'vehicle' = 'person';
+  viewMode: 'active' | 'removed' = 'active';
   items: BlacklistEntry[] = [];
   totalRecords = 0;
   rows = 20;
@@ -492,14 +313,12 @@ export class BlacklistListComponent implements OnInit {
   showDialog = false;
   editing: BlacklistEntry | null = null;
   form = {
-    firstName: '', lastName: '', idNumber: '', phoneNumber: '', carNumber: '', vehicleType: '' as string, reason: '',
-    isPermanent: true as boolean,
-    startDate: null as Date | null, endDate: null as Date | null,
-    notes: '',
+    firstName: '', lastName: '', idNumber: '', phoneNumber: '', reason: '',
+    notes: '', blockedUntil: null as Date | null,
   };
   selectedNotifyUserIds: string[] = [];
   allUsers: any[] = [];
-  vehicleTypeOptions: { label: string; value: string }[] = [];
+  minBlockedUntilDate = new Date();
 
   private translate = inject(TranslateService);
   private destroyRef = inject(DestroyRef);
@@ -508,16 +327,6 @@ export class BlacklistListComponent implements OnInit {
   ngOnInit(): void {
     this.loadData();
     this.loadAllUsers();
-    this.vehicleTypeOptions = buildVehicleTypeOptions(this.translate);
-    this.translate.onLangChange.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => this.vehicleTypeOptions = buildVehicleTypeOptions(this.translate));
-  }
-
-  switchType(type: 'person' | 'vehicle'): void {
-    if (this.activeType === type) return;
-    this.activeType = type;
-    this.first = 0;
-    this.lastLazyEvent = { first: 0, rows: this.rows, sortField: 'blockedAt', sortOrder: -1, filters: {} };
-    this.loadData();
   }
 
   loadAllUsers(): void {
@@ -572,12 +381,12 @@ export class BlacklistListComponent implements OnInit {
       sortBy: this.sortField,
       sortOrder: this.sortOrder === 1 ? 'ASC' : 'DESC',
       filters: JSON.stringify(event.filters ?? {}),
-      type: this.activeType,
     };
     const global = event.filters?.global?.value;
     if (global) params['search'] = global;
 
-    this.api.get<PaginatedResult<BlacklistEntry>>('/visitors/blacklist', params).subscribe((r) => {
+    const endpoint = this.viewMode === 'removed' ? '/visitors/blacklist/removed' : '/visitors/blacklist';
+    this.api.get<PaginatedResult<BlacklistEntry>>(endpoint, params).subscribe((r) => {
       this.items = r.items;
       this.totalRecords = r.total;
       this.loading = false;
@@ -595,15 +404,13 @@ export class BlacklistListComponent implements OnInit {
       sortBy: event.sortField || 'blockedAt',
       sortOrder: (event.sortOrder || -1) === 1 ? 'ASC' : 'DESC',
       filters: JSON.stringify(event.filters ?? {}),
-      type: this.activeType,
     };
     const global = event.filters?.global?.value;
     if (global) params['search'] = global;
 
-    const filename = this.activeType === 'vehicle' ? 'vehicle-blacklist.xlsx' : 'person-blacklist.xlsx';
     this.api.download('/visitors/blacklist/export', params).subscribe({
       next: (blob) => {
-        downloadBlob(blob, filename);
+        downloadBlob(blob, 'blacklist.xlsx');
         this.exporting = false;
       },
       error: (err) => { this.exporting = false; this.notify.error(err); },
@@ -618,19 +425,15 @@ export class BlacklistListComponent implements OnInit {
         lastName: entry.lastName ?? '',
         idNumber: entry.idNumber ?? '',
         phoneNumber: entry.phoneNumber ?? '',
-        carNumber: entry.carNumber ?? '',
-        vehicleType: entry.vehicleType ?? '',
         reason: entry.reason,
-        isPermanent: entry.isPermanent,
-        startDate: entry.startDate ? new Date(entry.startDate) : null,
-        endDate: entry.endDate ? new Date(entry.endDate) : null,
         notes: entry.notes ?? '',
+        blockedUntil: entry.blockedUntil ? new Date(entry.blockedUntil) : null,
       };
       this.selectedNotifyUserIds = entry.notifyUsers ? entry.notifyUsers.map(u => u.id) : [];
     } else {
       this.form = {
-        firstName: '', lastName: '', idNumber: '', phoneNumber: '', carNumber: '', vehicleType: '', reason: '',
-        isPermanent: true, startDate: null, endDate: null, notes: '',
+        firstName: '', lastName: '', idNumber: '', phoneNumber: '', reason: '',
+        notes: '', blockedUntil: null,
       };
       this.selectedNotifyUserIds = [];
     }
@@ -638,15 +441,7 @@ export class BlacklistListComponent implements OnInit {
   }
 
   isFormValid(): boolean {
-    if (this.activeType === 'person') {
-      if (!this.form.firstName || !this.form.lastName || !this.form.idNumber || !this.form.reason) return false;
-    } else {
-      if (!this.form.carNumber || !this.form.vehicleType || !this.form.reason) return false;
-    }
-    if (!this.form.isPermanent) {
-      if (!this.form.startDate || !this.form.endDate) return false;
-      if (this.form.endDate < this.form.startDate) return false;
-    }
+    if (!this.form.firstName || !this.form.lastName || !this.form.idNumber || !this.form.reason) return false;
     return true;
   }
 
@@ -654,25 +449,15 @@ export class BlacklistListComponent implements OnInit {
     if (!this.isFormValid()) return;
     this.saving = true;
     const body: any = {
-      blacklistType: this.activeType,
       reason: this.form.reason,
-      isPermanent: this.form.isPermanent,
+      firstName: this.form.firstName,
+      lastName: this.form.lastName,
+      idNumber: this.form.idNumber,
       notifyUserIds: this.selectedNotifyUserIds,
     };
-    if (this.activeType === 'person') {
-      body.firstName = this.form.firstName;
-      body.lastName = this.form.lastName;
-      body.idNumber = this.form.idNumber;
-      if (this.form.phoneNumber) body.phoneNumber = this.form.phoneNumber;
-    } else {
-      body.carNumber = this.form.carNumber;
-      body.vehicleType = this.form.vehicleType;
-    }
-    if (!this.form.isPermanent) {
-      body.startDate = this.form.startDate instanceof Date ? this.form.startDate.toISOString().slice(0, 10) : this.form.startDate;
-      body.endDate = this.form.endDate instanceof Date ? this.form.endDate.toISOString().slice(0, 10) : this.form.endDate;
-    }
+    if (this.form.phoneNumber) body.phoneNumber = this.form.phoneNumber;
     if (this.form.notes) body.notes = this.form.notes;
+    body.blockedUntil = this.form.blockedUntil ? this.form.blockedUntil.toISOString() : null;
 
     const req$ = this.editing
       ? this.api.patch(`/visitors/blacklist/${this.editing.id}`, body)
@@ -684,9 +469,7 @@ export class BlacklistListComponent implements OnInit {
   }
 
   async onDelete(entry: BlacklistEntry): Promise<void> {
-    const displayName = entry.blacklistType === 'vehicle'
-      ? entry.carNumber
-      : entry.firstName + ' ' + entry.lastName;
+    const displayName = entry.firstName + ' ' + entry.lastName;
     if (await this.confirmService.confirm('BLACKLIST.DELETE_CONFIRM')) {
       this.api.delete(`/visitors/blacklist/${entry.id}`).subscribe({
         next: () => { this.notify.success('COMMON.SUCCESS'); this.loadData(); },
@@ -695,19 +478,30 @@ export class BlacklistListComponent implements OnInit {
     }
   }
 
+  switchView(mode: 'active' | 'removed'): void {
+    if (this.viewMode === mode) return;
+    this.viewMode = mode;
+    this.first = 0;
+    this.lastLazyEvent = { ...this.lastLazyEvent, first: 0 };
+    this.loadData();
+  }
+
+  async onRestore(entry: BlacklistEntry): Promise<void> {
+    if (await this.confirmService.confirm('BLACKLIST.RESTORE_CONFIRM')) {
+      this.api.patch(`/visitors/blacklist/${entry.id}/restore`, {}).subscribe({
+        next: () => { this.notify.success('COMMON.SUCCESS'); this.loadData(); },
+        error: (err) => this.notify.error(err),
+      });
+    }
+  }
+
   onDialogHide(): void {
     this.form = {
-      firstName: '', lastName: '', idNumber: '', phoneNumber: '', carNumber: '', vehicleType: '', reason: '',
-      isPermanent: true,
-      startDate: null, endDate: null,
-      notes: '',
+      firstName: '', lastName: '', idNumber: '', phoneNumber: '', reason: '',
+      notes: '', blockedUntil: null,
     };
     this.editing = null;
     this.selectedNotifyUserIds = [];
-  }
-
-  getVehicleTypeLabel(type: string | null): string {
-    return getVehicleTypeLabel(type, this.translate);
   }
 
   getCreatedByName(entry: BlacklistEntry): string {

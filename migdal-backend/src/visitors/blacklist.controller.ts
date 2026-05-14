@@ -33,7 +33,7 @@ export class BlacklistController {
     @RequirePermissions(PermissionKey.BlacklistRead)
     @ApiOperation({ summary: 'List blacklist entries (paginated)' })
     findAll(@Query() query: BlacklistQueryDto) {
-        return this.blacklistService.findAll(query, query.type);
+        return this.blacklistService.findAll(query);
     }
 
     @Get('export')
@@ -43,10 +43,8 @@ export class BlacklistController {
         @Query() query: BlacklistQueryDto,
         @Res() res: Response,
     ) {
-        const type = query.type ?? 'person';
-        const file = await this.blacklistService.exportToExcel(query, type);
-        const filename = type === 'vehicle' ? 'vehicle-blacklist.xlsx' : 'person-blacklist.xlsx';
-        sendExcelResponse(res, file, filename);
+        const file = await this.blacklistService.exportToExcel(query);
+        sendExcelResponse(res, file, 'blacklist.xlsx');
     }
 
     @Get('check/:idNumber')
@@ -54,13 +52,6 @@ export class BlacklistController {
     @ApiOperation({ summary: 'Check if a person is currently blacklisted by ID number' })
     async checkBlacklist(@Param('idNumber') idNumber: string) {
         return this.blacklistService.checkBlacklistStatus(idNumber);
-    }
-
-    @Get('check-vehicle/:carNumber')
-    @RequirePermissions(PermissionKey.BlacklistCheck)
-    @ApiOperation({ summary: 'Check if a vehicle is currently blacklisted by car number' })
-    async checkVehicleBlacklist(@Param('carNumber') carNumber: string) {
-        return this.blacklistService.checkVehicleBlacklistStatus(carNumber);
     }
 
     @Get(':id')

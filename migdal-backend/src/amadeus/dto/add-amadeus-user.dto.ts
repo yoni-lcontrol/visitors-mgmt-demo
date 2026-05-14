@@ -52,4 +52,9 @@ export class AddAmadeusUserDto {
     @IsOptional()
     @IsBoolean()
     isToDateActive?: boolean;
+
+    @ApiPropertyOptional({ example: '12-345-67', description: 'Vehicle license plate number' })
+    @IsOptional()
+    @IsString()
+    licensePlate?: string;
 }

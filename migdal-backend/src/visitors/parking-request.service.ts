@@ -12,6 +12,7 @@ import { EmailNotificationService } from '../settings/email-notification.service
 import { NotificationEvent } from '../settings/enums/notification-event.enum';
 import { SmsTemplateData } from '../settings/sms-template-renderer.service';
 import { AuditService } from '../audit/audit.service';
+import { AmadeusParkingSyncService } from '../amadeus/services/amadeus-parking-sync.service';
 
 @Injectable()
 export class ParkingRequestService {
@@ -21,6 +22,7 @@ export class ParkingRequestService {
         private readonly smsNotification: SmsNotificationService,
         private readonly emailNotification: EmailNotificationService,
         private readonly auditService: AuditService,
+        private readonly amadeusParkingSync: AmadeusParkingSyncService,
     ) {}
 
     async createRequest(visitVisitorId: string, autoApprove: boolean, currentUserId?: string): Promise<ParkingRequest> {
@@ -36,7 +38,14 @@ export class ParkingRequestService {
             reviewedAt: autoApprove ? new Date() : null,
             createdBy: currentUserId ?? null,
         });
-        return this.parkingRepo.save(request);
+        const saved = await this.parkingRepo.save(request);
+
+        // Sync approved parking visitor to Amadeus (fire-and-forget)
+        if (autoApprove) {
+            this.amadeusParkingSync.syncApprovedParkingVisitorToAmadeus(saved.id).catch(() => { });
+        }
+
+        return saved;
     }
 
     async findAll(query: ParkingRequestQueryDto): Promise<PaginatedResult<any>> {
@@ -126,6 +135,11 @@ export class ParkingRequestService {
 
         // Trigger parking decision notification (fire-and-forget)
         this.triggerParkingDecisionNotification(request).catch(() => { });
+
+        // Sync approved parking visitor to Amadeus (fire-and-forget)
+        if (dto.status === ParkingRequestStatus.Approved) {
+            this.amadeusParkingSync.syncApprovedParkingVisitorToAmadeus(saved.id).catch(() => { });
+        }
 
         return saved;
     }

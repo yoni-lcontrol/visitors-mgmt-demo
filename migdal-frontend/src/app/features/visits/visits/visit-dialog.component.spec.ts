@@ -28,7 +28,7 @@ describe('VisitDialogComponent', () => {
                 { provide: VisitsApiService, useValue: jasmine.createSpyObj('VisitsApiService', ['create', 'update']) },
                 { provide: NotificationService, useValue: jasmine.createSpyObj('NotificationService', ['success', 'error']) },
                 { provide: ExcelImportService, useValue: jasmine.createSpyObj('ExcelImportService', ['importExcel']) },
-                { provide: BlacklistCheckService, useValue: jasmine.createSpyObj('BlacklistCheckService', ['checkPerson', 'checkVehicle']) },
+                { provide: BlacklistCheckService, useValue: jasmine.createSpyObj('BlacklistCheckService', ['check']) },
                 { provide: VisitorSearchService, useValue: jasmine.createSpyObj('VisitorSearchService', ['search']) },
                 { provide: AdSearchService, useValue: jasmine.createSpyObj('AdSearchService', ['searchPeople']) },
                 {

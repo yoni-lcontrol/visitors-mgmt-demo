@@ -280,19 +280,10 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                 <div class="form-row">
                   <div class="field">
                     <label><i class="pi pi-car"></i> {{ 'VISITORS.CAR_NUMBER' | translate }} <span class="required">*</span></label>
-                    <div class="input-wrapper">
-                      <input type="text" [(ngModel)]="v.carNumber" [placeholder]="'PLACEHOLDER.ENTER_CAR_NUMBER' | translate"
-                        (ngModelChange)="onNewCarNumberChange($index, $event)"
-                        [class.input-invalid]="vehicleBlacklistMap.get($index)?.blacklisted || (v.hasVehicle && !v.carNumber)" />
-                      @if (vehicleBlacklistMap.get($index)?.checking) {
-                        <i class="pi pi-spin pi-spinner input-spinner"></i>
-                      }
-                    </div>
+                    <input type="text" [(ngModel)]="v.carNumber" [placeholder]="'PLACEHOLDER.ENTER_CAR_NUMBER' | translate"
+                      [class.input-invalid]="v.hasVehicle && !v.carNumber" />
                     @if (v.hasVehicle && !v.carNumber) {
                       <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
-                    }
-                    @if (vehicleBlacklistMap.get($index)?.blacklisted) {
-                      <small class="field-error">{{ 'VALIDATION.VEHICLE_BLACKLISTED' | translate }}</small>
                     }
                   </div>
                   <div class="field">
@@ -587,19 +578,10 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                 <div class="form-row">
                   <div class="field">
                     <label><i class="pi pi-car"></i> {{ 'VISITORS.CAR_NUMBER' | translate }} <span class="required">*</span></label>
-                    <div class="input-wrapper">
-                      <input type="text" [(ngModel)]="editingVisitor.carNumber" [placeholder]="'PLACEHOLDER.ENTER_CAR_NUMBER' | translate"
-                        (ngModelChange)="onEditCarNumberChange($event)"
-                        [class.input-invalid]="editVehicleBlacklistStatus?.blacklisted || (editingVisitor.hasVehicle && !editingVisitor.carNumber)" />
-                      @if (editVehicleBlacklistStatus?.checking) {
-                        <i class="pi pi-spin pi-spinner input-spinner"></i>
-                      }
-                    </div>
+                    <input type="text" [(ngModel)]="editingVisitor.carNumber" [placeholder]="'PLACEHOLDER.ENTER_CAR_NUMBER' | translate"
+                      [class.input-invalid]="editingVisitor.hasVehicle && !editingVisitor.carNumber" />
                     @if (editingVisitor.hasVehicle && !editingVisitor.carNumber) {
                       <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
-                    }
-                    @if (editVehicleBlacklistStatus?.blacklisted) {
-                      <small class="field-error">{{ 'VALIDATION.VEHICLE_BLACKLISTED' | translate }}</small>
                     }
                   </div>
                   <div class="field">
@@ -1155,16 +1137,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   private editSearchSubject = new Subject<string>();
   private editSearchSub: Subscription | null = null;
 
-  // Vehicle blacklist state — add visitor dialog
-  vehicleBlacklistMap = new Map<number, { checking: boolean; blacklisted: boolean; reason?: string }>();
-  private vehicleBlacklistSubjects = new Map<number, Subject<string>>();
-  private vehicleBlacklistSubs: Subscription[] = [];
-
-  // Vehicle blacklist state — edit visitor dialog
-  editVehicleBlacklistStatus: { checking: boolean; blacklisted: boolean; reason?: string } | null = null;
-  private editVehicleBlacklistSubject = new Subject<string>();
-  private editVehicleBlacklistSub: Subscription | null = null;
-
   // Add escort dialog
   showAddEscortDialog = false;
   newEscorts: InlineEscort[] = [];
@@ -1559,16 +1531,12 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     this.editBlacklistStatus = null;
     this.editBlacklistSub?.unsubscribe();
     this.editBlacklistSub = null;
-    this.editVehicleBlacklistStatus = null;
-    this.editVehicleBlacklistSub?.unsubscribe();
-    this.editVehicleBlacklistSub = null;
     this.showEditVisitorDialog = true;
   }
 
   isEditVisitorValid(): boolean {
     if (!this.editingVisitor) return false;
     if (this.editBlacklistStatus?.blacklisted) return false;
-    if (this.editVehicleBlacklistStatus?.blacklisted) return false;
     if (!this.editingVisitor.firstName || !this.editingVisitor.lastName || !this.editingVisitor.personId) return false;
     if (this.editingVisitor.hasVehicle && (!this.editingVisitor.carNumber || !this.editingVisitor.vehicleType)) return false;
     return true;
@@ -1579,8 +1547,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
       v.carNumber = '';
       v.vehicleType = '';
       v.requestParking = false;
-      const index = this.newVisitors.indexOf(v);
-      if (index >= 0) this.vehicleBlacklistMap.delete(index);
     }
   }
 
@@ -1589,50 +1555,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
       this.editingVisitor.carNumber = '';
       this.editingVisitor.vehicleType = '';
       this.editingVisitor.requestParking = false;
-      this.editVehicleBlacklistStatus = null;
     }
-  }
-
-  onNewCarNumberChange(index: number, value: string): void {
-    if (!value || !value.trim()) {
-      this.vehicleBlacklistMap.delete(index);
-      return;
-    }
-    let subj = this.vehicleBlacklistSubjects.get(index);
-    if (!subj) {
-      subj = new Subject<string>();
-      this.vehicleBlacklistSubjects.set(index, subj);
-      const sub = subj.pipe(
-        debounceTime(500),
-        switchMap(carNum => {
-          this.vehicleBlacklistMap.set(index, { checking: true, blacklisted: false });
-          return this.blacklistCheck.checkVehicle(carNum);
-        }),
-      ).subscribe(result => {
-        this.vehicleBlacklistMap.set(index, { checking: false, blacklisted: result.isBlacklisted, reason: result.reason });
-      });
-      this.vehicleBlacklistSubs.push(sub);
-    }
-    subj.next(value.trim());
-  }
-
-  onEditCarNumberChange(value: string): void {
-    if (!value || !value.trim()) {
-      this.editVehicleBlacklistStatus = null;
-      return;
-    }
-    if (!this.editVehicleBlacklistSub) {
-      this.editVehicleBlacklistSub = this.editVehicleBlacklistSubject.pipe(
-        debounceTime(500),
-        switchMap(carNum => {
-          this.editVehicleBlacklistStatus = { checking: true, blacklisted: false };
-          return this.blacklistCheck.checkVehicle(carNum);
-        }),
-      ).subscribe(result => {
-        this.editVehicleBlacklistStatus = { checking: false, blacklisted: result.isBlacklisted, reason: result.reason };
-      });
-    }
-    this.editVehicleBlacklistSubject.next(value.trim());
   }
 
   saveEditVisitor(): void {
@@ -1802,10 +1725,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     this.suggestionsVisible.delete(index);
     const blSubj = this.blacklistSubjects.get(index);
     if (blSubj) blSubj.next(visitor.personId);
-    // Trigger vehicle blacklist check if visitor has a vehicle
-    if (v.hasVehicle && v.carNumber) {
-      this.onNewCarNumberChange(index, v.carNumber);
-    }
   }
 
   onEditVisitorPersonIdChange(value: string): void {
@@ -1891,17 +1810,10 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     this.editShowNoResults = false;
     this.editSuggestionsVisible = false;
     this.editBlacklistSubject.next(visitor.personId);
-    // Trigger vehicle blacklist check if visitor has a vehicle
-    if (this.editingVisitor.hasVehicle && this.editingVisitor.carNumber) {
-      this.onEditCarNumberChange(this.editingVisitor.carNumber);
-    }
   }
 
   hasBlacklistedNewVisitor(): boolean {
     for (const [, status] of this.blacklistMap) {
-      if (status.blacklisted) return true;
-    }
-    for (const [, status] of this.vehicleBlacklistMap) {
       if (status.blacklisted) return true;
     }
     return false;
@@ -1926,16 +1838,9 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     this.blacklistSubs.forEach(s => s.unsubscribe());
     this.blacklistSubs = [];
     this.blacklistSubjects.clear();
-    this.vehicleBlacklistMap.clear();
-    this.vehicleBlacklistSubs.forEach(s => s.unsubscribe());
-    this.vehicleBlacklistSubs = [];
-    this.vehicleBlacklistSubjects.clear();
     this.editBlacklistStatus = null;
     this.editBlacklistSub?.unsubscribe();
     this.editBlacklistSub = null;
-    this.editVehicleBlacklistStatus = null;
-    this.editVehicleBlacklistSub?.unsubscribe();
-    this.editVehicleBlacklistSub = null;
     this.visitorSuggestions.clear();
     this.showNoResults.clear();
     this.searchLoading.clear();

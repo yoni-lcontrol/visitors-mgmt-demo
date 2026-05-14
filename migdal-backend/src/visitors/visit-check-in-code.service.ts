@@ -3,6 +3,7 @@ import {
     NotFoundException,
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -21,6 +22,8 @@ import { SmsNotificationService } from '../settings/sms-notification.service';
 import { EmailNotificationService } from '../settings/email-notification.service';
 import { NotificationEvent } from '../settings/enums/notification-event.enum';
 import { AuditService } from '../audit/audit.service';
+import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
+import { BlacklistOverrideStatus } from './enums/blacklist-override-status.enum';
 import { AmadeusUsersService } from '../amadeus/services/amadeus-users.service';
 import { PrintingService } from '../printing/services/printing.service';
 import { Building } from '../buildings/entities/building.entity';
@@ -470,6 +473,14 @@ export class VisitCheckInCodeService {
 
             if (!codeRecord) {
                 throw new BadRequestException('Invalid or expired check-in code');
+            }
+
+            // Block check-in for visitors with pending blacklist override
+            const pendingOverride = await qr.manager.findOne(BlacklistOverrideRequest, {
+                where: { visitVisitorId: codeRecord.visitVisitorId, status: BlacklistOverrideStatus.Pending, isActive: true },
+            });
+            if (pendingOverride) {
+                throw new ForbiddenException('Cannot check in — visitor has a pending blacklist override approval');
             }
 
             // Mark code as used

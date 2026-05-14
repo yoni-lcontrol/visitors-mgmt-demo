@@ -316,6 +316,7 @@
         "ENTRY_NONE": "None",
         "ENTRY_IN": "In",
         "ENTRY_OUT": "Out",
+        "FOR_ESCORT": "For Escort",
         "EXTENSION_NAME": "Extension Name",
         "EXTENSION_INDEX": "Extension Index",
         "IO_NAME": "I/O Name",
@@ -403,10 +404,7 @@
         "TITLE": "Blacklist",
         "ADD_ENTRY": "Add to Blacklist",
         "ADD_PERSON": "Add Person",
-        "ADD_VEHICLE": "Add Vehicle",
         "EDIT_ENTRY": "Edit Blacklist Entry",
-        "PERSON_TAB": "Person Blacklist",
-        "VEHICLE_TAB": "Vehicle Blacklist",
         "FIRST_NAME": "First Name",
         "LAST_NAME": "Last Name",
         "ID_NUMBER": "ID Number",
@@ -414,6 +412,7 @@
         "CAR_NUMBER": "Car Number",
         "REASON": "Reason",
         "BLOCKED_AT": "Blocked At",
+        "BLOCKED_UNTIL": "Blocked Until",
         "CREATED_BY": "Created By",
         "EXPIRES_AT": "Expires At",
         "NOTES": "Notes",
@@ -504,7 +503,6 @@
         "MIN_ESCORT_REQUIRED": "This visit requires at least one escort",
         "CHECKING_BLACKLIST": "Checking blacklist...",
         "BLACKLISTED": "This person is currently blacklisted and cannot be added as a visitor",
-        "VEHICLE_BLACKLISTED": "This vehicle is currently blacklisted",
         "DUPLICATE_PERSON_ID": "Another visitor in this visit has the same ID number",
         "DUPLICATE_PHONE": "Another visitor in this visit has the same phone number",
         "DIGITS_ONLY": "This field must contain only digits",
@@ -591,7 +589,8 @@
             "vehicle-models": "Vehicle Models",
             "blacklist": "Blacklist",
             "parking": "Parking",
-            "permissions": "Permissions"
+            "permissions": "Permissions",
+            "domains": "Domains"
         },
         "NAMES": {
             "users": {
@@ -629,6 +628,7 @@
                 },
                 "scope": {
                     "own": "View Only Own Visits",
+                    "all": "View All Visits",
                     "training-center": "View Training Center Visits"
                 },
                 "print-card": "Print Visitor Card",
@@ -707,6 +707,12 @@
             },
             "permissions": {
                 "read": "View Permissions"
+            },
+            "domains": {
+                "read": "View Domains",
+                "create": "Create Domains",
+                "update": "Update Domains",
+                "delete": "Delete Domains"
             }
         },
         "DESCRIPTIONS": {
@@ -745,6 +751,7 @@
                 },
                 "scope": {
                     "own": "Restricts visit visibility to visits created by the current user",
+                    "all": "Allows viewing all visits in the system without restrictions",
                     "training-center": "Allows viewing visits created by users with training center scope"
                 },
                 "print-card": "Print visitor card via connected printer",
@@ -810,11 +817,11 @@
                 "export": "Export vehicle models data"
             },
             "blacklist": {
-                "read": "View blacklisted persons and vehicles",
-                "create": "Add persons or vehicles to the blacklist",
+                "read": "View blacklisted persons",
+                "create": "Add persons to the blacklist",
                 "update": "Update blacklist entry details",
                 "delete": "Remove entries from the blacklist",
-                "check": "Check if a person or vehicle is on the blacklist"
+                "check": "Check if a person is on the blacklist"
             },
             "parking": {
                 "request": "Request parking space for visitors with vehicles",
@@ -823,6 +830,12 @@
             },
             "permissions": {
                 "read": "View available permissions in the system"
+            },
+            "domains": {
+                "read": "View the list of domains in the system",
+                "create": "Create new domains",
+                "update": "Update existing domain details",
+                "delete": "Delete domains from the system"
             }
         }
     },
@@ -1027,6 +1040,11 @@
         "ARRIVED": "Arrived",
         "LAST_EVENT": "Last Event",
         "VIEW_HISTORY": "View History",
+        "BLACKLIST_PENDING_APPROVAL": "Pending security approval",
+        "BLACKLIST_DENIED": "Denied by security",
+        "ACTIONS_BLOCKED_BLACKLIST": "Actions blocked — pending approval",
+        "ACTIONS_BLOCKED_DENIED": "Actions blocked — request denied",
+        "BLACKLIST_ACTIVE_ALERT": "⚠ Blacklisted visitor on-site!",
         "VISITOR_HISTORY": "Visitor History",
         "DELETE_CONFIRM": "Are you sure you want to delete this visit?",
         "IMPORT_VISITORS": "Import from Excel",
@@ -1056,7 +1074,8 @@
         "FILTER_ARCHIVE": "Archive",
         "FILTER_TODAY": "Today",
         "FILTER_FUTURE": "Future",
-        "FILTER_HISTORY": "History"
+        "FILTER_HISTORY": "History",
+        "SEARCH_ALL": "All"
     },
     "AUDIT": {
         "TITLE": "Audit Logs",

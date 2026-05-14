@@ -5,6 +5,7 @@ import { Door } from '../access-control/entities/door.entity';
 import { DoorIo } from '../access-control/entities/door-io.entity';
 import { Extension } from '../access-control/entities/extension.entity';
 import { ExtensionIo } from '../access-control/entities/extension-io.entity';
+import { ParkingRequest } from '../visitors/entities/parking-request.entity';
 import { IntegrationsCommonModule } from '../integrations/common/integrations-common.module';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { AccessControlModule } from '../access-control/access-control.module';
@@ -15,6 +16,7 @@ import { AmadeusService } from './amadeus.service';
 import { AmadeusEventsService } from './amadeus-events.service';
 import { AmadeusEventAdapter } from './adapters/amadeus-event.adapter';
 import { AmadeusUsersService } from './services/amadeus-users.service';
+import { AmadeusParkingSyncService } from './services/amadeus-parking-sync.service';
 
 @Module({
     imports: [
@@ -24,13 +26,14 @@ import { AmadeusUsersService } from './services/amadeus-users.service';
             DoorIo,
             Extension,
             ExtensionIo,
+            ParkingRequest,
         ]),
         IntegrationsCommonModule,
         WebsocketModule,
         AccessControlModule,
     ],
     controllers: [AmadeusController, AmadeusEventsController, AmadeusUsersController],
-    providers: [AmadeusService, AmadeusEventsService, AmadeusEventAdapter, AmadeusUsersService],
-    exports: [AmadeusUsersService],
+    providers: [AmadeusService, AmadeusEventsService, AmadeusEventAdapter, AmadeusUsersService, AmadeusParkingSyncService],
+    exports: [AmadeusParkingSyncService],
 })
 export class AmadeusModule { }

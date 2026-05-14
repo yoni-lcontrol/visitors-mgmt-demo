@@ -476,6 +476,8 @@ export class RoleListComponent implements OnInit {
         return 'PERMISSIONS.NAMES.visits.escort.required.self-requester';
       case 'visits.scope.own':
         return 'PERMISSIONS.NAMES.visits.scope.own';
+      case 'visits.scope.all':
+        return 'PERMISSIONS.NAMES.visits.scope.all';
       case 'visits.scope.training-center':
         return 'PERMISSIONS.NAMES.visits.scope.training-center';
       case 'visits.delete.own-only':
@@ -497,6 +499,8 @@ export class RoleListComponent implements OnInit {
         return 'PERMISSIONS.DESCRIPTIONS.visits.escort.required.self-requester';
       case 'visits.scope.own':
         return 'PERMISSIONS.DESCRIPTIONS.visits.scope.own';
+      case 'visits.scope.all':
+        return 'PERMISSIONS.DESCRIPTIONS.visits.scope.all';
       case 'visits.scope.training-center':
         return 'PERMISSIONS.DESCRIPTIONS.visits.scope.training-center';
       case 'visits.delete.own-only':

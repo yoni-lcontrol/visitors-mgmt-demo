@@ -65,7 +65,24 @@ function bullModuleIfRedis(): DynamicModule[] {
                 transport:
                     process.env.NODE_ENV !== 'production'
                         ? { target: 'pino-pretty', options: { colorize: true } }
-                        : undefined,
+                        : {
+                            targets: [
+                                { target: 'pino/file', options: { destination: 1 } },
+                                ...(process.env.SIEM_SYSLOG_HOST
+                                    ? [{
+                                        target: 'pino-syslog',
+                                        options: {
+                                            destination: process.env.SIEM_SYSLOG_HOST,
+                                            port: parseInt(process.env.SIEM_SYSLOG_PORT ?? '514', 10),
+                                            protocol: process.env.SIEM_SYSLOG_PROTOCOL ?? 'tcp',
+                                            appname: process.env.SIEM_SYSLOG_TOKEN ?? 'migdal-backend',
+                                            facility: 16,
+                                            newline: true,
+                                        },
+                                    }]
+                                    : []),
+                            ],
+                        },
                 level: process.env.LOG_LEVEL || 'info',
             },
         }),

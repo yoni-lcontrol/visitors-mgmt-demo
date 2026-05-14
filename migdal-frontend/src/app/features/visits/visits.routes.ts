@@ -42,6 +42,15 @@ export const VISITS_ROUTES: Routes = [
         data: { permission: 'parking.approve' },
     },
     {
+        path: 'blacklist-overrides',
+        loadComponent: () =>
+            import('./blacklist-overrides/blacklist-overrides.component').then(
+                (m) => m.BlacklistOverridesComponent,
+            ),
+        canActivate: [permissionGuard],
+        data: { permission: 'blacklist.approve' },
+    },
+    {
         path: 'entrance-exit-logs',
         loadComponent: () =>
             import('./entrance-exit-logs/entrance-exit-logs.component').then(

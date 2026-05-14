@@ -33,11 +33,25 @@ import { VisitVisitor, VisitorStatus, VisitorAccessEventType } from '@core/model
             </thead>
             <tbody>
               @for (vv of visitors; track vv.id) {
-                <tr>
+                <tr [class.blacklist-pending-row]="isBlacklistPending(vv)" [class.blacklist-denied-row]="isBlacklistDenied(vv)">
                   <td class="name-cell">
                     @if (vv.visitor) {
-                      {{ vv.visitor.fullName || (vv.visitor.firstName + ' ' + vv.visitor.lastName) }}
+                      <span [class.visitor-name-blocked]="isBlacklistPending(vv) || isBlacklistDenied(vv)">
+                        {{ vv.visitor.fullName || (vv.visitor.firstName + ' ' + vv.visitor.lastName) }}
+                      </span>
                     } @else { - }
+                    @if (isBlacklistPending(vv)) {
+                      <span class="blacklist-pending-badge">
+                        <i class="pi pi-exclamation-triangle"></i>
+                        {{ 'VISITS.BLACKLIST_PENDING_APPROVAL' | translate }}
+                      </span>
+                    }
+                    @if (isBlacklistDenied(vv)) {
+                      <span class="blacklist-denied-badge">
+                        <i class="pi pi-ban"></i>
+                        {{ 'VISITS.BLACKLIST_DENIED' | translate }}
+                      </span>
+                    }
                   </td>
                   <td>{{ vv.visitor?.personId ?? '-' }}</td>
                   <td>{{ vv.visitor?.carNumber ?? '-' }}</td>
@@ -51,6 +65,25 @@ import { VisitVisitor, VisitorStatus, VisitorAccessEventType } from '@core/model
                   </td>
                   <td dir="ltr">{{ vv.status?.lastEventTimeUtc ? (vv.status!.lastEventTimeUtc! | dateFormat) : '-' }}</td>
                   <td class="actions">
+                    @if ((isBlacklistPending(vv) || isBlacklistDenied(vv)) && vv.status?.currentStatus === statusCheckedIn) {
+                      <span class="blacklist-alert-active">{{ 'VISITS.BLACKLIST_ACTIVE_ALERT' | translate }}</span>
+                      <button class="btn btn-sm btn-check-out" *hasPermission="'visits.update'" (click)="registerEvent.emit({ vv, eventType: eventCheckedOut })">
+                        <i class="pi pi-sign-out"></i> {{ 'VISITORS.CHECK_OUT' | translate }}
+                      </button>
+                      <button class="btn-icon" (click)="showHistory.emit(vv)" [title]="'VISITS.VIEW_HISTORY' | translate">
+                        <i class="pi pi-history"></i>
+                      </button>
+                    } @else if (isBlacklistPending(vv)) {
+                      <span class="blacklist-actions-blocked">{{ 'VISITS.ACTIONS_BLOCKED_BLACKLIST' | translate }}</span>
+                      <button class="btn-icon" (click)="showHistory.emit(vv)" [title]="'VISITS.VIEW_HISTORY' | translate">
+                        <i class="pi pi-history"></i>
+                      </button>
+                    } @else if (isBlacklistDenied(vv)) {
+                      <span class="blacklist-actions-blocked">{{ 'VISITS.ACTIONS_BLOCKED_DENIED' | translate }}</span>
+                      <button class="btn-icon" (click)="showHistory.emit(vv)" [title]="'VISITS.VIEW_HISTORY' | translate">
+                        <i class="pi pi-history"></i>
+                      </button>
+                    } @else {
                     @if (vv.status?.currentStatus !== statusCheckedOut) {
                       @if (vv.status?.currentStatus === statusPending) {
                         <button class="btn btn-sm btn-arrived" *hasPermission="'visits.update'" (click)="registerEvent.emit({ vv, eventType: eventArrived })">
@@ -93,6 +126,7 @@ import { VisitVisitor, VisitorStatus, VisitorAccessEventType } from '@core/model
                     <button class="btn-icon danger" *hasPermission="'visits.delete'" (click)="removeVisitor.emit(vv)" [title]="'COMMON.DELETE' | translate" [disabled]="visitors.length <= 1">
                       <i class="pi pi-trash"></i>
                     </button>
+                    }
                   </td>
                 </tr>
               }
@@ -133,7 +167,8 @@ import { VisitVisitor, VisitorStatus, VisitorAccessEventType } from '@core/model
     .data-table tbody tr { transition: background 0.15s; }
     .data-table tbody tr:hover { background: rgba(108, 99, 255, 0.03); }
     .data-table tbody tr:last-child td { border-bottom: none; }
-    .name-cell { font-weight: 500; }
+    .name-cell { font-weight: 500; display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+    .visitor-name-blocked { color: #dc2626; }
     .actions { display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; }
     .btn-sm {
       font-size: 0.78rem; padding: 0.38rem 0.8rem;
@@ -165,6 +200,41 @@ import { VisitVisitor, VisitorStatus, VisitorAccessEventType } from '@core/model
     .status-badge.status-checked-in { background: rgba(34, 197, 94, 0.10); color: #15803d; border-color: rgba(34, 197, 94, 0.20); }
     .status-badge.status-checked-out { background: rgba(100, 116, 139, 0.10); color: #475569; border-color: rgba(100, 116, 139, 0.20); }
     .loading-msg, .empty-msg { text-align: center; padding: 2.5rem; color: var(--color-text-muted); font-size: 0.9rem; }
+    .blacklist-pending-row { background: rgba(239, 68, 68, 0.04); }
+    .blacklist-pending-row:hover { background: rgba(239, 68, 68, 0.08) !important; }
+    .blacklist-denied-row { background: rgba(239, 68, 68, 0.06); }
+    .blacklist-denied-row:hover { background: rgba(239, 68, 68, 0.10) !important; }
+    .blacklist-pending-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      margin-inline-start: 0.5rem;
+      padding: 0.15rem 0.55rem; border-radius: 999px;
+      font-size: 0.72rem; font-weight: 600;
+      background: rgba(239, 68, 68, 0.10); color: #dc2626;
+      border: 1px solid rgba(239, 68, 68, 0.20);
+    }
+    .blacklist-pending-badge i { font-size: 0.72rem; }
+    .blacklist-denied-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      margin-inline-start: 0.5rem;
+      padding: 0.15rem 0.55rem; border-radius: 999px;
+      font-size: 0.72rem; font-weight: 600;
+      background: rgba(239, 68, 68, 0.15); color: #b91c1c;
+      border: 1px solid rgba(239, 68, 68, 0.30);
+    }
+    .blacklist-denied-badge i { font-size: 0.72rem; }
+    .blacklist-actions-blocked {
+      font-size: 0.75rem; font-weight: 500; color: #dc2626;
+      white-space: nowrap;
+    }
+    .blacklist-alert-active {
+      font-size: 0.75rem; font-weight: 600; color: #b91c1c;
+      white-space: nowrap;
+      animation: pulse-alert 2s ease-in-out infinite;
+    }
+    @keyframes pulse-alert {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
   `],
 })
 export class VisitVisitorsTableComponent {
@@ -212,5 +282,13 @@ export class VisitVisitorsTableComponent {
 
     getPrintCardTooltip(): string {
       return this.printerConnected ? 'VISITS.PRINT_CARD' : 'VISITS.PRINT_CARD_NO_PRINTER';
+    }
+
+    isBlacklistPending(vv: VisitVisitor): boolean {
+      return vv.blacklistOverride?.status === 'pending';
+    }
+
+    isBlacklistDenied(vv: VisitVisitor): boolean {
+      return vv.blacklistOverride?.status === 'denied';
     }
 }

@@ -1,4 +1,5 @@
 import { Component, OnInit, inject } from '@angular/core';
+import { NgClass } from '@angular/common';
 import { TranslateModule } from '@ngx-translate/core';
 import { TableModule } from 'primeng/table';
 import { InputTextModule } from 'primeng/inputtext';
@@ -9,7 +10,7 @@ import { Door, PaginatedResult } from '@core/models/entities.model';
 @Component({
   selector: 'app-door-list',
   standalone: true,
-  imports: [TranslateModule, TableModule, InputTextModule],
+  imports: [NgClass, TranslateModule, TableModule, InputTextModule],
   template: `
     <div class="page-header">
       <h1>{{ 'ACCESS_CONTROL.DOORS' | translate }}</h1>
@@ -47,6 +48,7 @@ import { Door, PaginatedResult } from '@core/models/entities.model';
             <th pSortableColumn="name">{{ 'ACCESS_CONTROL.DOOR_NAME' | translate }} <p-sortIcon field="name" /> <p-columnFilter field="name" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="doorNumber">{{ 'ACCESS_CONTROL.DOOR_NUMBER' | translate }} <p-sortIcon field="doorNumber" /> <p-columnFilter field="doorNumber" type="numeric" display="menu"></p-columnFilter></th>
             <th pSortableColumn="status">{{ 'COMMON.STATUS' | translate }} <p-sortIcon field="status" /> <p-columnFilter field="status" type="text" display="menu"></p-columnFilter></th>
+            <th>{{ 'ACCESS_CONTROL.FOR_ESCORT' | translate }}</th>
             <th>{{ 'ACCESS_CONTROL.DOOR_IOS' | translate }}</th>
           </tr>
         </ng-template>
@@ -55,11 +57,12 @@ import { Door, PaginatedResult } from '@core/models/entities.model';
             <td class="name-cell">{{ door.name }}</td>
             <td>{{ door.doorNumber }}</td>
             <td><span class="status-badge" [attr.data-status]="door.status">{{ door.status }}</span></td>
+            <td><i class="pi" [ngClass]="door.forEscort ? 'pi-check-circle for-escort-yes' : 'pi-times-circle for-escort-no'"></i></td>
             <td>{{ door.doorIos.length }}</td>
           </tr>
         </ng-template>
         <ng-template pTemplate="emptymessage">
-          <tr><td colspan="4" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
+          <tr><td colspan="5" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
         </ng-template>
       </p-table>
     </div>
@@ -76,6 +79,8 @@ import { Door, PaginatedResult } from '@core/models/entities.model';
       .status-badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 99px; font-size: 0.78rem; font-weight: 600; background: var(--color-primary-wash, #eeedf8); color: var(--color-text-secondary, #5c5a78); }
       .status-badge[data-status="Active"] { background: #e8f5e9; color: #2e7d32; }
       .status-badge[data-status="Inactive"] { background: #ffebee; color: #c62828; }
+      .for-escort-yes { color: #2e7d32; font-size: 1.1rem; }
+      .for-escort-no { color: var(--color-text-muted, #9896ad); font-size: 1.1rem; }
     `],
 })
 export class DoorListComponent implements OnInit {

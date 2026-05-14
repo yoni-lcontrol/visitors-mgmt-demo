@@ -11,6 +11,7 @@ export interface RemoteCardholder {
     toDate?: string;
     isVisitor?: boolean;
     active?: boolean;
+    licensePlate?: string;
     metadata?: Record<string, unknown>;
 }
 

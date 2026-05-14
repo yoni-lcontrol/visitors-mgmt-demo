@@ -1,0 +1,104 @@
+<div class="signature-container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-title">
+      {{ 'SIGNATURE.ALMOST_DONE' | translate }}
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- Steps -->
+    <app-steps [active]="3"></app-steps>
+
+    <!-- Subtitle -->
+    <div class="subtitle">
+      {{ 'SIGNATURE.READ_AND_SIGN' | translate }}
+    </div>
+
+    <!-- PDF viewer -->
+    <div class="pdf-box">
+      <pdf-viewer class="pdf-viewer"
+                  [src]="pdfSrc"
+                  [render-text]="true"
+                  [original-size]="false"
+                  [fit-to-page]="true"
+                  [zoom]="1.0"
+                  [show-all]="true"
+                  (after-load-complete)="onPdfLoaded($event)"
+                  (page-rendered)="onPageRendered()">
+      </pdf-viewer>
+    </div>
+
+    <!-- Signature area -->
+    <div class="sign-box">
+
+      <div class="sign-header">
+        <div class="sign-subtitle">
+          {{ 'SIGNATURE.SIGN_WITH_FINGER' | translate }}
+        </div>
+      </div>
+
+      <div class="sign-pad"
+           role="group"
+           [attr.aria-label]="'SIGNATURE.SIGN_AREA' | translate">
+
+        <canvas #sigCanvas></canvas>
+
+        <div class="sign-watermark"
+             aria-hidden="true">
+          <span class="sign-arrow-right">❯</span>
+          {{ 'SIGNATURE.SIGN_HERE' | translate }}
+          <span class="sign-arrow-left">❮</span>
+        </div>
+
+      </div>
+
+      <div class="sign-actions">
+
+        <button type="button"
+                class="btn-clear"
+                (click)="clearSignature()">
+          {{ 'SIGNATURE.CLEAR_SIGNATURE' | translate }}
+        </button>
+
+        <div class="sign-note">
+          {{ 'SIGNATURE.CLEAR_NOTE' | translate }}
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Bottom buttons -->
+    <div class="bottom">
+
+      <button type="button"
+              class="btn-prev"
+              (click)="goBack()">
+        <span class="btn-prev-bg"></span>
+        <span class="btn-prev-text">
+          {{ 'COMMON.PREVIOUS' | translate }}
+        </span>
+      </button>
+
+      <button type="button"
+              class="continue"
+              [disabled]="!canContinue"
+              (click)="approveAndContinue()">
+        <span class="continue-bg"></span>
+        <span class="continue-text">
+          {{ 'COMMON.CONFIRM_CONTINUE' | translate }}
+        </span>
+      </button>
+
+    </div>
+
+  </div>
+
+  <!-- Battlement -->
+  <div class="battlement"
+       aria-hidden="true"></div>
+
+</div>

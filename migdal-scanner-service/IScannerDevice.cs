@@ -20,6 +20,9 @@ namespace ScannerService
         /// <summary>Callback invoked when a document is auto-scanned from the tray.</summary>
         event Action<ScanResult> OnScanCompleted;
 
+        /// <summary>Callback invoked when scanning begins (paper detected or command received).</summary>
+        event Action OnScanStarted;
+
         /// <summary>Callback invoked when scanner connection state changes.</summary>
         event Action<ScannerState, ScannerState> OnStateChanged;
 

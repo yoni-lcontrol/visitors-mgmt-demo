@@ -124,6 +124,12 @@ migdal_v2/
 │       │   └── workstations/    # Workstation management & device status
 │       ├── layout/            # Sidebar, header, layout shell
 │       └── shared/            # Pipes, directives, shared components
+├── migdal-kiosk/              # Angular kiosk application (self-service visitor flow)
+│   └── src/app/
+│       ├── pages/             # Kiosk steps (home, check-in, scan, details, consent, success)
+│       ├── kiosk/             # Runtime services (flow state, API, SignalR, status)
+│       ├── components/        # Shared kiosk UI components
+│       └── models/            # Kiosk request/response models
 ├── migdal-printer-service/    # .NET 9 printer agent (Windows service)
 ├── migdal-scanner-service/    # .NET scanner agent (Windows service)
 ├── docs/                      # Architecture & design documentation
@@ -163,6 +169,16 @@ ng serve                     # Start in development mode
 ```
 
 App available at: `http://localhost:4200`
+
+### Kiosk
+
+```bash
+cd migdal-kiosk
+npm install
+ng serve
+```
+
+Kiosk app available at: `http://localhost:4201`
 
 
 > **Change these immediately in production.**

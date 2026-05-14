@@ -1,0 +1,77 @@
+/* ─────────────────────────────────────────────────────────
+   Migdal Kiosk Theme — CSS Custom Properties
+   Derived from screens_kiosk.pdf & assets/kiosk design
+   ───────────────────────────────────────────────────────── */
+
+:root {
+    /* ── Primary palette ── */
+    --kiosk-primary-color: #1B1464;
+    --kiosk-primary-medium: #2B2870;
+    --kiosk-primary-light: #3B38A8;
+
+    /* ── Background ── */
+    --kiosk-background-color: #D8D6F0;
+    --kiosk-header-gradient: linear-gradient(to bottom, #1B1464 0%, #2B2870 50%, #3B38A8 100%);
+
+    /* ── Accent ── */
+    --kiosk-accent-color: #4EAF67;
+    --kiosk-accent-green-gradient: linear-gradient(180deg, #B8EC92 0%, #82D49E 55%, #6FCF8A 100%);
+    --kiosk-accent-green-border: rgba(130, 212, 158, 0.8);
+    --kiosk-accent-pink-gradient: linear-gradient(180deg, #FF9FB8 0%, #FF7B9C 55%, #FF6B8A 100%);
+    --kiosk-accent-pink-border: rgba(255, 180, 200, 0.85);
+
+    /* ── Cards ── */
+    --kiosk-card-background: #FFFFFF;
+    --kiosk-card-stripe: #4848C0;
+    --kiosk-card-stripe-error: #E85575;
+    --kiosk-card-radius: 18px;
+    --kiosk-card-shadow: 0 18px 50px rgba(27, 20, 100, 0.12);
+    --kiosk-card-border: rgba(27, 20, 100, 0.08);
+
+    /* ── Text ── */
+    --kiosk-text-color: #1B1464;
+    --kiosk-text-header: #FFFFFF;
+    --kiosk-muted-text-color: #6B68A0;
+    --kiosk-label-color: rgba(27, 20, 100, 0.55);
+    --kiosk-section-title-color: #3B38A8;
+    --kiosk-error-text-color: #E85575;
+
+    /* ── Borders ── */
+    --kiosk-border-color: rgba(27, 20, 100, 0.12);
+
+    /* ── Buttons ── */
+    --kiosk-button-radius: 999px;
+    --kiosk-button-shadow: 0 12px 18px rgba(27, 20, 100, 0.18), inset 0 2px 0 rgba(255, 255, 255, 0.35);
+
+    /* ── Steps ── */
+    --kiosk-step-completed: #4EAF67;
+    --kiosk-step-active: #2B2870;
+    --kiosk-step-inactive-bg: #FFFFFF;
+    --kiosk-step-inactive-border: rgba(27, 20, 100, 0.15);
+    --kiosk-step-line: #B0AED0;
+
+    /* ── Top bar ── */
+    --kiosk-topbar-bg: #2B2870;
+
+    /* ── Keypad ── */
+    --kiosk-keypad-bg: rgba(185, 185, 215, 0.45);
+    --kiosk-key-bg: rgba(200, 200, 230, 0.55);
+    --kiosk-key-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.5), 0 4px 10px rgba(27, 20, 100, 0.12);
+
+    /* ── Spinner ── */
+    --kiosk-spinner-color: #2B2870;
+
+    /* ── Signature ── */
+    --kiosk-sign-pad-bg: rgba(255, 255, 255, 0.92);
+    --kiosk-sign-pad-border: rgba(27, 20, 100, 0.15);
+    --kiosk-sign-pad-dot: rgba(27, 20, 100, 0.15);
+    --kiosk-sign-box-bg: rgba(200, 200, 230, 0.25);
+
+    /* ── Code boxes ── */
+    --kiosk-code-box-bg: rgba(200, 200, 230, 0.3);
+    --kiosk-code-box-border: rgba(27, 20, 100, 0.18);
+
+    /* ── PDF scrollbar ── */
+    --kiosk-scrollbar-track: rgba(200, 200, 230, 0.35);
+    --kiosk-scrollbar-thumb: linear-gradient(180deg, #3B38A8 0%, #2B2870 60%, #1B1464 100%);
+}

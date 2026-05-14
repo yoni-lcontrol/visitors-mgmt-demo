@@ -25,7 +25,6 @@ import { AddVisitVisitorsDto } from './dto/add-visit-visitors.dto';
 import { AddVisitEscortsDto } from './dto/add-visit-escorts.dto';
 import { UpdateVisitVisitorDto } from './dto/update-visit-visitor.dto';
 import { UpdateVisitEscortDto } from './dto/update-visit-escort.dto';
-import { KioskValidateCodeDto } from './dto/kiosk-validate-code.dto';
 import { PrintCardDto } from './dto/print-card.dto';
 import { OnSiteQueryDto } from './dto/on-site-query.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -329,18 +328,6 @@ export class VisitsController {
         @CurrentUser('sub') currentUserId: string,
     ) {
         return this.checkInCodeService.regenerateCode(visitVisitorId, currentUserId);
-    }
-
-    @Post('kiosk/validate-code')
-    @ApiOperation({ summary: 'Validate a check-in code at the kiosk' })
-    validateKioskCode(@Body() dto: KioskValidateCodeDto) {
-        return this.checkInCodeService.validateCode(dto.code);
-    }
-
-    @Post('kiosk/check-in')
-    @ApiOperation({ summary: 'Check in a visitor via kiosk code' })
-    kioskCheckIn(@Body() dto: KioskValidateCodeDto) {
-        return this.checkInCodeService.consumeCodeAndCheckIn(dto.code);
     }
 
     @Post(':visitId/visitors/:visitorId/print-card')

@@ -34,7 +34,6 @@ import { SettingsModule } from '../settings/settings.module';
 import { AmadeusModule } from '../amadeus/amadeus.module';
 import { User } from '../users/entities/user.entity';
 import { Building } from '../buildings/entities/building.entity';
-import { AmadeusModule } from '../amadeus/amadeus.module';
 
 @Module({
     imports: [

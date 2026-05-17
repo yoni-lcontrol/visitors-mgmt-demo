@@ -34,6 +34,6 @@ import { AmadeusParkingSyncService } from './services/amadeus-parking-sync.servi
     ],
     controllers: [AmadeusController, AmadeusEventsController, AmadeusUsersController],
     providers: [AmadeusService, AmadeusEventsService, AmadeusEventAdapter, AmadeusUsersService, AmadeusParkingSyncService],
-    exports: [AmadeusParkingSyncService],
+    exports: [AmadeusParkingSyncService, AmadeusUsersService],
 })
 export class AmadeusModule { }

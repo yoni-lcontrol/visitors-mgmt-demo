@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from '../users/users.module';
 import { SettingsModule } from '../settings/settings.module';
 import { VisitorsModule } from '../visitors/visitors.module';
+import { BlacklistModule } from '../visitors/blacklist.module';
 import { AuthModule } from '../auth/auth.module';
 import { AdSyncTask } from './ad-sync.task';
 import { RetentionCleanupTask } from './retention-cleanup.task';
@@ -19,6 +20,7 @@ import { AD_SYNC_QUEUE } from '../users/ad-sync.processor';
         UsersModule,
         SettingsModule,
         VisitorsModule,
+        BlacklistModule,
         AuthModule,
         TypeOrmModule.forFeature([AuditLog]),
         ...(process.env.REDIS_HOST

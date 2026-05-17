@@ -134,6 +134,25 @@ namespace ScannerService
         }
 
         /// <summary>
+        /// Notify the backend that scanning has started (paper detected / command executing).
+        /// </summary>
+        public async Task SendScanStarted()
+        {
+            if (!_registered || _socket?.Connected != true)
+            {
+                Log.Debug("Cannot send scan-started — not connected/registered");
+                return;
+            }
+
+            await _socket.EmitAsync("agent:status:update", new Dictionary<string, object>
+            {
+                ["status"] = "scanning",
+                ["deviceConnected"] = true,
+            });
+            Log.Information("Notified backend: scanning started");
+        }
+
+        /// <summary>
         /// Send scan result back to the backend as a command result.
         /// Called by Gemalto when a document is scanned without a prior execute-scan command
         /// (push scan scenario).

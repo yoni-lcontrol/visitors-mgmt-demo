@@ -178,6 +178,10 @@ namespace Amadeus8.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("LicensePlate")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("SecurityGroupApiKey")
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");

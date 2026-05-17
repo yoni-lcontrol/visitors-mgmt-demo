@@ -83,6 +83,7 @@
         "VISITORS_MANAGEMENT": "ניהול מבקרים",
         "BLACKLIST": "רשימה שחורה",
         "PARKING_REQUESTS": "בקשות חניה",
+        "BLACKLIST_OVERRIDES": "אישורי רשימה שחורה",
         "CALENDAR": "לוח שנה",
         "ON_SITE": "באתר",
         "ENTRANCE_EXIT_LOGS": "יומן כניסות / יציאות",
@@ -97,6 +98,7 @@
         "BUILDINGS": "מבנים",
         "VEHICLE_MODELS": "דגמי רכבים",
         "PERMANENT_ESCORTS": "מלווים קבועים",
+        "SECTORS": "תחומים",
         "WORKSTATIONS": "עמדות עבודה",
         "AUDIT_LOGS": "יומן פעולות"
     },
@@ -315,6 +317,7 @@
         "ENTRY_NONE": "ללא",
         "ENTRY_IN": "כניסה",
         "ENTRY_OUT": "יציאה",
+        "FOR_ESCORT": "עבור מלווה",
         "EXTENSION_NAME": "שם ההרחבה",
         "EXTENSION_INDEX": "אינדקס הרחבה",
         "IO_NAME": "שם כניסה/יציאה",
@@ -402,32 +405,28 @@
         "TITLE": "רשימה שחורה",
         "ADD_ENTRY": "הוסף לרשימה שחורה",
         "ADD_PERSON": "הוסף אדם",
-        "ADD_VEHICLE": "הוסף רכב",
         "EDIT_ENTRY": "ערוך רשומת רשימה שחורה",
-        "PERSON_TAB": "רשימה שחורה - אנשים",
-        "VEHICLE_TAB": "רשימה שחורה - רכבים",
         "FIRST_NAME": "שם פרטי",
         "LAST_NAME": "שם משפחה",
         "ID_NUMBER": "מספר זהות",
         "PHONE_NUMBER": "מספר טלפון",
-        "CAR_NUMBER": "מספר רכב",
         "REASON": "סיבה",
         "BLOCKED_AT": "נחסם בתאריך",
+        "BLOCKED_UNTIL": "חסום עד",
+        "PERMANENT": "חסימה קבועה",
         "CREATED_BY": "נוצר ע״י",
-        "EXPIRES_AT": "פג תוקף בתאריך",
         "NOTES": "הערות",
-        "DURATION": "משך",
-        "PERMANENT": "תמיד ברשימה שחורה",
-        "LIMITED_RANGE": "טווח תאריכים מוגבל",
-        "START_DATE": "תאריך התחלה",
-        "END_DATE": "תאריך סיום",
         "NOTIFICATIONS": "התראות הגעה",
         "NOTIFY_USERS": "משתמשים לעדכון",
         "NOTIFY_ACTIVE": "מתריע",
         "NOTIFY_OFF": "ללא התראות",
         "NOTIFY_NONE": "לא יישלחו התראות כאשר רשומה זו תזוהה",
         "USER_NO_CONTACT": "אין דוא״ל או טלפון זמינים",
-        "DELETE_CONFIRM": "האם אתה בטוח שברצונך להסיר רשומה זו מהרשימה השחורה?"
+        "DELETE_CONFIRM": "האם אתה בטוח שברצונך להסיר רשומה זו מהרשימה השחורה?",
+        "ACTIVE": "חסומים",
+        "REMOVED": "הוסרו",
+        "RESTORE": "החזר לתוקף",
+        "RESTORE_CONFIRM": "האם אתה בטוח שברצונך להחזיר חסימה לאדם זה?"
     },
     "PARKING": {
         "TITLE": "בקשות חניה",
@@ -445,6 +444,25 @@
         "STATUS_PENDING": "ממתין",
         "STATUS_APPROVED": "מאושר",
         "STATUS_DENIED": "נדחה"
+    },
+    "BLACKLIST_OVERRIDE": {
+        "TITLE": "אישורי רשימה שחורה",
+        "VISITOR": "מבקר",
+        "VISIT_TITLE": "ביקור",
+        "STATUS": "סטטוס",
+        "BLACKLIST_REASON": "סיבת חסימה",
+        "REQUESTED_AT": "תאריך בקשה",
+        "REVIEWED_BY": "נבדק על ידי",
+        "CREATED_BY": "נוצר על ידי",
+        "REVIEW_NOTE": "הערת סקירה",
+        "REVIEW_NOTE_PLACEHOLDER": "הערה אופציונלית...",
+        "APPROVE": "אישור",
+        "DENY": "דחייה",
+        "ALL_STATUSES": "כל הסטטוסים",
+        "STATUS_PENDING": "ממתין לאישור קב\"ט",
+        "STATUS_APPROVED": "אושר",
+        "STATUS_DENIED": "נדחה",
+        "PENDING_BADGE": "ממתינים לאישור"
     },
     "SETTINGS": {
         "TITLE": "הגדרות מערכת",
@@ -503,7 +521,7 @@
         "MIN_ESCORT_REQUIRED": "ביקור זה מחייב לפחות מלווה אחד",
         "CHECKING_BLACKLIST": "בודק רשימה שחורה...",
         "BLACKLISTED": "אדם זה נמצא כרגע ברשימה השחורה ולא ניתן להוסיפו כמבקר",
-        "VEHICLE_BLACKLISTED": "רכב זה נמצא כרגע ברשימה השחורה",
+        "BLACKLISTED_WARNING": "אדם זה נמצא ברשימה השחורה. הזימון ידרוש אישור קב\"ט/מוקד ביטחון",
         "DUPLICATE_PERSON_ID": "מבקר נוסף בביקור זה בעל אותו מספר זהות",
         "DUPLICATE_PHONE": "מבקר נוסף בביקור זה בעל אותו מספר טלפון",
         "DIGITS_ONLY": "שדה זה חייב להכיל ספרות בלבד",
@@ -553,7 +571,7 @@
         "ENTER_AD_PASSWORD": "הכנס סיסמה",
         "ENTER_AD_PORT": "לדוגמה 389",
         "ENTER_VISIT_TITLE": "הכנס כותרת ביקור",
-        "ENTER_PERSON_ID": "הכנס מספר אישי",
+        "ENTER_PERSON_ID": "הכנס מספר זהות",
         "ENTER_CAR_NUMBER": "הכנס מספר רכב",
         "SEARCH_VISITORS": "חפש מבקרים..."
     },
@@ -590,7 +608,8 @@
             "vehicle-models": "דגמי רכבים",
             "blacklist": "רשימה שחורה",
             "parking": "חניה",
-            "permissions": "הרשאות"
+            "permissions": "הרשאות",
+            "domains": "תחומים"
         },
         "NAMES": {
             "users": {
@@ -628,6 +647,7 @@
                 },
                 "scope": {
                     "own": "צפייה רק בביקורים שלי",
+                    "all": "צפייה בכל הביקורים",
                     "training-center": "צפייה בביקורי מרכז הדרכות"
                 },
                 "print-card": "הדפסת כרטיס מבקר",
@@ -697,7 +717,8 @@
                 "create": "הוספה לרשימה שחורה",
                 "update": "עדכון רשימה שחורה",
                 "delete": "הסרה מרשימה שחורה",
-                "check": "בדיקה ברשימה שחורה"
+                "check": "בדיקה ברשימה שחורה",
+                "approve": "אישור/דחיית חריגה מרשימה שחורה"
             },
             "parking": {
                 "request": "בקשת חניה",
@@ -706,6 +727,12 @@
             },
             "permissions": {
                 "read": "צפייה בהרשאות"
+            },
+            "domains": {
+                "read": "צפייה בתחומים",
+                "create": "יצירת תחומים",
+                "update": "עדכון תחומים",
+                "delete": "מחיקת תחומים"
             }
         },
         "DESCRIPTIONS": {
@@ -744,6 +771,7 @@
                 },
                 "scope": {
                     "own": "מגביל את הצפייה בביקורים לביקורים שנוצרו על ידי המשתמש הנוכחי",
+                    "all": "מאפשר צפייה בכל הביקורים במערכת ללא הגבלה",
                     "training-center": "מאפשר צפייה בביקורים שנוצרו על ידי משתמשים בתחום מרכז הדרכות"
                 },
                 "print-card": "הדפסת כרטיס מבקר דרך מדפסת מחוברת",
@@ -822,6 +850,12 @@
             },
             "permissions": {
                 "read": "צפייה ברשימת ההרשאות הזמינות במערכת"
+            },
+            "domains": {
+                "read": "צפייה ברשימת התחומים במערכת",
+                "create": "יצירת תחומים חדשים",
+                "update": "עדכון פרטי תחומים קיימים",
+                "delete": "מחיקת תחומים מהמערכת"
             }
         }
     },
@@ -1039,6 +1073,11 @@
         "CHECK_IN_CODE": "קוד כניסה",
         "RESEND_CODE": "שלח שוב קוד כניסה",
         "REGENERATE_CODE": "חדש קוד כניסה",
+        "BLACKLIST_PENDING_APPROVAL": "ממתין לאישור קב\"ט",
+        "BLACKLIST_DENIED": "נדחה ע\"י קב\"ט",
+        "ACTIONS_BLOCKED_BLACKLIST": "פעולות חסומות - ממתין לאישור",
+        "ACTIONS_BLOCKED_DENIED": "פעולות חסומות - הבקשה נדחתה",
+        "BLACKLIST_ACTIVE_ALERT": "⚠ מבקר ברשימה שחורה נמצא במתחם!",
         "CODE_RESENT": "קוד הכניסה נשלח מחדש בהצלחה",
         "CODE_RESEND_FAILED": "אין ערוץ התראות זמין",
         "CODE_REGENERATED": "קוד כניסה חודש ונשלח",
@@ -1055,7 +1094,8 @@
         "FILTER_ARCHIVE": "ארכיון",
         "FILTER_TODAY": "היום",
         "FILTER_FUTURE": "עתידיים",
-        "FILTER_HISTORY": "היסטוריה"
+        "FILTER_HISTORY": "היסטוריה",
+        "SEARCH_ALL": "הכל"
     },
     "AUDIT": {
         "TITLE": "יומן פעולות",
@@ -1128,7 +1168,9 @@
             "SMS_SEND_ERROR": "שגיאת שליחת SMS",
             "RETENTION_CLEANUP": "ניקוי נתונים",
             "PARKING_REQUEST_APPROVED": "אישור בקשת חניה",
-            "PARKING_REQUEST_DENIED": "דחיית בקשת חניה"
+            "PARKING_REQUEST_DENIED": "דחיית בקשת חניה",
+            "BLACKLIST_OVERRIDE_APPROVED": "אישור חריגה מרשימה שחורה",
+            "BLACKLIST_OVERRIDE_DENIED": "דחיית חריגה מרשימה שחורה"
         }
     },
     "CARD_TEMPLATES": {
@@ -1254,5 +1296,10 @@
         "ROLE": "תפקיד",
         "SELECT_ROLE": "בחר תפקיד",
         "CONFIRM_DELETE": "האם למחוק את המיפוי \"{{groupName}}\"?"
+    },
+    "SECTORS": {
+        "TITLE": "תחומים",
+        "DESCRIPTION": "רשימת התחומים במערכת",
+        "NAME": "שם תחום"
     }
 }

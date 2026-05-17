@@ -7,12 +7,23 @@ export interface RoleSeedData {
     permissions: PermissionKey[];
 }
 
+/** Restrictive permissions that narrow access — should not be assigned to Admin */
+const adminExcludedPermissions: PermissionKey[] = [
+    PermissionKey.VisitsOnBehalfOnly,
+    PermissionKey.VisitsEscortRequired,
+    PermissionKey.VisitsEscortRequiredSelfRequester,
+    PermissionKey.VisitsScopeOwn,
+    PermissionKey.VisitsScopeTrainingCenter,
+    PermissionKey.VisitsDeleteOwnOnly,
+    PermissionKey.VisitorsScopeOwn,
+];
+
 export const rolesSeed: RoleSeedData[] = [
     {
         name: 'Admin',
         description: 'Full system administrator with all permissions',
         isSystem: true,
-        permissions: Object.values(PermissionKey),
+        permissions: Object.values(PermissionKey).filter(p => !adminExcludedPermissions.includes(p)),
     },
     {
         name: 'Operator',
@@ -40,6 +51,7 @@ export const rolesSeed: RoleSeedData[] = [
             PermissionKey.BlacklistCreate,
             PermissionKey.BlacklistUpdate,
             PermissionKey.BlacklistDelete,
+            PermissionKey.BlacklistApprove,
             PermissionKey.ParkingRequest,
             PermissionKey.ParkingAutoApprove,
             PermissionKey.DevicesRead,
@@ -133,7 +145,12 @@ export const rolesSeed: RoleSeedData[] = [
         permissions: [
             PermissionKey.UsersRead,
             PermissionKey.RolesRead,
+            PermissionKey.BlacklistRead,
+            PermissionKey.BlacklistCreate,
+            PermissionKey.BlacklistUpdate,
+            PermissionKey.BlacklistDelete,
             PermissionKey.BlacklistCheck,
+            PermissionKey.BlacklistApprove,
             PermissionKey.VisitsCreate,
             PermissionKey.VisitsRead,
             PermissionKey.VisitsUpdate,
@@ -157,6 +174,10 @@ export const rolesSeed: RoleSeedData[] = [
             PermissionKey.SettingsCardTemplatesCreate,
             PermissionKey.SettingsCardTemplatesUpdate,
             PermissionKey.SettingsCardTemplatesDelete,
+            PermissionKey.DomainsRead,
+            PermissionKey.DomainsCreate,
+            PermissionKey.DomainsUpdate,
+            PermissionKey.DomainsDelete,
         ],
     },
     {
@@ -185,7 +206,13 @@ export const rolesSeed: RoleSeedData[] = [
         description: 'קבוצת הרשאה ברירת מחדל עבור קב"ט',
         isSystem: false,
         permissions: [
+            PermissionKey.UsersRead,
+            PermissionKey.BlacklistRead,
+            PermissionKey.BlacklistCreate,
+            PermissionKey.BlacklistUpdate,
+            PermissionKey.BlacklistDelete,
             PermissionKey.BlacklistCheck,
+            PermissionKey.BlacklistApprove,
             PermissionKey.VisitsCreate,
             PermissionKey.VisitsRead,
             PermissionKey.VisitsUpdate,
@@ -199,6 +226,10 @@ export const rolesSeed: RoleSeedData[] = [
             PermissionKey.ParkingApprove,
             PermissionKey.VisitsOnBehalfOnly,
             PermissionKey.AccessControlImport,
+            PermissionKey.DomainsRead,
+            PermissionKey.DomainsCreate,
+            PermissionKey.DomainsUpdate,
+            PermissionKey.DomainsDelete,
         ],
     },
 ];

@@ -12,7 +12,7 @@ Migdal is an enterprise-grade platform for managing access control systems, visi
 - **Role-Based Access Control (RBAC)** with 47 granular permissions across 14 modules
 - **Access Control Management** — controllers, doors, extensions, IOs, access levels, cardholders
 - **Visitor Management** — visits, calendar, on-site tracking, check-in codes, visitor card printing
-- **Blacklist Management** — person and vehicle blacklisting with notification alerts
+- **Blacklist Management** — person blacklisting with notification alerts
 - **Parking Management** — parking requests and approval workflows
 - **Workstation & Device Agents** — scanner and printer hardware management via WebSocket
 - **Building Management** — multi-building configuration
@@ -124,6 +124,12 @@ migdal_v2/
 │       │   └── workstations/    # Workstation management & device status
 │       ├── layout/            # Sidebar, header, layout shell
 │       └── shared/            # Pipes, directives, shared components
+├── migdal-kiosk/              # Angular kiosk application (self-service visitor flow)
+│   └── src/app/
+│       ├── pages/             # Kiosk steps (home, check-in, scan, details, consent, success)
+│       ├── kiosk/             # Runtime services (flow state, API, SignalR, status)
+│       ├── components/        # Shared kiosk UI components
+│       └── models/            # Kiosk request/response models
 ├── migdal-printer-service/    # .NET 9 printer agent (Windows service)
 ├── migdal-scanner-service/    # .NET scanner agent (Windows service)
 ├── docs/                      # Architecture & design documentation
@@ -163,6 +169,16 @@ ng serve                     # Start in development mode
 ```
 
 App available at: `http://localhost:4200`
+
+### Kiosk
+
+```bash
+cd migdal-kiosk
+npm install
+ng serve
+```
+
+Kiosk app available at: `http://localhost:4201`
 
 
 > **Change these immediately in production.**

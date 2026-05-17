@@ -39,4 +39,9 @@ export class CreateDoorDto {
     @IsOptional()
     @IsBoolean()
     isActive?: boolean;
+
+    @ApiPropertyOptional({ example: false, description: 'Whether this door/reader is designated for escorts' })
+    @IsOptional()
+    @IsBoolean()
+    forEscort?: boolean;
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { AuditLog } from '../common/entities/audit-log.entity';
@@ -6,6 +6,7 @@ import { AuditQueryDto } from './dto/audit-query.dto';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import { paginateQuery } from '../common/utils/paginate.util';
 import { toExcelBuffer } from '../common/utils/excel.util';
+import { SyslogService } from './syslog.service';
 
 const BUSINESS_TZ = 'Asia/Jerusalem';
 
@@ -76,12 +77,40 @@ const ALLOWED_SORT_FIELDS: Record<string, string> = {
 
 @Injectable()
 export class AuditService {
+    private readonly logger = new Logger('AuditEvent');
+
     constructor(
         @InjectRepository(AuditLog)
         private readonly auditRepo: Repository<AuditLog>,
+        private readonly syslogService: SyslogService,
     ) { }
 
     async log(params: CreateAuditLogParams): Promise<void> {
+        this.logger.log({
+            category: 'audit',
+            userId: params.userId ?? null,
+            module: params.module ?? null,
+            action: params.action,
+            entity: params.entity,
+            entityId: params.entityId ?? null,
+            description: params.description ?? null,
+            ipAddress: params.ipAddress ?? null,
+        });
+
+        const syslogMessage = {
+            category: 'audit',
+            userId: params.userId ?? null,
+            module: params.module ?? null,
+            action: params.action,
+            entity: params.entity,
+            entityId: params.entityId ?? null,
+            description: params.description ?? null,
+            ipAddress: params.ipAddress ?? null,
+            timestamp: new Date().toISOString(),
+        };
+
+        const sent = await this.syslogService.send(syslogMessage);
+
         const entry = this.auditRepo.create({
             userId: params.userId ?? null,
             module: params.module ?? null,
@@ -95,6 +124,7 @@ export class AuditService {
             ipAddress: params.ipAddress ?? null,
             userAgent: params.userAgent ?? null,
             metadata: params.metadata ? JSON.stringify(params.metadata) : null,
+            syslogSentAt: sent ? new Date() : null,
         });
         await this.auditRepo.save(entry);
     }

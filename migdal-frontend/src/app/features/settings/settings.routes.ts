@@ -89,4 +89,13 @@ export const SETTINGS_ROUTES: Routes = [
                 (m) => m.PermanentEscortsManagementComponent,
             ),
     },
+    {
+        path: 'sectors',
+        canActivate: [permissionGuard],
+        data: { permission: 'settings.read' },
+        loadComponent: () =>
+            import('./sectors/sector-list.component').then(
+                (m) => m.SectorListComponent,
+            ),
+    },
 ];

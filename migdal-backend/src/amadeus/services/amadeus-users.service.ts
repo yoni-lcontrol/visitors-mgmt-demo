@@ -19,6 +19,7 @@ export class AmadeusUsersService {
                 fromDate: dto.fromDateValid,
                 toDate: dto.toDateValid,
                 accessLevelNames: dto.accessGroupApiKeys,
+                licensePlate: dto.licensePlate,
             });
 
             this.logger.log(`User added to Amadeus successfully: ${result.cardholderId}`);

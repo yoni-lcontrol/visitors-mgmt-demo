@@ -36,4 +36,18 @@ describe('CreateDoorDto', () => {
         const stationErrors = errors.filter(e => e.property === 'stationId');
         expect(stationErrors.length).toBeGreaterThan(0);
     });
+
+    it('should pass when forEscort is a boolean', async () => {
+        const dto = plainToInstance(CreateDoorDto, { ...validPayload, forEscort: true });
+        const errors = await validate(dto);
+        const forEscortErrors = errors.filter(e => e.property === 'forEscort');
+        expect(forEscortErrors).toHaveLength(0);
+    });
+
+    it('should pass when forEscort is omitted', async () => {
+        const dto = plainToInstance(CreateDoorDto, validPayload);
+        const errors = await validate(dto);
+        const forEscortErrors = errors.filter(e => e.property === 'forEscort');
+        expect(forEscortErrors).toHaveLength(0);
+    });
 });

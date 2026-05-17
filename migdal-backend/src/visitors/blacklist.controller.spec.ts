@@ -14,7 +14,6 @@ describe('BlacklistController', () => {
             update: jest.fn(),
             remove: jest.fn(),
             checkBlacklistStatus: jest.fn(),
-            checkVehicleBlacklistStatus: jest.fn(),
             exportToExcel: jest.fn(),
         };
 
@@ -34,13 +33,13 @@ describe('BlacklistController', () => {
 
     describe('findAll', () => {
         it('should delegate to service with query params', async () => {
-            const query = { page: 1, limit: 20, type: 'person' } as any;
+            const query = { page: 1, limit: 20 } as any;
             const expected = { items: [{ id: '1' }], total: 1, page: 1, limit: 20 };
             service.findAll.mockResolvedValue(expected);
 
             const result = await controller.findAll(query);
 
-            expect(service.findAll).toHaveBeenCalledWith(query, 'person');
+            expect(service.findAll).toHaveBeenCalledWith(query);
             expect(result).toEqual(expected);
         });
     });
@@ -60,12 +59,10 @@ describe('BlacklistController', () => {
     describe('create', () => {
         it('should create a blacklist entry', async () => {
             const dto = {
-                blacklistType: 'person',
                 firstName: 'John',
                 lastName: 'Doe',
                 idNumber: '123456789',
                 reason: 'Security',
-                isPermanent: true,
             } as any;
             const created = { id: 'new-id', ...dto };
             service.create.mockResolvedValue(created);
@@ -108,17 +105,6 @@ describe('BlacklistController', () => {
 
             expect(service.checkBlacklistStatus).toHaveBeenCalledWith('123456789');
             expect(result.isBlacklisted).toBe(true);
-        });
-    });
-
-    describe('checkVehicleBlacklist', () => {
-        it('should check vehicle blacklist status', async () => {
-            service.checkVehicleBlacklistStatus.mockResolvedValue({ isBlacklisted: false });
-
-            const result = await controller.checkVehicleBlacklist('12-345-67');
-
-            expect(service.checkVehicleBlacklistStatus).toHaveBeenCalledWith('12-345-67');
-            expect(result.isBlacklisted).toBe(false);
         });
     });
 

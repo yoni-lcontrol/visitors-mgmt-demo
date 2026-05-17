@@ -254,7 +254,7 @@ public class AmadeusApiClient : IAmadeusApiClient
             // PATCH existing personal details record
             var relativePath = AmadeusApiDefinitions.OData.CardholderPersonalDetailsByUid(existing.Uid);
             var url = AmadeusApiDefinitions.ODataUrl(_options, relativePath, nameof(AmadeusApiDefinitions.OData.CardholderPersonalDetails));
-            var patchPayload = new { carLicensePlate = licensePlate };
+            var patchPayload = new { carRegistrationNum = licensePlate };
             var json = JsonSerializer.Serialize(patchPayload);
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
             using var request = new HttpRequestMessage(HttpMethod.Patch, url) { Content = content };
@@ -275,7 +275,7 @@ public class AmadeusApiClient : IAmadeusApiClient
         {
             // POST new personal details record
             var url = AmadeusApiDefinitions.ODataUrl(_options, AmadeusApiDefinitions.OData.CardholderPersonalDetails, nameof(AmadeusApiDefinitions.OData.CardholderPersonalDetails));
-            var postPayload = new { cardholderUID = cardholderUid, carLicensePlate = licensePlate };
+            var postPayload = new { cardholderUID = cardholderUid, carRegistrationNum = licensePlate };
             var json = JsonSerializer.Serialize(postPayload);
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
             using var response = await client.PostAsync(url, content, cancellationToken);

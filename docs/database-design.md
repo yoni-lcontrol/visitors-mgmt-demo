@@ -154,7 +154,6 @@ Every table includes these audit columns:
 | DeviceCommandLogs | IX_DeviceCommandLogs_Status_CreatedAt | status, createdAt | Composite |
 | Blacklist | IX_Blacklist_BlacklistType | blacklistType | Non-unique |
 | Blacklist | IX_Blacklist_IdNumber | idNumber | Non-unique |
-| Blacklist | IX_Blacklist_CarNumber | carNumber | Non-unique |
 | BlacklistNotifyUsers | PK_BlacklistNotifyUsers | blacklistId, userId | Composite PK |
 | Sites | IX_Sites_Code | code | Unique |
 | UserSites | PK_UserSites | userId, siteId | Composite PK |

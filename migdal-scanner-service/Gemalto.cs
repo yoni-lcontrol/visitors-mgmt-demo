@@ -38,6 +38,9 @@ namespace ScannerService
         /// <summary>Callback invoked when a document is scanned (auto-detect from tray).</summary>
         public event Action<ScanResult> OnScanCompleted;
 
+        /// <summary>Callback invoked when scanning begins.</summary>
+        public event Action OnScanStarted;
+
         /// <summary>Callback invoked when scanner connection state changes.</summary>
         public event Action<ScannerState, ScannerState> OnStateChanged;
 
@@ -333,6 +336,7 @@ namespace ScannerService
         private void ScanAndProcess()
         {
             scanning = true;
+            OnScanStarted?.Invoke();
             Log.Information("Scanning document, please wait...\n");
             try
             {
@@ -390,6 +394,7 @@ namespace ScannerService
             try
             {
                 scanning = true;
+                OnScanStarted?.Invoke();
                 Log.Information("Executing scan command from backend...");
                 ScanDocument();
                 scanning = false;

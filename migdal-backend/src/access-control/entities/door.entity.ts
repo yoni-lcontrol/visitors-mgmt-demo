@@ -25,6 +25,9 @@ export class Door extends BaseEntity {
     @Column({ type: 'uniqueidentifier', nullable: true })
     stationId!: string | null;
 
+    @Column({ type: 'bit', default: false })
+    forEscort!: boolean;
+
     @ManyToOne(() => AcController, (controller) => controller.doors, {
         onDelete: 'CASCADE',
     })

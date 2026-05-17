@@ -1,0 +1,103 @@
+{
+    "HOME": {
+        "WELCOME": "היי, ברוך בואך למגדל",
+        "VISITORS_ENTRY": "נכניס אותך בשמחה לאחר תהליך צ'ק אין קצר",
+        "CHECK_IN": "צ׳ק אין"
+    },
+    "CHECKIN": {
+        "STARTED": "התחלנו!",
+        "PROCESS": "תהליך צ׳ק אין",
+        "SMS_RECEIVED": "SMS קיבלתם",
+        "SMS_INSTRUCTION": "עם קוד בן 6 ספרות, נא הזינו אותו כאן",
+        "VERIFICATION_CODE": "קוד אימות",
+        "NUMERIC_KEYPAD": "מקלדת מספרים",
+        "DELETE_DIGIT": "מחק ספרה"
+    },
+    "COMMON": {
+        "CLEAR": "נקה",
+        "HOME_SCREEN": "יציאה",
+        "CONFIRM_CONTINUE": "קדימה",
+        "LOADING": "טוען",
+        "PREVIOUS": "הקודם",
+        "CANCEL": "ביטול",
+        "TRY_AGAIN": "שננסה שוב?",
+        "PROCESS_STEPS": "שלבי התהליך"
+    },
+    "SCAN": {
+        "SCAN_TITLE": "סריקת תעודת זהות",
+        "VERIFY_DETAILS": "אימות פרטים...",
+        "WAITING_FOR_SCAN": "עם מי יש לנו הכבוד?",
+        "SCAN_INSTRUCTION": "מניחים את תעודת הזהות על המגש למטה",
+        "ERROR_TITLE": "משהו לא עובד :(",
+        "ERROR_SUBTITLE": "אנחנו לא מצליחים לזהות אותך",
+        "ERROR_HINT": "כנראה שיש כאן תקלה קלה. אפשר להוציא את התעודה ולנסות שוב",
+        "ERROR_RETRY": "שננסה שוב?"
+    },
+    "DETAILS": {
+        "VERIFY_DETAILS": "אימות פרטים מהיר",
+        "SUBTITLE": "זה המקום לבדוק שהפרטים שלך נכונים. אם אין תמונה, זה הרגע לצלם אותה",
+        "VISITOR_PHOTO": "תמונת מבקר",
+        "NO_PHOTO": "אין תמונה",
+        "PERSONAL_DETAILS": "פרטים אישיים",
+        "FIRST_NAME": "שם פרטי",
+        "LAST_NAME": "שם משפחה",
+        "ID_NUMBER": "מס׳ תעודת זהות",
+        "MOBILE_PHONE": "טלפון נייד",
+        "EMAIL": "כתובת מייל",
+        "SITE_CLASSIFICATION": "סיווג באתר",
+        "POPULATION": "אוכלוסיה",
+        "FUNDING_SOURCE": "גורם מממן",
+        "VISITOR": "מבקר",
+        "DRIVER": "נהג",
+        "UNKNOWN": "לא ידוע"
+    },
+    "SIGNATURE": {
+        "ALMOST_DONE": "כמעט סיימנו...",
+        "READ_AND_SIGN": "נבקש לקרוא ולאשר את תנאי הביקור אצלינו (בכל זאת, אנחנו חברת ביטוח :)",
+        "SIGN_WITH_FINGER": "נא לחתום עם האצבע / עט מגע",
+        "SIGN_AREA": "אזור חתימה",
+        "SIGN_HERE": "חתום כאן",
+        "CLEAR_SIGNATURE": "נקה חתימה",
+        "CLEAR_NOTE": "ניתן לנקות ולחתום מחדש בכל שלב"
+    },
+    "COMPLETE": {
+        "CHECKIN_COMPLETED": "זהו זה, אפשר להיכנס למגדל שלנו",
+        "HAVE_A_NICE_VISIT": "",
+        "SUCCESS_MESSAGE": "הכל מסודר אז שיהיה לך ביקור מועיל ויום נעים",
+        "HOST_NOTIFIED": "הודענו למי שמחכה לך על בואך",
+        "WAIT_IN_LOBBY": "נבקש להמתין בלובי עד שיבואו לאסוף אותך",
+        "NEED_HELP": "שאלות? צוות הקבלה זמין עבורך",
+        "FINISH_PROCESS": "סיום"
+    },
+    "ERROR": {
+        "TITLE": "אופס, משהו לא הסתדר",
+        "MESSAGE": "נתקלנו בתקלה קטנה בדרך",
+        "HINT": "לא לדאוג — אפשר לנסות שוב או לפנות לצוות הקבלה",
+        "RECEPTION_HELP": "צוות הקבלה כאן בשבילך",
+        "NO_ID_DETECTED_IN_SCAN": "לא זוהה מספר תעודת זהות במסמך שנסרק.",
+        "DOCUMENT_SCAN_ERROR": "אירעה שגיאה בסריקת המסמך. נא לנסות שוב.",
+        "SCANNED_ID_NOT_MATCH": "מספר תעודת הזהות שנסרק אינו תואם למספר המצופה.",
+        "SCANNER_CONNECTION_ERROR": "שגיאת התחברות לסורק",
+        "MISSING_VISITOR_ID": "מזהה מבקר חסר.",
+        "GENERAL_TRY_AGAIN": "אירעה שגיאה. נא לנסות שוב מאוחר יותר.",
+        "NO_CARD_TEMPLATES": "לא נמצאו תבניות כרטיס.",
+        "CHECKIN_PRINT_FAILED": "פעולת הצ'ק-אין או הדפסת הכרטיס נכשלה."
+    },
+    "INVITATION": {
+        "NOT_FOUND_TITLE": "לא נמצא זימון",
+        "NOT_FOUND_MESSAGE": "לא הצלחנו למצוא זימון פעיל לפי הפרטים שהוזנו.",
+        "SUGGESTIONS": "הצעות לפתרון",
+        "CHECK_CODE": "ודא/י שקוד הזימון הוקלד כראוי",
+        "MAYBE_NOT_CREATED": "ייתכן שהזימון עדיין לא הוקם או שהוא בתאריך אחר",
+        "TRY_AGAIN_OR_CANCEL": "נסה/י שוב או לחצו על ביטול כדי לחזור למסך הבית",
+        "CONTACT_DETAILS": "פרטי קשר",
+        "CONTACT_RECEPTION": "צרו קשר עם הקבלה לפרטים נוספים",
+        "RECEPTION_HELP": "במידת הצורך, הקבלה תוכל לבדוק את הזימון ולעזור לכם להמשיך."
+    },
+    "TOASTER": {
+        "TITLE_ERROR": "שגיאה",
+        "TITLE_SUCCESS": "הצלחה",
+        "TITLE_INFO": "מידע",
+        "TITLE_WARNING": "אזהרה"
+    }
+}

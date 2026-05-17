@@ -7,6 +7,7 @@ export interface BlacklistCheckResult {
     isBlacklisted: boolean;
     blacklistId?: string;
     reason?: string;
+    blockedUntil?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -18,12 +19,5 @@ export class BlacklistCheckService {
             return of({ isBlacklisted: false });
         }
         return this.api.get<BlacklistCheckResult>(`/visitors/blacklist/check/${encodeURIComponent(idNumber.trim())}`);
-    }
-
-    checkVehicle(carNumber: string): Observable<BlacklistCheckResult> {
-        if (!carNumber || !carNumber.trim()) {
-            return of({ isBlacklisted: false });
-        }
-        return this.api.get<BlacklistCheckResult>(`/visitors/blacklist/check-vehicle/${encodeURIComponent(carNumber.trim())}`);
     }
 }

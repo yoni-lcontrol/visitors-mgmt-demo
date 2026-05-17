@@ -1,0 +1,103 @@
+{
+    "HOME": {
+        "WELCOME": "Hi, Welcome to Migdal",
+        "VISITORS_ENTRY": "We'll gladly let you in after a quick check-in process",
+        "CHECK_IN": "Check In"
+    },
+    "CHECKIN": {
+        "STARTED": "Let's Begin!",
+        "PROCESS": "Check-In Process",
+        "SMS_RECEIVED": "SMS Received",
+        "SMS_INSTRUCTION": "Enter the 6-digit verification code here",
+        "VERIFICATION_CODE": "Verification Code",
+        "NUMERIC_KEYPAD": "Numeric Keypad",
+        "DELETE_DIGIT": "Delete Digit",
+        "PROCESS_STEPS": "Process steps"
+    },
+    "COMMON": {
+        "CLEAR": "Clear",
+        "HOME_SCREEN": "Exit",
+        "CONFIRM_CONTINUE": "Let's Go",
+        "LOADING": "Loading",
+        "PREVIOUS": "Previous",
+        "CANCEL": "Cancel",
+        "TRY_AGAIN": "Let's try again"
+    },
+    "SCAN": {
+        "SCAN_TITLE": "ID Card Scan",
+        "VERIFY_DETAILS": "Verifying Details...",
+        "WAITING_FOR_SCAN": "Who do we have the pleasure of meeting?",
+        "SCAN_INSTRUCTION": "Place your ID card on the tray below",
+        "ERROR_TITLE": "Something isn't working :(",
+        "ERROR_SUBTITLE": "We couldn't identify you",
+        "ERROR_HINT": "Looks like a small issue. Try removing the card and scanning again",
+        "ERROR_RETRY": "Shall we try again?"
+    },
+    "DETAILS": {
+        "VERIFY_DETAILS": "Quick Verification",
+        "SUBTITLE": "This is where you verify your details are correct. If there's no photo, now's the time to take one",
+        "VISITOR_PHOTO": "Visitor Photo",
+        "NO_PHOTO": "No Photo Available",
+        "PERSONAL_DETAILS": "Personal Details",
+        "FIRST_NAME": "First Name",
+        "LAST_NAME": "Last Name",
+        "ID_NUMBER": "ID Number",
+        "MOBILE_PHONE": "Mobile Phone",
+        "EMAIL": "Email Address",
+        "SITE_CLASSIFICATION": "Site Classification",
+        "POPULATION": "Population",
+        "FUNDING_SOURCE": "Funding Source",
+        "VISITOR": "Visitor",
+        "DRIVER": "Driver",
+        "UNKNOWN": "Unknown"
+    },
+    "SIGNATURE": {
+        "ALMOST_DONE": "Almost Done...",
+        "READ_AND_SIGN": "Please read and approve the visit terms (after all, we are an insurance company :)",
+        "SIGN_WITH_FINGER": "Please sign using your finger or stylus",
+        "SIGN_AREA": "Signature Area",
+        "SIGN_HERE": "Sign Here",
+        "CLEAR_SIGNATURE": "Clear",
+        "CLEAR_NOTE": "You can clear and sign again"
+    },
+    "COMPLETE": {
+        "CHECKIN_COMPLETED": "That's it, welcome to our Migdal",
+        "HAVE_A_NICE_VISIT": "",
+        "SUCCESS_MESSAGE": "Everything is set, have a productive visit and a great day",
+        "HOST_NOTIFIED": "We've notified the person waiting for you",
+        "WAIT_IN_LOBBY": "Please wait in the lobby until someone comes to get you",
+        "NEED_HELP": "Questions? The reception team is here for you",
+        "FINISH_PROCESS": "Finish"
+    },
+    "ERROR": {
+        "TITLE": "Oops, something didn't work",
+        "MESSAGE": "We hit a small bump along the way",
+        "HINT": "No worries — you can try again or ask the reception team for help",
+        "RECEPTION_HELP": "The reception team is here for you",
+        "SCANNER_CONNECTION_ERROR": "Scanner connection error",
+        "NO_ID_DETECTED_IN_SCAN": "No ID number was detected in the scanned document.",
+        "DOCUMENT_SCAN_ERROR": "An error occurred while scanning the document. Please try again.",
+        "SCANNED_ID_NOT_MATCH": "The scanned ID does not match the expected ID.",
+        "MISSING_VISITOR_ID": "Missing visitor ID.",
+        "GENERAL_TRY_AGAIN": "An error occurred. Please try again later.",
+        "NO_CARD_TEMPLATES": "No card templates were found.",
+        "CHECKIN_PRINT_FAILED": "Check-in or card printing failed."
+    },
+    "INVITATION": {
+        "NOT_FOUND_TITLE": "Invitation Not Found",
+        "NOT_FOUND_MESSAGE": "We could not find an active invitation based on the entered details.",
+        "SUGGESTIONS": "Suggestions",
+        "CHECK_CODE": "Please verify the invitation code was entered correctly",
+        "MAYBE_NOT_CREATED": "The invitation may not yet exist or may be scheduled for another date",
+        "TRY_AGAIN_OR_CANCEL": "Try again or press Cancel to return to the home screen",
+        "CONTACT_DETAILS": "Contact Information",
+        "CONTACT_RECEPTION": "Please contact reception for assistance",
+        "RECEPTION_HELP": "Reception staff can verify the invitation and help you continue."
+    },
+    "TOASTER": {
+        "TITLE_ERROR": "Error",
+        "TITLE_SUCCESS": "Success",
+        "TITLE_INFO": "Information",
+        "TITLE_WARNING": "Warning"
+    }
+}

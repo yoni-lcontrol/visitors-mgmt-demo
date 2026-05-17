@@ -298,4 +298,26 @@ export class VisitsApiService {
     reviewParkingRequest(id: string, body: { status: string; reviewNote?: string }): Observable<unknown> {
         return this.api.patch(`/parking-requests/${id}/review`, body);
     }
+
+    // ── Blacklist Override Requests ──
+
+    getBlacklistOverrideRequests(query: Record<string, unknown>): Observable<PaginatedResult<unknown>> {
+        const params: Record<string, string> = {};
+        if (query['page']) params['page'] = String(query['page']);
+        if (query['limit']) params['limit'] = String(query['limit']);
+        if (query['status']) params['status'] = String(query['status']);
+        if (query['search']) params['search'] = String(query['search']);
+        if (query['sortBy']) params['sortBy'] = String(query['sortBy']);
+        if (query['sortOrder']) params['sortOrder'] = String(query['sortOrder']);
+        if (query['filters']) params['filters'] = String(query['filters']);
+        return this.api.get<PaginatedResult<unknown>>('/blacklist-override-requests', params);
+    }
+
+    getPendingBlacklistOverrideCount(): Observable<number> {
+        return this.api.get<number>('/blacklist-override-requests/pending-count');
+    }
+
+    reviewBlacklistOverride(id: string, body: { status: string; reviewNote?: string }): Observable<unknown> {
+        return this.api.patch(`/blacklist-override-requests/${id}/review`, body);
+    }
 }

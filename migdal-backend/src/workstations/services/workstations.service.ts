@@ -136,6 +136,10 @@ export class WorkstationsService {
         return ws;
     }
 
+    async findByCode(code: string): Promise<Workstation | null> {
+        return this.workstationRepo.findOne({ where: { code, isActive: true } });
+    }
+
     async findByIdWithDetails(id: string): Promise<{
         workstation: Workstation;
         assignedUserIds: string[];

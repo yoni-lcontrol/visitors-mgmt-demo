@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { VisitStatusService } from './visit-status.service';
 import { Visit } from './entities/visit.entity';
@@ -75,8 +75,13 @@ describe('VisitStatusService', () => {
     // ── Access Logs ──
 
     describe('createAccessLog', () => {
+        let mockOverrideRepo: ReturnType<typeof createMockRepository>;
+
         beforeEach(() => {
             mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true });
+            mockOverrideRepo = createMockRepository();
+            mockOverrideRepo.findOne.mockResolvedValue(null);
+            mockDs.getRepository.mockReturnValue(mockOverrideRepo);
         });
 
         it('should create access log and update status for Arrived event', async () => {
@@ -151,6 +156,29 @@ describe('VisitStatusService', () => {
                 visitVisitorId: 'bad',
                 eventType: VisitorAccessEventType.Arrived,
             } as any)).rejects.toThrow(NotFoundException);
+        });
+
+        it('should throw ForbiddenException when visitor has pending blacklist override', async () => {
+            mockOverrideRepo.findOne.mockResolvedValue({ id: 'override-1', visitVisitorId: 'vv1', status: 'pending' });
+
+            await expect(service.createAccessLog({
+                visitVisitorId: 'vv1',
+                eventType: VisitorAccessEventType.Arrived,
+            } as any)).rejects.toThrow(ForbiddenException);
+
+            expect(mockDs._queryRunner.startTransaction).not.toHaveBeenCalled();
+        });
+
+        it('should allow Check-Out even when visitor has pending blacklist override', async () => {
+            // Override repo should NOT be queried for CheckedOut events
+            mockOverrideRepo.findOne.mockResolvedValue({ id: 'override-1', visitVisitorId: 'vv1', status: 'pending' });
+
+            await service.createAccessLog({
+                visitVisitorId: 'vv1',
+                eventType: VisitorAccessEventType.CheckedOut,
+            } as any);
+
+            expect(mockDs._queryRunner.commitTransaction).toHaveBeenCalled();
         });
 
         it('should rollback on error', async () => {

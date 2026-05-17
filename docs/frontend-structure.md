@@ -250,7 +250,7 @@ When **editing**, the existing visit times are used as-is.
 
 The parent `VisitDetailComponent` retains:
 - Visit info card and summary bar
-- Add/edit visitor dialogs (with person blacklist check, vehicle blacklist check, parking request, and person search)
+- Add/edit visitor dialogs (with person blacklist check, parking request, and person search)
 - Add/edit escort dialogs (with AD autocomplete)
 - All API call orchestration and state management
 

@@ -1,0 +1,26 @@
+/* Top bar */
+.topbar {
+    height: 45px;
+    /* design-based fixed value */
+    padding: clamp(10px, 1.6vh, 18px) clamp(14px, 2vw, 26px);
+    background: var(--kiosk-topbar-bg, #2B2870);
+    box-shadow: 0 2px 10px rgba(27, 20, 100, 0.18);
+
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.lcontrol-logo {
+    height: clamp(26px, 3vh, 40px);
+}
+
+.brand-logos {
+    height: clamp(40px, 4.5vh, 70px);
+}

@@ -28,6 +28,6 @@ public class AmadeusCardholderPersonalDetails
     [JsonPropertyName("postCode")]
     public string? PostCode { get; set; }
 
-    [JsonPropertyName("carLicensePlate")]
+    [JsonPropertyName("carRegistrationNum")]
     public string? CarLicensePlate { get; set; }
 }

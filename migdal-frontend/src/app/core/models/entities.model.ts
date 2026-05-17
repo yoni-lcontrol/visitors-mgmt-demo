@@ -57,6 +57,7 @@ export interface Door {
     externalId: string | null;
     isActive: boolean;
     stationId?: string;
+    forEscort: boolean;
     doorIos: DoorIo[];
 }
 
@@ -131,18 +132,13 @@ export interface AccessLevel {
 
 export interface BlacklistEntry {
     id: string;
-    blacklistType: 'person' | 'vehicle';
     firstName: string | null;
     lastName: string | null;
     idNumber: string | null;
     phoneNumber: string | null;
-    carNumber: string | null;
-    vehicleType: string;
     reason: string;
-    isPermanent: boolean;
-    startDate: string | null;
-    endDate: string | null;
     blockedAt: string;
+    blockedUntil: string | null;
     notes: string | null;
     notifyUsers: User[];
     createdBy: string | null;
@@ -223,7 +219,6 @@ export interface Visit {
     floor: number | null;
     title: string;
     purposeOfVisit: string | null;
-    nucleus: string | null;
     plannedStartTimeUtc: string;
     plannedEndTimeUtc: string | null;
     createdByUserId: string | null;
@@ -235,6 +230,8 @@ export interface Visit {
         email: string;
     } | null;
     statusSummary?: VisitStatusSummary;
+    visitVisitors?: VisitVisitor[];
+    visitEscorts?: VisitEscort[];
     createdAt: string;
     updatedAt: string;
 }
@@ -264,6 +261,7 @@ export interface VisitVisitor {
         vehicleType: string | null;
     } | null;
     parkingRequest: { status: string } | null;
+    blacklistOverride: { status: string; reason: string | null } | null;
     status: {
         currentStatus: number;
         arrivedAtUtc: string | null;

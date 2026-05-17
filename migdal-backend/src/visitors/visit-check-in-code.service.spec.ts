@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { VisitCheckInCodeService } from './visit-check-in-code.service';
 import { VisitVisitorCheckInCode } from './entities/visit-visitor-check-in-code.entity';
@@ -13,6 +13,9 @@ import { UsersGateway } from '../websocket/gateways/users.gateway';
 import { SmsNotificationService } from '../settings/sms-notification.service';
 import { EmailNotificationService } from '../settings/email-notification.service';
 import { AuditService } from '../audit/audit.service';
+import { AmadeusUsersService } from '../amadeus/services/amadeus-users.service';
+import { PrintingService } from '../printing/services/printing.service';
+import { Building } from '../buildings/entities/building.entity';
 import {
     createMockRepository,
     createMockQueryBuilder,
@@ -28,11 +31,14 @@ describe('VisitCheckInCodeService', () => {
     let mockStatusRepo: ReturnType<typeof createMockRepository>;
     let mockVisitRepo: ReturnType<typeof createMockRepository>;
     let mockVisitorRepo: ReturnType<typeof createMockRepository>;
+    let mockBuildingRepo: ReturnType<typeof createMockRepository>;
     let mockDs: ReturnType<typeof createMockDataSource>;
     let mockWs: ReturnType<typeof createMockWsGateway>;
     let mockAudit: ReturnType<typeof createMockAuditService>;
     let mockSms: { triggerSms: jest.Mock };
     let mockEmail: { triggerEmail: jest.Mock };
+    let mockAmadeusUsers: { addUserToAmadeus: jest.Mock; deleteUserFromAmadeus: jest.Mock };
+    let mockPrinting: { requestKioskPrintCard: jest.Mock };
 
     const mockVisit: Partial<Visit> = {
         id: 'visit-1',
@@ -85,11 +91,19 @@ describe('VisitCheckInCodeService', () => {
         mockStatusRepo = createMockRepository();
         mockVisitRepo = createMockRepository();
         mockVisitorRepo = createMockRepository();
+        mockBuildingRepo = createMockRepository();
         mockDs = createMockDataSource();
         mockWs = createMockWsGateway();
         mockAudit = createMockAuditService();
         mockSms = { triggerSms: jest.fn().mockResolvedValue(undefined) };
         mockEmail = { triggerEmail: jest.fn().mockResolvedValue(undefined) };
+        mockAmadeusUsers = {
+            addUserToAmadeus: jest.fn().mockResolvedValue({ success: true, cardholderId: 'ch-1' }),
+            deleteUserFromAmadeus: jest.fn().mockResolvedValue({ success: true }),
+        };
+        mockPrinting = {
+            requestKioskPrintCard: jest.fn().mockResolvedValue({ ok: true, correlationId: 'corr-1', status: 'queued' }),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -99,11 +113,14 @@ describe('VisitCheckInCodeService', () => {
                 { provide: getRepositoryToken(VisitVisitorStatus), useValue: mockStatusRepo },
                 { provide: getRepositoryToken(Visit), useValue: mockVisitRepo },
                 { provide: getRepositoryToken(Visitor), useValue: mockVisitorRepo },
+                { provide: getRepositoryToken(Building), useValue: mockBuildingRepo },
                 { provide: DataSource, useValue: mockDs },
                 { provide: UsersGateway, useValue: mockWs },
                 { provide: SmsNotificationService, useValue: mockSms },
                 { provide: EmailNotificationService, useValue: mockEmail },
                 { provide: AuditService, useValue: mockAudit },
+                { provide: AmadeusUsersService, useValue: mockAmadeusUsers },
+                { provide: PrintingService, useValue: mockPrinting },
             ],
         }).compile();
 
@@ -229,9 +246,9 @@ describe('VisitCheckInCodeService', () => {
         });
     });
 
-    // ── Kiosk Check-In ──
+    // ── Kiosk Arrive ──
 
-    describe('consumeCodeAndCheckIn', () => {
+    describe('consumeCodeAndArrive', () => {
         it('should mark code as used and update visitor status', async () => {
             const mockStatus = {
                 visitVisitorId: 'vv-1',
@@ -241,11 +258,13 @@ describe('VisitCheckInCodeService', () => {
             };
             const qrManagerQb = createMockQueryBuilder([{ ...mockCodeRecord }]);
             mockDs._qrManager.createQueryBuilder = jest.fn().mockReturnValue(qrManagerQb);
-            mockDs._qrManager.findOne.mockResolvedValue(mockStatus);
+            mockDs._qrManager.findOne
+                .mockResolvedValueOnce(null)       // BlacklistOverrideRequest — no pending override
+                .mockResolvedValueOnce(mockStatus); // VisitVisitorStatus
             mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
             mockVisitRepo.findOne.mockResolvedValue(mockVisit);
 
-            const result = await service.consumeCodeAndCheckIn('012345');
+            const result = await service.consumeCodeAndArrive('012345');
 
             expect(result.visitorName).toBe('Jane Doe');
             expect(result.visitTitle).toBe('Meeting');
@@ -256,14 +275,14 @@ describe('VisitCheckInCodeService', () => {
             );
             // Verify status was updated
             expect(mockDs._qrManager.save).toHaveBeenCalledWith(
-                expect.objectContaining({ currentStatus: VisitorStatus.CheckedIn }),
+                expect.objectContaining({ currentStatus: VisitorStatus.Arrived }),
             );
             expect(mockWs.broadcastToAll).toHaveBeenCalledWith(
-                'visits:visitor:self-checked-in',
+                'visits:visitor:arrived',
                 expect.objectContaining({ visitVisitorId: 'vv-1' }),
             );
             expect(mockAudit.log).toHaveBeenCalledWith(
-                expect.objectContaining({ action: 'KIOSK_CHECK_IN' }),
+                expect.objectContaining({ action: 'KIOSK_ARRIVED' }),
             );
         });
 
@@ -272,16 +291,26 @@ describe('VisitCheckInCodeService', () => {
             qrManagerQb.getOne.mockResolvedValue(null);
             mockDs._qrManager.createQueryBuilder = jest.fn().mockReturnValue(qrManagerQb);
 
-            await expect(service.consumeCodeAndCheckIn('999999')).rejects.toThrow(BadRequestException);
+            await expect(service.consumeCodeAndArrive('999999')).rejects.toThrow(BadRequestException);
             expect(mockDs._queryRunner.rollbackTransaction).toHaveBeenCalled();
         });
 
         it('should rollback transaction on error', async () => {
             const qrManagerQb = createMockQueryBuilder([{ ...mockCodeRecord }]);
             mockDs._qrManager.createQueryBuilder = jest.fn().mockReturnValue(qrManagerQb);
+            mockDs._qrManager.findOne.mockResolvedValueOnce(null); // no pending override
             mockDs._qrManager.save.mockRejectedValueOnce(new Error('DB error'));
 
-            await expect(service.consumeCodeAndCheckIn('012345')).rejects.toThrow('DB error');
+            await expect(service.consumeCodeAndArrive('012345')).rejects.toThrow('DB error');
+            expect(mockDs._queryRunner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should throw ForbiddenException when visitor has pending blacklist override', async () => {
+            const qrManagerQb = createMockQueryBuilder([{ ...mockCodeRecord }]);
+            mockDs._qrManager.createQueryBuilder = jest.fn().mockReturnValue(qrManagerQb);
+            mockDs._qrManager.findOne.mockResolvedValueOnce({ id: 'override-1', visitVisitorId: 'vv-1', status: 'pending' });
+
+            await expect(service.consumeCodeAndCheckIn('012345')).rejects.toThrow(ForbiddenException);
             expect(mockDs._queryRunner.rollbackTransaction).toHaveBeenCalled();
         });
     });

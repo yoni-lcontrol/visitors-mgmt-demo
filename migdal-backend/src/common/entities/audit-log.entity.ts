@@ -49,6 +49,9 @@ export class AuditLog {
     @Column({ type: 'nvarchar', length: 'MAX', nullable: true })
     metadata!: string | null;
 
+    @Column({ type: 'datetime2', nullable: true })
+    syslogSentAt!: Date | null;
+
     @CreateDateColumn({ type: 'datetime2' })
     createdAt!: Date;
 

@@ -3,11 +3,14 @@ import {
     NotFoundException,
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, LessThan, MoreThan, And } from 'typeorm';
 import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 import { VisitVisitorCheckInCode } from './entities/visit-visitor-check-in-code.entity';
 import { VisitVisitor } from './entities/visit-visitor.entity';
 import { VisitVisitorStatus } from './entities/visit-visitor-status.entity';
@@ -19,6 +22,11 @@ import { SmsNotificationService } from '../settings/sms-notification.service';
 import { EmailNotificationService } from '../settings/email-notification.service';
 import { NotificationEvent } from '../settings/enums/notification-event.enum';
 import { AuditService } from '../audit/audit.service';
+import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
+import { BlacklistOverrideStatus } from './enums/blacklist-override-status.enum';
+import { AmadeusUsersService } from '../amadeus/services/amadeus-users.service';
+import { PrintingService } from '../printing/services/printing.service';
+import { Building } from '../buildings/entities/building.entity';
 
 const MAX_CODE_GENERATION_ATTEMPTS = 20;
 const EARLY_ARRIVAL_BUFFER_MINUTES = 60;
@@ -38,11 +46,15 @@ export class VisitCheckInCodeService {
         private readonly visitRepo: Repository<Visit>,
         @InjectRepository(Visitor)
         private readonly visitorRepo: Repository<Visitor>,
+        @InjectRepository(Building)
+        private readonly buildingRepo: Repository<Building>,
         private readonly dataSource: DataSource,
         private readonly wsGateway: UsersGateway,
         private readonly smsNotification: SmsNotificationService,
         private readonly emailNotification: EmailNotificationService,
         private readonly auditService: AuditService,
+        private readonly amadeusUsersService: AmadeusUsersService,
+        private readonly printingService: PrintingService,
     ) { }
 
     // ── Code Generation ──
@@ -257,7 +269,7 @@ export class VisitCheckInCodeService {
         return { sms: smsSent, email: emailSent };
     }
 
-    // ── Kiosk validation & check-in ──
+    // ── Kiosk validation & arrive ──
 
     async validateCode(code: string): Promise<{
         valid: boolean;
@@ -290,7 +302,153 @@ export class VisitCheckInCodeService {
         };
     }
 
-    async consumeCodeAndCheckIn(code: string): Promise<{
+    async findVisitByPersonId(personId: string) {
+        const trimmed = personId.trim();
+        if (!trimmed) return { ok: false };
+
+        const visitor = await this.visitorRepo.findOne({
+            where: { personId: trimmed, isActive: true },
+        });
+        if (!visitor) return { ok: false };
+
+        const now = new Date();
+        const startOfDay = new Date(now);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const visitVisitor = await this.visitVisitorRepo
+            .createQueryBuilder('vv')
+            .innerJoinAndSelect('vv.visit', 'visit')
+            .leftJoinAndSelect('vv.status', 'status')
+            .where('vv.visitorId = :visitorId', { visitorId: visitor.id })
+            .andWhere('vv.isActive = :active', { active: true })
+            .andWhere('visit.isActive = :active', { active: true })
+            .andWhere('visit.plannedStartTimeUtc <= :endOfDay', { endOfDay })
+            .andWhere('(visit.plannedEndTimeUtc >= :startOfDay OR visit.plannedEndTimeUtc IS NULL)', { startOfDay })
+            .orderBy('visit.plannedStartTimeUtc', 'DESC')
+            .getOne();
+
+        if (!visitVisitor) return { ok: false };
+
+        const visit = visitVisitor.visit;
+
+        return {
+            ok: true,
+            visit: {
+                visitId: visit.id,
+                visitName: visit.title,
+                fromDate: visit.plannedStartTimeUtc?.toISOString() ?? null,
+                toDate: visit.plannedEndTimeUtc?.toISOString() ?? null,
+                siteId: visit.siteId,
+                departmentId: visit.sectorId,
+                visitorType: null,
+                driverType: null,
+                comment: visit.purposeOfVisit,
+                isExternal: false,
+            },
+            visitor: {
+                visitorId: visitor.id,
+                visitId: visit.id,
+                firstName: visitor.firstName,
+                lastName: visitor.lastName,
+                personId: visitor.personId,
+                carNumber: visitor.carNumber,
+                accessLevelId: null,
+                visitCode: null,
+                phone: visitor.phone,
+                email: visitor.email,
+                image: null,
+                checkInTime: visitVisitor.status?.checkedInAtUtc?.toISOString() ?? null,
+                checkOutTime: visitVisitor.status?.checkedOutAtUtc?.toISOString() ?? null,
+                rejectDate: null,
+                approveDate: null,
+                visitorStatus: visitVisitor.status?.currentStatus ?? 0,
+            },
+        };
+    }
+
+    async arriveByPersonId(visitId: string, visitorId: string, personId: string, file?: Express.Multer.File, workstationCode?: string) {
+        const visitor = await this.visitorRepo.findOne({
+            where: { id: visitorId, personId: personId.trim(), isActive: true },
+        });
+        if (!visitor) throw new BadRequestException('Visitor not found');
+
+        const visitVisitor = await this.visitVisitorRepo.findOne({
+            where: { visitId, visitorId, isActive: true },
+            relations: ['visit'],
+        });
+        if (!visitVisitor) throw new BadRequestException('Visitor is not part of this visit');
+
+        // Save consent PDF if provided
+        if (file) {
+            const uploadDir = path.join(process.cwd(), 'uploads', 'consent-pdfs');
+            fs.mkdirSync(uploadDir, { recursive: true });
+            const filename = `${visitVisitor.id}_${Date.now()}.pdf`;
+            fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+        }
+
+        const now = new Date();
+
+        // Update or create status
+        let status = await this.statusRepo.findOne({
+            where: { visitVisitorId: visitVisitor.id },
+        });
+        if (status) {
+            status.currentStatus = VisitorStatus.Arrived;
+            status.arrivedAtUtc = status.arrivedAtUtc ?? now;
+            status.lastEventTimeUtc = now;
+            status.updatedAt = now;
+            await this.statusRepo.save(status);
+        } else {
+            status = this.statusRepo.create({
+                visitVisitorId: visitVisitor.id,
+                visitId,
+                visitorId,
+                currentStatus: VisitorStatus.Arrived,
+                arrivedAtUtc: now,
+                lastEventTimeUtc: now,
+            });
+            await this.statusRepo.save(status);
+        }
+
+        const visitorName = `${visitor.firstName} ${visitor.lastName}`;
+        const visitTitle = visitVisitor.visit?.title ?? 'Unknown';
+
+        // Download visitor to Amadeus
+        try {
+            await this.downloadVisitorToAmadeus(visitor, visitVisitor.visit);
+        } catch (err: any) {
+            this.logger.error(`Failed to download visitor to Amadeus: ${err.message}`, err.stack);
+            return { ok: false, visitVisitorId: visitVisitor.id, visitorName, visitTitle, error: 'amadeus_download_failed' };
+        }
+
+        this.wsGateway.broadcastToAll('visits:visitor:arrived', {
+            visitId,
+            visitVisitorId: visitVisitor.id,
+            visitorName,
+        });
+
+        // Print card (fire-and-forget, don't block success)
+        if (workstationCode) {
+            this.printingService.requestKioskPrintCard(workstationCode, visitId, visitorId).catch((err) => {
+                this.logger.error(`Failed to print visitor card: ${err.message}`, err.stack);
+            });
+        }
+
+        this.auditService.log({
+            module: 'visitors',
+            action: 'KIOSK_ARRIVED',
+            entity: 'VisitVisitor',
+            entityId: visitVisitor.id,
+            description: `Visitor "${visitorName}" arrived via kiosk scan for visit "${visitTitle}"`,
+            newValue: { visitId, personId },
+        }).catch(() => { });
+
+        return { ok: true, visitVisitorId: visitVisitor.id, visitorName, visitTitle };
+    }
+
+    async consumeCodeAndArrive(code: string): Promise<{
         visitVisitorId: string;
         visitorName: string;
         visitTitle: string;
@@ -317,6 +475,14 @@ export class VisitCheckInCodeService {
                 throw new BadRequestException('Invalid or expired check-in code');
             }
 
+            // Block check-in for visitors with pending blacklist override
+            const pendingOverride = await qr.manager.findOne(BlacklistOverrideRequest, {
+                where: { visitVisitorId: codeRecord.visitVisitorId, status: BlacklistOverrideStatus.Pending, isActive: true },
+            });
+            if (pendingOverride) {
+                throw new ForbiddenException('Cannot check in — visitor has a pending blacklist override approval');
+            }
+
             // Mark code as used
             codeRecord.usedAtUtc = now;
             codeRecord.updatedAt = now;
@@ -327,9 +493,8 @@ export class VisitCheckInCodeService {
                 where: { visitVisitorId: codeRecord.visitVisitorId },
             });
             if (status) {
-                status.currentStatus = VisitorStatus.CheckedIn;
+                status.currentStatus = VisitorStatus.Arrived;
                 status.arrivedAtUtc = now;
-                status.checkedInAtUtc = now;
                 status.lastEventTimeUtc = now;
                 status.updatedAt = now;
                 await qr.manager.save(status);
@@ -343,8 +508,17 @@ export class VisitCheckInCodeService {
             const visitorName = visitor ? `${visitor.firstName} ${visitor.lastName}` : 'Unknown';
             const visitTitle = visit?.title ?? 'Unknown';
 
-            // Broadcast check-in event
-            this.wsGateway.broadcastToAll('visits:visitor:self-checked-in', {
+            // Download visitor to Amadeus
+            if (visitor && visit) {
+                try {
+                    await this.downloadVisitorToAmadeus(visitor, visit);
+                } catch (err: any) {
+                    this.logger.error(`Failed to download visitor to Amadeus: ${err.message}`, err.stack);
+                }
+            }
+
+            // Broadcast arrived event
+            this.wsGateway.broadcastToAll('visits:visitor:arrived', {
                 visitId: codeRecord.visitId,
                 visitVisitorId: codeRecord.visitVisitorId,
                 visitorName,
@@ -352,10 +526,10 @@ export class VisitCheckInCodeService {
 
             this.auditService.log({
                 module: 'visitors',
-                action: 'KIOSK_CHECK_IN',
+                action: 'KIOSK_ARRIVED',
                 entity: 'VisitVisitor',
                 entityId: codeRecord.visitVisitorId,
-                description: `Visitor "${visitorName}" self-checked-in via kiosk for visit "${visitTitle}"`,
+                description: `Visitor "${visitorName}" arrived via kiosk for visit "${visitTitle}"`,
                 newValue: { visitId: codeRecord.visitId, code: codeRecord.code },
             }).catch(() => { });
 
@@ -366,6 +540,35 @@ export class VisitCheckInCodeService {
         } finally {
             await qr.release();
         }
+    }
+
+    // ── Amadeus download ──
+
+    private async downloadVisitorToAmadeus(visitor: Visitor, visit: Visit): Promise<void> {
+        if (!visit.buildingId) {
+            this.logger.warn(`Visit ${visit.id} has no building — skipping Amadeus download`);
+            return;
+        }
+
+        const building = await this.buildingRepo.findOne({
+            where: { id: visit.buildingId, isActive: true },
+            relations: ['accessLevels'],
+        });
+
+        const accessLevelNames = (building?.accessLevels ?? [])
+            .filter((al) => al.isActive && al.active && al.visitorAccess)
+            .map((al) => al.name);
+
+        const result = await this.amadeusUsersService.addUserToAmadeus({
+            cardholderIdNumber: visitor.personId,
+            firstName: visitor.firstName,
+            lastName: visitor.lastName,
+            accessGroupApiKeys: accessLevelNames,
+            fromDateValid: visit.plannedStartTimeUtc?.toISOString(),
+            toDateValid: visit.plannedEndTimeUtc?.toISOString() ?? undefined,
+        });
+
+        this.logger.log(`Visitor ${visitor.personId} downloaded to Amadeus: ${result?.cardholderId}`);
     }
 
     // ── Resend / Regenerate ──

@@ -95,4 +95,16 @@ export enum WsEvent {
     AgentExecuteScan = 'agent:execute-scan',
     AgentGetStatus = 'agent:get-status',
     AgentPing = 'agent:ping',
+
+    // Kiosk events (Kiosk -> Backend)
+    KioskRegister = 'kiosk:register',
+    KioskRequestScan = 'kiosk:request-scan',
+    KioskCheckScanner = 'kiosk:check-scanner',
+
+    // Kiosk events (Backend -> Kiosk)
+    KioskRegistered = 'kiosk:registered',
+    KioskScannerStatus = 'kiosk:scanner-status',
+    KioskScanStatus = 'kiosk:scan-status',
+    KioskScanResult = 'kiosk:scan-result',
+    KioskError = 'kiosk:error',
 }

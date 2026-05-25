@@ -51,8 +51,13 @@ export class SmsNotificationService {
                     continue;
                 }
 
-                // 4. Resolve recipients
+                // 4. Resolve recipients (static from template + dynamic for visit_requester)
                 const recipients = this.parseRecipients(smsTemplate.recipients);
+                if (group === 'visit_requester' && data.requester?.phone) {
+                    if (!recipients.includes(data.requester.phone)) {
+                        recipients.push(data.requester.phone);
+                    }
+                }
                 if (recipients.length === 0) continue;
 
                 // 5. Render the message

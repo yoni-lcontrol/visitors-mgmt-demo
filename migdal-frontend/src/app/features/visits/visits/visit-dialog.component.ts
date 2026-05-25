@@ -250,6 +250,49 @@ import { AuthService } from '@core/auth/auth.service';
           </div>
           </div>
           }
+          <!-- File Upload Section (Edit mode) -->
+          <div class="section-divider">
+            <span class="section-label"><i class="pi pi-paperclip"></i> {{ 'VISITS.ATTACHMENTS' | translate }}</span>
+          </div>
+          <div class="file-upload-section">
+            <div class="file-upload-area" (click)="fileInput.click()" (dragover)="onDragOver($event)" (drop)="onFileDrop($event)">
+              <i class="pi pi-cloud-upload"></i>
+              <span>{{ 'VISITS.DROP_FILES_HERE' | translate }}</span>
+              <small>{{ 'VISITS.MAX_FILE_SIZE' | translate }}</small>
+            </div>
+            <input #fileInput type="file" multiple [accept]="acceptedFileTypes" (change)="onFilesSelected($event)" style="display:none" />
+            @if (pendingFiles.length) {
+              <div class="file-list">
+                @for (f of pendingFiles; track $index) {
+                  <div class="file-item pending">
+                    <i class="pi pi-file"></i>
+                    <span class="file-name">{{ f.name }}</span>
+                    <span class="file-size">{{ formatFileSize(f.size) }}</span>
+                    <button class="btn-icon danger" (click)="removePendingFile($index)" [title]="'COMMON.DELETE' | translate">
+                      <i class="pi pi-times"></i>
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+            @if (existingFiles.length) {
+              <div class="file-list">
+                @for (f of existingFiles; track f.id) {
+                  <div class="file-item">
+                    <i class="pi pi-file"></i>
+                    <span class="file-name">{{ f.originalName }}</span>
+                    <span class="file-size">{{ formatFileSize(f.size) }}</span>
+                    <button class="btn-icon" (click)="downloadExistingFile(f)" [title]="'COMMON.DOWNLOAD' | translate">
+                      <i class="pi pi-download"></i>
+                    </button>
+                    <button class="btn-icon danger" (click)="deleteExistingFile(f)" [title]="'COMMON.DELETE' | translate">
+                      <i class="pi pi-trash"></i>
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+          </div>
         </div>
       } @else {
         <!-- Create mode: two-column layout -->
@@ -767,6 +810,32 @@ import { AuthService } from '@core/auth/auth.service';
             <button class="btn btn-secondary btn-add-inline" (click)="addInlineEscort()">
               <i class="pi pi-plus"></i> {{ 'VISITS.ADD_ESCORT' | translate }}
             </button>
+            <!-- File Upload Section (Create mode) -->
+            <div class="section-divider">
+              <span class="section-label"><i class="pi pi-paperclip"></i> {{ 'VISITS.ATTACHMENTS' | translate }}</span>
+            </div>
+            <div class="file-upload-section">
+              <div class="file-upload-area" (click)="fileInput.click()" (dragover)="onDragOver($event)" (drop)="onFileDrop($event)">
+                <i class="pi pi-cloud-upload"></i>
+                <span>{{ 'VISITS.DROP_FILES_HERE' | translate }}</span>
+                <small>{{ 'VISITS.MAX_FILE_SIZE' | translate }}</small>
+              </div>
+              <input #fileInput type="file" multiple [accept]="acceptedFileTypes" (change)="onFilesSelected($event)" style="display:none" />
+              @if (pendingFiles.length) {
+                <div class="file-list">
+                  @for (f of pendingFiles; track $index) {
+                    <div class="file-item pending">
+                      <i class="pi pi-file"></i>
+                      <span class="file-name">{{ f.name }}</span>
+                      <span class="file-size">{{ formatFileSize(f.size) }}</span>
+                      <button class="btn-icon danger" (click)="removePendingFile($index)" [title]="'COMMON.DELETE' | translate">
+                        <i class="pi pi-times"></i>
+                      </button>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
           </div>
         </div>
       }
@@ -944,6 +1013,37 @@ import { AuthService } from '@core/auth/auth.service';
     .save-btn { min-width: 110px; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; }
     .save-btn .pi-spinner { font-size: 0.85rem; }
 
+    /* ── File upload ── */
+    .file-upload-section { margin-top: 0.5rem; }
+    .file-upload-area {
+      border: 2px dashed var(--border-color, #ccc);
+      border-radius: 8px;
+      padding: 1.2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .file-upload-area:hover { border-color: var(--primary-color, #4a90d9); background: rgba(74, 144, 217, 0.04); }
+    .file-upload-area i { font-size: 1.6rem; color: var(--text-secondary, #888); }
+    .file-upload-area span { font-size: 0.9rem; color: var(--text-secondary, #666); }
+    .file-upload-area small { font-size: 0.75rem; color: var(--text-tertiary, #999); }
+    .file-list { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.6rem; }
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.4rem 0.6rem;
+      background: var(--surface-50, #f8f9fa);
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+    .file-item .file-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .file-item .file-size { color: var(--text-secondary, #888); font-size: 0.75rem; white-space: nowrap; }
+
     /* ── PrimeNG overrides ── */
     :host ::ng-deep .p-calendar { width: 100%; }
     :host ::ng-deep .p-calendar .p-inputtext { width: 100%; padding: 0.55rem 0.85rem; font-size: 0.9rem; }
@@ -1111,6 +1211,11 @@ export class VisitDialogComponent implements OnDestroy {
   inlineEscorts: InlineEscort[] = [];
   importErrors: string[] = [];
 
+  // File upload state
+  pendingFiles: File[] = [];
+  existingFiles: import('../services/visits-api.service').VisitFileItem[] = [];
+  acceptedFileTypes = '.pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx';
+
   // Blacklist state
   blacklistMap = new Map<number, { checking: boolean; blacklisted: boolean; reason?: string }>();
   private blacklistSubjects = new Map<number, Subject<string>>();
@@ -1172,6 +1277,7 @@ export class VisitDialogComponent implements OnDestroy {
       if (this.requesterLockedToOnBehalf) {
         this.requesterIsSomeoneElse = true;
       }
+      this.loadExistingFiles();
     } else {
       const defaultStart = new Date();
       defaultStart.setHours(8, 0, 0, 0);
@@ -1204,6 +1310,8 @@ export class VisitDialogComponent implements OnDestroy {
     this.inlineVisitors = [];
     this.inlineEscorts = [];
     this.importErrors = [];
+    this.pendingFiles = [];
+    this.existingFiles = [];
     this.saving = false;
     this.clearBlacklistState();
     this.clearAdSearchState();
@@ -1414,7 +1522,7 @@ export class VisitDialogComponent implements OnDestroy {
         ...(visitRequesterPayload ? { visitRequester: visitRequesterPayload } : { visitRequester: null }),
       };
       this.visitsApi.updateVisit(this.editing.id, body).subscribe({
-        next: () => { this.close(); this.notify.success('COMMON.SUCCESS'); this.saved.emit(); },
+        next: () => { this.uploadPendingFiles(this.editing!.id); this.close(); this.notify.success('COMMON.SUCCESS'); this.saved.emit(); },
         error: (err) => { this.saving = false; this.notify.error(err); },
       });
     } else {
@@ -1446,7 +1554,7 @@ export class VisitDialogComponent implements OnDestroy {
         })),
       };
       this.visitsApi.createVisit(body).subscribe({
-        next: () => { this.close(); this.notify.success('COMMON.SUCCESS'); this.saved.emit(); },
+        next: (visit) => { this.uploadPendingFiles(visit.id); this.close(); this.notify.success('COMMON.SUCCESS'); this.saved.emit(); },
         error: (err) => { this.saving = false; this.notify.error(err); },
       });
     }
@@ -1755,6 +1863,94 @@ export class VisitDialogComponent implements OnDestroy {
     this.sectorsLookup.getActiveSectors().subscribe({
       next: (items) => { this.escortSectorOptions = items; },
       error: () => { this.escortSectorOptions = []; },
+    });
+  }
+
+  // ── File upload methods ──
+
+  onFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files) return;
+    this.addPendingFiles(Array.from(input.files));
+    input.value = '';
+  }
+
+  onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  onFileDrop(event: DragEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer?.files) {
+      this.addPendingFiles(Array.from(event.dataTransfer.files));
+    }
+  }
+
+  private addPendingFiles(files: File[]): void {
+    const maxSize = 10 * 1024 * 1024;
+    for (const file of files) {
+      if (file.size > maxSize) {
+        this.notify.error('VISITS.FILE_TOO_LARGE');
+        continue;
+      }
+      if (this.pendingFiles.length >= 10) {
+        this.notify.error('VISITS.MAX_FILES_REACHED');
+        break;
+      }
+      this.pendingFiles.push(file);
+    }
+  }
+
+  removePendingFile(index: number): void {
+    this.pendingFiles.splice(index, 1);
+  }
+
+  downloadExistingFile(file: import('../services/visits-api.service').VisitFileItem): void {
+    if (!this.editing) return;
+    this.visitsApi.downloadVisitFile(this.editing.id, file.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.originalName;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (err) => this.notify.error(err),
+    });
+  }
+
+  deleteExistingFile(file: import('../services/visits-api.service').VisitFileItem): void {
+    if (!this.editing) return;
+    this.visitsApi.deleteVisitFile(this.editing.id, file.id).subscribe({
+      next: () => {
+        this.existingFiles = this.existingFiles.filter(f => f.id !== file.id);
+        this.notify.success('COMMON.SUCCESS');
+      },
+      error: (err) => this.notify.error(err),
+    });
+  }
+
+  formatFileSize(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  private uploadPendingFiles(visitId: string): void {
+    if (!this.pendingFiles.length) return;
+    this.visitsApi.uploadVisitFiles(visitId, this.pendingFiles).subscribe({
+      error: (err) => this.notify.error(err),
+    });
+  }
+
+  private loadExistingFiles(): void {
+    if (!this.editing) return;
+    this.visitsApi.getVisitFiles(this.editing.id).subscribe({
+      next: (files) => this.existingFiles = files,
+      error: () => this.existingFiles = [],
     });
   }
 }

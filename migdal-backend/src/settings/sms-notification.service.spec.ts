@@ -231,5 +231,52 @@ describe('SmsNotificationService', () => {
             expect(mockRenderer.render).toHaveBeenCalled();
             expect(mockProvider.sendBulk).toHaveBeenCalled();
         });
+
+        it('should dynamically add requester phone for visit_requester group', async () => {
+            enableGroup('visit_requester');
+            mockTemplateForGroup('visitor_arrived', 'visit_requester', '{{visitor.firstName}} arrived', []);
+
+            const dataWithRequester = {
+                ...eventData,
+                requester: { phone: '+972509999999', email: 'host@example.com' },
+            };
+
+            await service.triggerSms(NotificationEvent.VisitorArrived, dataWithRequester);
+
+            expect(mockProvider.sendBulk).toHaveBeenCalledWith([
+                { to: '+972509999999', message: 'Rendered message' },
+            ]);
+        });
+
+        it('should not duplicate requester phone if already in static recipients', async () => {
+            enableGroup('visit_requester');
+            mockTemplateForGroup('visitor_arrived', 'visit_requester', '{{visitor.firstName}} arrived', ['+972509999999']);
+
+            const dataWithRequester = {
+                ...eventData,
+                requester: { phone: '+972509999999' },
+            };
+
+            await service.triggerSms(NotificationEvent.VisitorArrived, dataWithRequester);
+
+            expect(mockProvider.sendBulk).toHaveBeenCalledWith([
+                { to: '+972509999999', message: 'Rendered message' },
+            ]);
+        });
+
+        it('should not add requester phone for non-visit_requester groups', async () => {
+            enableGroup('system_users');
+            mockTemplateForGroup('visitor_arrived', 'system_users', '{{visitor.firstName}} arrived', []);
+
+            const dataWithRequester = {
+                ...eventData,
+                requester: { phone: '+972509999999' },
+            };
+
+            await service.triggerSms(NotificationEvent.VisitorArrived, dataWithRequester);
+
+            // No static recipients and phone should NOT be added for system_users
+            expect(mockProvider.sendBulk).not.toHaveBeenCalled();
+        });
     });
 });

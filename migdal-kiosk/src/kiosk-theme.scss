@@ -10,7 +10,7 @@
     --kiosk-primary-light: #3B38A8;
 
     /* ── Background ── */
-    --kiosk-background-color: #D8D6F0;
+    --kiosk-background-color: rgb(183 199 228);
     --kiosk-header-gradient: linear-gradient(to bottom, #1B1464 0%, #2B2870 50%, #3B38A8 100%);
 
     /* ── Accent ── */
@@ -48,7 +48,7 @@
     --kiosk-step-active: #2B2870;
     --kiosk-step-inactive-bg: #FFFFFF;
     --kiosk-step-inactive-border: rgba(27, 20, 100, 0.15);
-    --kiosk-step-line: #B0AED0;
+    --kiosk-step-line: rgb(7 0 63);
 
     /* ── Top bar ── */
     --kiosk-topbar-bg: #2B2870;

@@ -2,6 +2,7 @@ import {
     Injectable,
     NotFoundException,
     ForbiddenException,
+    Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
@@ -24,9 +25,14 @@ import { resolveVisitRequester, buildSmsData } from './visit.utils';
 import { getDayBoundsUtc } from '../common/utils/date.util';
 import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
 import { BlacklistOverrideStatus } from './enums/blacklist-override-status.enum';
+import { AmadeusUsersService } from '../amadeus/services/amadeus-users.service';
+import { Building } from '../buildings/entities/building.entity';
+import { SyncQueueSource } from '../amadeus/entities/amadeus-sync-queue.entity';
 
 @Injectable()
 export class VisitStatusService {
+    private readonly logger = new Logger(VisitStatusService.name);
+
     constructor(
         @InjectRepository(Visit)
         private readonly visitRepo: Repository<Visit>,
@@ -38,12 +44,15 @@ export class VisitStatusService {
         private readonly statusRepo: Repository<VisitVisitorStatus>,
         @InjectRepository(Visitor)
         private readonly visitorRepo: Repository<Visitor>,
+        @InjectRepository(Building)
+        private readonly buildingRepo: Repository<Building>,
         private readonly dataSource: DataSource,
         private readonly wsGateway: UsersGateway,
         private readonly blacklistService: BlacklistService,
         private readonly smsNotification: SmsNotificationService,
         private readonly emailNotification: EmailNotificationService,
         private readonly auditService: AuditService,
+        private readonly amadeusUsersService: AmadeusUsersService,
     ) { }
 
     // ── On Site ──
@@ -310,6 +319,17 @@ export class VisitStatusService {
                     this.emailNotification.triggerEmail(event, buildSmsData(visit, visitor))
                         .catch(() => { });
                 }
+            } else if (dto.eventType === VisitorAccessEventType.CheckedIn) {
+                const visit = await this.visitRepo.findOne({ where: { id: vv.visitId } });
+                const visitor = await this.visitorRepo.findOne({ where: { id: vv.visitorId } });
+                this.logger.log(`[Amadeus CheckIn] CheckedIn event for visitVisitor=${vv.id}. visit found=${!!visit}, visitor found=${!!visitor}`);
+                if (visit && visitor) {
+                    const amadeusResult = await this.downloadVisitorToAmadeus(visitor, visit);
+                    this.logger.log(`[Amadeus CheckIn] Result: ${JSON.stringify(amadeusResult)}`);
+                    return Object.assign(savedLog, { amadeusSync: amadeusResult }) as any;
+                } else {
+                    this.logger.warn(`[Amadeus CheckIn] Skipped — visit or visitor not found (visitId=${vv.visitId}, visitorId=${vv.visitorId})`);
+                }
             } else if (dto.eventType === VisitorAccessEventType.CheckedOut) {
                 const visit = await this.visitRepo.findOne({ where: { id: vv.visitId } });
                 const visitor = await this.visitorRepo.findOne({ where: { id: vv.visitorId } });
@@ -340,6 +360,73 @@ export class VisitStatusService {
                 return VisitorStatus.CheckedOut;
             default:
                 return VisitorStatus.Pending;
+        }
+    }
+
+    private async downloadVisitorToAmadeus(visitor: Visitor, visit: Visit): Promise<{ success: boolean; queued: boolean; error?: string }> {
+        this.logger.log(`[Amadeus CheckIn] Starting download for visitor ${visitor.personId} (${visitor.firstName} ${visitor.lastName}), visitId=${visit.id}, buildingId=${visit.buildingId}`);
+
+        if (!visit.buildingId) {
+            this.logger.warn(`Visit ${visit.id} has no building — skipping Amadeus download`);
+            return { success: false, queued: false, error: 'Visit has no building assigned' };
+        }
+
+        const building = await this.buildingRepo.findOne({
+            where: { id: visit.buildingId, isActive: true },
+            relations: ['accessLevels'],
+        });
+
+        if (!building) {
+            this.logger.warn(`[Amadeus CheckIn] Building ${visit.buildingId} not found or inactive`);
+            return { success: false, queued: false, error: `Building ${visit.buildingId} not found or inactive` };
+        }
+
+        const visitorAccessLevels = (building.accessLevels ?? [])
+            .filter((al) => al.isActive && al.active && al.visitorAccess && al.externalId);
+
+        const accessLevelApiKeys = visitorAccessLevels.map((al) => al.externalId!);
+
+        this.logger.log(`[Amadeus CheckIn] Building "${building.name}" has ${building.accessLevels?.length ?? 0} access levels, ${visitorAccessLevels.length} with visitorAccess. ApiKeys: [${accessLevelApiKeys.join(', ')}]`);
+
+        if (accessLevelApiKeys.length === 0) {
+            this.logger.warn(`[Amadeus CheckIn] No visitor access levels found for building "${building.name}" — visitor will be created without access groups`);
+        }
+
+        const now = new Date();
+        const fromDate = visit.plannedStartTimeUtc ?? now;
+        // Default toDate: end of planned visit, or end of today if not set
+        let toDate = visit.plannedEndTimeUtc;
+        if (!toDate || toDate <= now) {
+            toDate = new Date(now);
+            toDate.setHours(23, 59, 59, 0);
+        }
+
+        this.logger.log(`[Amadeus CheckIn] Dates: fromDate=${fromDate.toISOString()}, toDate=${toDate.toISOString()}`);
+
+        try {
+            const result = await this.amadeusUsersService.addUserToAmadeus({
+                cardholderIdNumber: visitor.personId,
+                firstName: visitor.firstName,
+                lastName: visitor.lastName,
+                accessGroupApiKeys: accessLevelApiKeys,
+                fromDateValid: fromDate.toISOString(),
+                toDateValid: toDate.toISOString(),
+            }, {
+                source: SyncQueueSource.VisitorCheckIn,
+                referenceId: visit.id,
+                referenceType: 'Visit',
+            });
+
+            if (result.queued) {
+                this.logger.warn(`Visitor ${visitor.personId} queued for Amadeus sync (service unavailable)`);
+                return { success: false, queued: true, error: 'Amadeus service unavailable — queued for retry' };
+            }
+
+            this.logger.log(`Visitor ${visitor.personId} downloaded to Amadeus: ${result?.cardholderId}`);
+            return { success: true, queued: false };
+        } catch (err: any) {
+            this.logger.error(`Failed to download visitor ${visitor.personId} to Amadeus: ${err.message}`);
+            return { success: false, queued: false, error: err.message };
         }
     }
 

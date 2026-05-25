@@ -26,8 +26,8 @@ export class KioskApiService {
       .pipe(this.unwrap());
   }
 
-  validatePersonId(personId: string): Observable<VisitResponse> {
-    return this.http.post<{ data: VisitResponse }>(`${this.baseUrl}/api/visits/kiosk/validate-person-id`, { personId })
+  validatePersonId(personId: string, identifyNumber?: string): Observable<VisitResponse> {
+    return this.http.post<{ data: VisitResponse }>(`${this.baseUrl}/api/visits/kiosk/validate-person-id`, { personId, identifyNumber })
       .pipe(this.unwrap());
   }
 

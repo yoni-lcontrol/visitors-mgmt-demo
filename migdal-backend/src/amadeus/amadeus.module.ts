@@ -9,9 +9,11 @@ import { ParkingRequest } from '../visitors/entities/parking-request.entity';
 import { IntegrationsCommonModule } from '../integrations/common/integrations-common.module';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { AccessControlModule } from '../access-control/access-control.module';
+import { AmadeusSyncQueueModule } from '../access-control/amadeus-sync-queue.module';
 import { AmadeusController } from './amadeus.controller';
 import { AmadeusEventsController } from './amadeus-events.controller';
 import { AmadeusUsersController } from './amadeus-users.controller';
+import { AmadeusSyncQueueController } from './controllers/amadeus-sync-queue.controller';
 import { AmadeusService } from './amadeus.service';
 import { AmadeusEventsService } from './amadeus-events.service';
 import { AmadeusEventAdapter } from './adapters/amadeus-event.adapter';
@@ -31,9 +33,10 @@ import { AmadeusParkingSyncService } from './services/amadeus-parking-sync.servi
         IntegrationsCommonModule,
         WebsocketModule,
         AccessControlModule,
+        AmadeusSyncQueueModule,
     ],
-    controllers: [AmadeusController, AmadeusEventsController, AmadeusUsersController],
+    controllers: [AmadeusController, AmadeusEventsController, AmadeusUsersController, AmadeusSyncQueueController],
     providers: [AmadeusService, AmadeusEventsService, AmadeusEventAdapter, AmadeusUsersService, AmadeusParkingSyncService],
-    exports: [AmadeusParkingSyncService, AmadeusUsersService],
+    exports: [AmadeusParkingSyncService, AmadeusUsersService, AmadeusSyncQueueModule],
 })
 export class AmadeusModule { }

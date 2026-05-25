@@ -46,8 +46,13 @@ export class EmailNotificationService {
                     continue;
                 }
 
-                // 4. Resolve recipients
+                // 4. Resolve recipients (static from template + dynamic for visit_requester)
                 const recipients = this.parseRecipients(emailTemplate.recipients);
+                if (group === 'visit_requester' && data.requester?.email) {
+                    if (!recipients.includes(data.requester.email)) {
+                        recipients.push(data.requester.email);
+                    }
+                }
                 if (recipients.length === 0) continue;
 
                 // 5. Render subject and body

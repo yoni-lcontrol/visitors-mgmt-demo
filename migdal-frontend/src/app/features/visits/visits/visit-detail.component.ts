@@ -167,6 +167,39 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
         (editEscort)="openEditEscortDialog($event)"
         (removeEscort)="removeEscort($event)"
       />
+
+      <!-- Files Section -->
+      <div class="card files-section">
+        <div class="section-header">
+          <h2><i class="pi pi-paperclip"></i> {{ 'VISITS.ATTACHMENTS' | translate }}</h2>
+          <button class="btn btn-secondary btn-sm" *hasPermission="'visits.update'" (click)="visitFileInput.click()">
+            <i class="pi pi-upload"></i> {{ 'VISITS.UPLOAD_FILE' | translate }}
+          </button>
+          <input #visitFileInput type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx" (change)="onVisitFilesSelected($event)" style="display:none" />
+        </div>
+        @if (loadingFiles) {
+          <div class="loading-row"><i class="pi pi-spin pi-spinner"></i></div>
+        } @else if (visitFiles.length === 0) {
+          <div class="empty-state">{{ 'VISITS.NO_FILES' | translate }}</div>
+        } @else {
+          <div class="file-list">
+            @for (f of visitFiles; track f.id) {
+              <div class="file-item">
+                <i class="pi pi-file"></i>
+                <span class="file-name">{{ f.originalName }}</span>
+                <span class="file-size">{{ formatFileSize(f.size) }}</span>
+                <span class="file-date" dir="ltr">{{ f.createdAt | dateFormat }}</span>
+                <button class="btn-icon" (click)="downloadFile(f)" [title]="'COMMON.DOWNLOAD' | translate">
+                  <i class="pi pi-download"></i>
+                </button>
+                <button class="btn-icon danger" *hasPermission="'visits.update'" (click)="deleteFile(f)" [title]="'COMMON.DELETE' | translate">
+                  <i class="pi pi-trash"></i>
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </div>
     }
 
     <!-- Add Visitor Dialog -->
@@ -192,7 +225,7 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                     (ngModelChange)="onNewVisitorPersonIdChange($index, $event)"
                     (focus)="onNewPersonIdFocus($index)"
                     (blur)="onNewPersonIdBlur($index)"
-                    [class.input-invalid]="blacklistMap.get($index)?.blacklisted"
+                    [class.input-warning]="blacklistMap.get($index)?.blacklisted"
                     [placeholder]="'PLACEHOLDER.ENTER_PERSON_ID' | translate"
                     autocomplete="off" />
                   @if (blacklistMap.get($index)?.checking || searchLoading.get($index)) {
@@ -226,7 +259,7 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                   </small>
                 }
                 @if (blacklistMap.get($index)?.blacklisted) {
-                  <small class="field-error">{{ 'VALIDATION.BLACKLISTED' | translate }}</small>
+                  <small class="field-warning"><i class="pi pi-exclamation-triangle"></i> {{ 'VALIDATION.BLACKLISTED_WARNING' | translate }}</small>
                 }
                 @if (isDuplicateNewPersonId($index)) {
                   <small class="field-warning"><i class="pi pi-exclamation-triangle"></i> {{ 'VALIDATION.DUPLICATE_PERSON_ID' | translate }}</small>
@@ -508,7 +541,7 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                     (ngModelChange)="onEditVisitorPersonIdChange($event)"
                     (focus)="onEditPersonIdFocus()"
                     (blur)="onEditPersonIdBlur()"
-                    [class.input-invalid]="editBlacklistStatus?.blacklisted"
+                    [class.input-warning]="editBlacklistStatus?.blacklisted"
                     [placeholder]="'PLACEHOLDER.ENTER_PERSON_ID' | translate"
                     autocomplete="off" />
                   @if (editBlacklistStatus?.checking || editSearchLoading) {
@@ -536,7 +569,7 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                   </div>
                 }
                 @if (editBlacklistStatus?.blacklisted) {
-                  <small class="field-error">{{ 'VALIDATION.BLACKLISTED' | translate }}</small>
+                  <small class="field-warning"><i class="pi pi-exclamation-triangle"></i> {{ 'VALIDATION.BLACKLISTED_WARNING' | translate }}</small>
                 }
               </div>
               <div class="field">
@@ -1068,6 +1101,32 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
       text-align: right;
       padding-inline-end: 1.5rem;
     }
+
+    /* ── Files section ── */
+    .files-section { margin-top: 1.25rem; }
+    .files-section .section-header {
+      display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;
+    }
+    .files-section .section-header h2 {
+      margin: 0; font-size: 1.05rem; font-weight: 700; color: var(--color-primary, #020140);
+      display: flex; align-items: center; gap: 0.5rem; flex: 1;
+    }
+    .files-section .section-header h2 i { color: var(--color-accent, #6c63ff); }
+    .files-section .empty-state { color: var(--color-text-muted, #9896ad); font-size: 0.88rem; padding: 1rem 0; }
+    .files-section .loading-row { padding: 1rem 0; text-align: center; color: var(--color-text-muted); }
+    .files-section .file-list { display: flex; flex-direction: column; gap: 0.4rem; }
+    .files-section .file-item {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.55rem 0.75rem; border-radius: 8px;
+      background: var(--color-surface-alt, #f8f7fc);
+      font-size: 0.88rem; transition: background 0.15s;
+    }
+    .files-section .file-item:hover { background: rgba(108, 99, 255, 0.05); }
+    .files-section .file-item .pi-file { color: var(--color-accent, #6c63ff); }
+    .files-section .file-item .file-name { flex: 1; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .files-section .file-item .file-size { color: var(--color-text-muted, #9896ad); font-size: 0.75rem; white-space: nowrap; }
+    .files-section .file-item .file-date { color: var(--color-text-muted, #9896ad); font-size: 0.75rem; white-space: nowrap; }
+    .btn-sm { font-size: 0.82rem; padding: 0.35rem 0.7rem; }
   `],
 })
 export class VisitDetailComponent implements OnInit, OnDestroy {
@@ -1179,6 +1238,10 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   historyItems: VisitorAccessLogEntry[] = [];
   loadingHistory = false;
 
+  // Files
+  visitFiles: import('../services/visits-api.service').VisitFileItem[] = [];
+  loadingFiles = false;
+
   // Printing
   printingVisitorId: string | null = null;
   isPrinterConnected = false;
@@ -1199,6 +1262,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     this.loadVisit();
     this.loadVisitors();
     this.loadEscorts();
+    this.loadFiles();
     this.initPrintListeners();
   }
 
@@ -1301,12 +1365,15 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
 
   registerEvent(vv: VisitVisitor, eventType: VisitorAccessEventType): void {
     if (!this.ensurePermission('visits.update')) return;
-    this.api.post('/visitor-access-logs', {
+    this.api.post<any>('/visitor-access-logs', {
       visitVisitorId: vv.id,
       eventType,
     }).subscribe({
-      next: () => {
+      next: (res) => {
         this.notify.success('COMMON.SUCCESS');
+        if (res?.amadeusSync && !res.amadeusSync.success) {
+          this.notify.warn('VISITS.AMADEUS_SYNC_FAILED');
+        }
         this.loadVisit();
         this.loadVisitors();
       },
@@ -1431,7 +1498,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
 
   isAddVisitorsValid(): boolean {
     if (!this.newVisitors.length) return false;
-    if (this.hasBlacklistedNewVisitor()) return false;
     return this.newVisitors.every(v => !!v.firstName && !!v.lastName && !!v.personId && (!v.hasVehicle || (!!v.carNumber && !!v.vehicleType)));
   }
 
@@ -1536,7 +1602,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
 
   isEditVisitorValid(): boolean {
     if (!this.editingVisitor) return false;
-    if (this.editBlacklistStatus?.blacklisted) return false;
     if (!this.editingVisitor.firstName || !this.editingVisitor.lastName || !this.editingVisitor.personId) return false;
     if (this.editingVisitor.hasVehicle && (!this.editingVisitor.carNumber || !this.editingVisitor.vehicleType)) return false;
     return true;
@@ -2108,5 +2173,53 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
 
   onEditEscortDialogHide(): void {
     this.editingEscort = null;
+  }
+
+  // ── Files ──
+
+  loadFiles(): void {
+    this.loadingFiles = true;
+    this.visitsApi.getVisitFiles(this.visitId).subscribe({
+      next: (files) => { this.visitFiles = files; this.loadingFiles = false; },
+      error: () => { this.loadingFiles = false; },
+    });
+  }
+
+  onVisitFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || !input.files.length) return;
+    const files = Array.from(input.files);
+    input.value = '';
+    this.visitsApi.uploadVisitFiles(this.visitId, files).subscribe({
+      next: () => { this.loadFiles(); this.notify.success('COMMON.SUCCESS'); },
+      error: (err) => this.notify.error(err),
+    });
+  }
+
+  downloadFile(file: import('../services/visits-api.service').VisitFileItem): void {
+    this.visitsApi.downloadVisitFile(this.visitId, file.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.originalName;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      error: (err) => this.notify.error(err),
+    });
+  }
+
+  deleteFile(file: import('../services/visits-api.service').VisitFileItem): void {
+    this.visitsApi.deleteVisitFile(this.visitId, file.id).subscribe({
+      next: () => { this.visitFiles = this.visitFiles.filter(f => f.id !== file.id); this.notify.success('COMMON.SUCCESS'); },
+      error: (err) => this.notify.error(err),
+    });
+  }
+
+  formatFileSize(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   }
 }

@@ -231,5 +231,76 @@ describe('EmailNotificationService', () => {
             await service.triggerEmail(NotificationEvent.VisitCreated, eventData);
             expect(mockProvider.sendBulk).not.toHaveBeenCalled();
         });
+
+        it('should dynamically add requester email for visit_requester group', async () => {
+            (mockNotificationSettings.isEnabled as jest.Mock).mockImplementation(
+                async (group: string) => group === 'visit_requester',
+            );
+            (mockTemplateService.loadTemplate as jest.Mock).mockResolvedValue({
+                event: 'visitor_arrived',
+                targetGroup: 'visit_requester',
+                subject: '{{visitor.firstName}} arrived',
+                bodyHtml: '<p>{{visitor.firstName}} arrived</p>',
+                recipients: JSON.stringify([]),
+            });
+
+            const dataWithRequester = {
+                ...eventData,
+                requester: { phone: '+972509999999', email: 'host@example.com' },
+            };
+
+            await service.triggerEmail(NotificationEvent.VisitorArrived, dataWithRequester);
+
+            expect(mockProvider.sendBulk).toHaveBeenCalledWith([
+                { to: 'host@example.com', subject: 'Rendered', html: 'Rendered' },
+            ]);
+        });
+
+        it('should not duplicate requester email if already in static recipients', async () => {
+            (mockNotificationSettings.isEnabled as jest.Mock).mockImplementation(
+                async (group: string) => group === 'visit_requester',
+            );
+            (mockTemplateService.loadTemplate as jest.Mock).mockResolvedValue({
+                event: 'visitor_arrived',
+                targetGroup: 'visit_requester',
+                subject: 'Arrived',
+                bodyHtml: '<p>Arrived</p>',
+                recipients: JSON.stringify(['host@example.com']),
+            });
+
+            const dataWithRequester = {
+                ...eventData,
+                requester: { email: 'host@example.com' },
+            };
+
+            await service.triggerEmail(NotificationEvent.VisitorArrived, dataWithRequester);
+
+            expect(mockProvider.sendBulk).toHaveBeenCalledWith([
+                { to: 'host@example.com', subject: 'Rendered', html: 'Rendered' },
+            ]);
+        });
+
+        it('should not add requester email for non-visit_requester groups', async () => {
+            (mockNotificationSettings.isEnabled as jest.Mock).mockImplementation(
+                async (group: string) => group === 'system_users',
+            );
+            (mockTemplateService.loadTemplate as jest.Mock).mockResolvedValue({
+                event: 'visitor_arrived',
+                targetGroup: 'system_users',
+                subject: 'Arrived',
+                bodyHtml: '<p>Arrived</p>',
+                recipients: JSON.stringify([]),
+            });
+
+            const dataWithRequester = {
+                ...eventData,
+                requester: { email: 'host@example.com' },
+            };
+
+            await service.triggerEmail(NotificationEvent.VisitorArrived, dataWithRequester);
+
+            // No static recipients and email should NOT be added for system_users
+            expect(mockProvider.sendBulk).not.toHaveBeenCalled();
+        });
     });
 });

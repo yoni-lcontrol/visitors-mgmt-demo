@@ -158,6 +158,26 @@ public class AmadeusApiClient : IAmadeusApiClient
         return await response.Content.ReadFromJsonAsync<AmadeusCardholder>(cancellationToken);
     }
 
+    public async Task<AmadeusCardholder?> GetCardholderByIdNumberAsync(string cardholderIdNumber, CancellationToken cancellationToken)
+    {
+        var relativePath = AmadeusApiDefinitions.OData.CardholdersByIdNumber(cardholderIdNumber);
+        _logger.LogInformation("Searching cardholder by IdNumber {IdNumber}", cardholderIdNumber);
+
+        var client = await CreateAuthenticatedClientAsync(cancellationToken);
+        var url = AmadeusApiDefinitions.ODataUrl(_options, relativePath, nameof(AmadeusApiDefinitions.OData.CardholdersByIdNumber));
+        using var response = await client.GetAsync(url, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogError("Cardholder search by IdNumber failed. Status: {StatusCode}, Response: {ErrorBody}", response.StatusCode, errorBody);
+            return null;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<ODataCountResponse<AmadeusCardholder>>(cancellationToken);
+        return result?.Value?.FirstOrDefault();
+    }
+
     public async Task<AmadeusCardholder> CreateCardholderAsync(object payload, CancellationToken cancellationToken)
     {
         var relativePath = AmadeusApiDefinitions.OData.Cardholders;

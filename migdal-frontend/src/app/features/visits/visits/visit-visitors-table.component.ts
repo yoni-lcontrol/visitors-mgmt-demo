@@ -52,6 +52,24 @@ import { VisitVisitor, VisitorStatus, VisitorAccessEventType } from '@core/model
                         {{ 'VISITS.BLACKLIST_DENIED' | translate }}
                       </span>
                     }
+                    @if (isBlacklistApproved(vv)) {
+                      <span class="blacklist-approved-badge">
+                        <i class="pi pi-check-circle"></i>
+                        {{ 'VISITS.BLACKLIST_APPROVED' | translate }}
+                      </span>
+                    }
+                    @if (isBlacklistApprovedEscort(vv)) {
+                      <span class="blacklist-approved-escort-badge">
+                        <i class="pi pi-users"></i>
+                        {{ 'VISITS.BLACKLIST_APPROVED_ESCORT' | translate }}
+                      </span>
+                    }
+                    @if (isBlacklistApprovedSecurity(vv)) {
+                      <span class="blacklist-approved-security-badge">
+                        <i class="pi pi-shield"></i>
+                        {{ 'VISITS.BLACKLIST_APPROVED_SECURITY' | translate }}
+                      </span>
+                    }
                   </td>
                   <td>{{ vv.visitor?.personId ?? '-' }}</td>
                   <td>{{ vv.visitor?.carNumber ?? '-' }}</td>
@@ -84,13 +102,12 @@ import { VisitVisitor, VisitorStatus, VisitorAccessEventType } from '@core/model
                         <i class="pi pi-history"></i>
                       </button>
                     } @else {
-                    @if (vv.status?.currentStatus !== statusCheckedOut) {
-                      @if (vv.status?.currentStatus === statusPending) {
+                      @if (vv.status?.currentStatus === statusPending || vv.status?.currentStatus === statusCheckedOut) {
                         <button class="btn btn-sm btn-arrived" *hasPermission="'visits.update'" (click)="registerEvent.emit({ vv, eventType: eventArrived })">
                           <i class="pi pi-sign-in"></i> {{ 'VISITS.ARRIVED' | translate }}
                         </button>
                       }
-                      @if (vv.status?.currentStatus === statusArrived || vv.status?.currentStatus === statusPending) {
+                      @if (vv.status?.currentStatus === statusArrived || vv.status?.currentStatus === statusPending || vv.status?.currentStatus === statusCheckedOut) {
                         <button class="btn btn-sm btn-check-in" *hasPermission="'visits.update'" (click)="registerEvent.emit({ vv, eventType: eventCheckedIn })">
                           <i class="pi pi-check"></i> {{ 'VISITORS.CHECK_IN' | translate }}
                         </button>
@@ -100,7 +117,6 @@ import { VisitVisitor, VisitorStatus, VisitorAccessEventType } from '@core/model
                           <i class="pi pi-sign-out"></i> {{ 'VISITORS.CHECK_OUT' | translate }}
                         </button>
                       }
-                    }
                     <button class="btn-icon" *hasPermission="'visits.update'" (click)="editVisitor.emit(vv)" [title]="'COMMON.EDIT' | translate">
                       <i class="pi pi-pencil"></i>
                     </button>
@@ -222,6 +238,33 @@ import { VisitVisitor, VisitorStatus, VisitorAccessEventType } from '@core/model
       border: 1px solid rgba(239, 68, 68, 0.30);
     }
     .blacklist-denied-badge i { font-size: 0.72rem; }
+    .blacklist-approved-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      margin-inline-start: 0.5rem;
+      padding: 0.15rem 0.55rem; border-radius: 999px;
+      font-size: 0.72rem; font-weight: 600;
+      background: rgba(34, 197, 94, 0.10); color: #15803d;
+      border: 1px solid rgba(34, 197, 94, 0.20);
+    }
+    .blacklist-approved-badge i { font-size: 0.72rem; }
+    .blacklist-approved-escort-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      margin-inline-start: 0.5rem;
+      padding: 0.15rem 0.55rem; border-radius: 999px;
+      font-size: 0.72rem; font-weight: 600;
+      background: rgba(245, 158, 11, 0.10); color: #b45309;
+      border: 1px solid rgba(245, 158, 11, 0.20);
+    }
+    .blacklist-approved-escort-badge i { font-size: 0.72rem; }
+    .blacklist-approved-security-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      margin-inline-start: 0.5rem;
+      padding: 0.15rem 0.55rem; border-radius: 999px;
+      font-size: 0.72rem; font-weight: 600;
+      background: rgba(59, 130, 246, 0.10); color: #1d4ed8;
+      border: 1px solid rgba(59, 130, 246, 0.20);
+    }
+    .blacklist-approved-security-badge i { font-size: 0.72rem; }
     .blacklist-actions-blocked {
       font-size: 0.75rem; font-weight: 500; color: #dc2626;
       white-space: nowrap;
@@ -290,5 +333,17 @@ export class VisitVisitorsTableComponent {
 
     isBlacklistDenied(vv: VisitVisitor): boolean {
       return vv.blacklistOverride?.status === 'denied';
+    }
+
+    isBlacklistApproved(vv: VisitVisitor): boolean {
+      return vv.blacklistOverride?.status === 'approved';
+    }
+
+    isBlacklistApprovedEscort(vv: VisitVisitor): boolean {
+      return vv.blacklistOverride?.status === 'approved_escort';
+    }
+
+    isBlacklistApprovedSecurity(vv: VisitVisitor): boolean {
+      return vv.blacklistOverride?.status === 'approved_security';
     }
 }

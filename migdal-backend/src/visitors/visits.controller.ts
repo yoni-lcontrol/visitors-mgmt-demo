@@ -11,9 +11,12 @@ import {
     HttpCode,
     HttpStatus,
     Res,
+    UseInterceptors,
+    UploadedFiles,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
-import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes } from '@nestjs/swagger';
 import { sendExcelResponse } from '../common/utils/excel.util';
 import { VisitsService } from './visits.service';
 import { VisitParticipantService } from './visit-participant.service';
@@ -34,6 +37,7 @@ import { RequirePermissions } from '../common/decorators/permissions.decorator';
 import { PermissionKey } from '../common/enums/permission-key.enum';
 import { ParseUUIDPipe } from '../common/pipes/parse-uuid.pipe';
 import { PrintingService } from '../printing/services/printing.service';
+import { VisitFilesService } from './visit-files.service';
 
 @ApiTags('Visits')
 @ApiBearerAuth()
@@ -45,6 +49,7 @@ export class VisitsController {
         private readonly statusService: VisitStatusService,
         private readonly checkInCodeService: VisitCheckInCodeService,
         private readonly printingService: PrintingService,
+        private readonly visitFilesService: VisitFilesService,
     ) { }
 
     @Post()
@@ -346,5 +351,54 @@ export class VisitsController {
             cardTemplateId: dto.cardTemplateId,
             printOptions: dto.printOptions,
         });
+    }
+
+    // -- Visit Files --
+
+    @Post(':visitId/files')
+    @RequirePermissions(PermissionKey.VisitsUpdate)
+    @UseInterceptors(FilesInterceptor('files', 10))
+    @ApiConsumes('multipart/form-data')
+    @ApiOperation({ summary: 'Upload files to a visit' })
+    uploadFiles(
+        @Param('visitId', ParseUUIDPipe) visitId: string,
+        @UploadedFiles() files: Express.Multer.File[],
+        @CurrentUser('sub') currentUserId: string,
+    ) {
+        return this.visitFilesService.uploadFiles(visitId, files, currentUserId);
+    }
+
+    @Get(':visitId/files')
+    @RequirePermissions(PermissionKey.VisitsRead)
+    @ApiOperation({ summary: 'Get files attached to a visit' })
+    getFiles(@Param('visitId', ParseUUIDPipe) visitId: string) {
+        return this.visitFilesService.getFiles(visitId);
+    }
+
+    @Get(':visitId/files/:fileId/download')
+    @RequirePermissions(PermissionKey.VisitsRead)
+    @ApiOperation({ summary: 'Download a visit file' })
+    async downloadFile(
+        @Param('visitId', ParseUUIDPipe) visitId: string,
+        @Param('fileId', ParseUUIDPipe) fileId: string,
+        @Res() res: Response,
+    ) {
+        const file = await this.visitFilesService.getFile(visitId, fileId);
+        const filePath = this.visitFilesService.getFilePath(file);
+        res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(file.originalName)}"`);
+        res.setHeader('Content-Type', file.mimeType);
+        res.sendFile(filePath);
+    }
+
+    @Delete(':visitId/files/:fileId')
+    @RequirePermissions(PermissionKey.VisitsUpdate)
+    @HttpCode(HttpStatus.NO_CONTENT)
+    @ApiOperation({ summary: 'Delete a visit file' })
+    deleteFile(
+        @Param('visitId', ParseUUIDPipe) visitId: string,
+        @Param('fileId', ParseUUIDPipe) fileId: string,
+        @CurrentUser('sub') currentUserId: string,
+    ) {
+        return this.visitFilesService.deleteFile(visitId, fileId, currentUserId);
     }
 }

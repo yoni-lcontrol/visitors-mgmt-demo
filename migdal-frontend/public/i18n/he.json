@@ -443,14 +443,21 @@
         "ALL_STATUSES": "כל הסטטוסים",
         "STATUS_PENDING": "ממתין",
         "STATUS_APPROVED": "מאושר",
-        "STATUS_DENIED": "נדחה"
+        "STATUS_DENIED": "נדחה",
+        "AMADEUS_SYNC": "סנכרון Amadeus",
+        "SYNC_PENDING": "מסנכרן",
+        "SYNC_SYNCED": "סונכרן",
+        "SYNC_FAILED": "נכשל",
+        "SYNC_NOT_REQUIRED": "לא נדרש"
     },
     "BLACKLIST_OVERRIDE": {
         "TITLE": "אישורי רשימה שחורה",
         "VISITOR": "מבקר",
+        "PERSON_ID": "ת.ז.",
         "VISIT_TITLE": "ביקור",
         "STATUS": "סטטוס",
         "BLACKLIST_REASON": "סיבת חסימה",
+        "BLOCKED_UNTIL": "חסום עד",
         "REQUESTED_AT": "תאריך בקשה",
         "REVIEWED_BY": "נבדק על ידי",
         "CREATED_BY": "נוצר על ידי",
@@ -458,10 +465,14 @@
         "REVIEW_NOTE_PLACEHOLDER": "הערה אופציונלית...",
         "APPROVE": "אישור",
         "DENY": "דחייה",
+        "APPROVE_ESCORT": "אישור בליווי בלבד",
+        "APPROVE_SECURITY": "אישור בליווי אבטחה",
         "ALL_STATUSES": "כל הסטטוסים",
         "STATUS_PENDING": "ממתין לאישור קב\"ט",
         "STATUS_APPROVED": "אושר",
         "STATUS_DENIED": "נדחה",
+        "STATUS_APPROVED_ESCORT": "אושר בליווי בלבד",
+        "STATUS_APPROVED_SECURITY": "אושר בליווי אבטחה",
         "PENDING_BADGE": "ממתינים לאישור"
     },
     "SETTINGS": {
@@ -662,6 +673,7 @@
                 "update": "עדכון מבקרים",
                 "delete": "מחיקת מבקרים",
                 "export": "ייצוא מבקרים",
+                "import": "ייבוא מבקרים",
                 "scope": {
                     "own": "צפייה רק במבקרים בתחום שלי"
                 }
@@ -786,6 +798,7 @@
                 "update": "עדכון רשומות מבקר קיימות",
                 "delete": "מחיקת רשומות מבקר",
                 "export": "ייצוא נתוני ספריית המבקרים",
+                "import": "ייבוא נתוני ספריית המבקרים",
                 "scope": {
                     "own": "מגביל את הצפייה בספריית המבקרים למבקרים שבתחום הגישה של המשתמש הנוכחי"
                 }
@@ -1075,10 +1088,14 @@
         "REGENERATE_CODE": "חדש קוד כניסה",
         "BLACKLIST_PENDING_APPROVAL": "ממתין לאישור קב\"ט",
         "BLACKLIST_DENIED": "נדחה ע\"י קב\"ט",
+        "BLACKLIST_APPROVED": "אושר ע\"י קב\"ט",
+        "BLACKLIST_APPROVED_ESCORT": "אושר בליווי בלבד",
+        "BLACKLIST_APPROVED_SECURITY": "אושר בליווי אבטחה",
         "ACTIONS_BLOCKED_BLACKLIST": "פעולות חסומות - ממתין לאישור",
         "ACTIONS_BLOCKED_DENIED": "פעולות חסומות - הבקשה נדחתה",
         "BLACKLIST_ACTIVE_ALERT": "⚠ מבקר ברשימה שחורה נמצא במתחם!",
         "CODE_RESENT": "קוד הכניסה נשלח מחדש בהצלחה",
+        "AMADEUS_SYNC_FAILED": "המבקר נכנס בהצלחה אך לא נוסף למערכת הבקרה (Amadeus)",
         "CODE_RESEND_FAILED": "אין ערוץ התראות זמין",
         "CODE_REGENERATED": "קוד כניסה חודש ונשלח",
         "PRINT_CARD": "הדפס כרטיס",
@@ -1095,7 +1112,14 @@
         "FILTER_TODAY": "היום",
         "FILTER_FUTURE": "עתידיים",
         "FILTER_HISTORY": "היסטוריה",
-        "SEARCH_ALL": "הכל"
+        "SEARCH_ALL": "הכל",
+        "ATTACHMENTS": "קבצים מצורפים",
+        "DROP_FILES_HERE": "גרור קבצים לכאן או לחץ לבחירה",
+        "MAX_FILE_SIZE": "גודל מקסימלי: 10MB לקובץ",
+        "FILE_TOO_LARGE": "הקובץ חורג מהגודל המקסימלי של 10MB",
+        "MAX_FILES_REACHED": "ניתן להעלות עד 10 קבצים",
+        "UPLOAD_FILE": "העלאת קובץ",
+        "NO_FILES": "אין קבצים מצורפים"
     },
     "AUDIT": {
         "TITLE": "יומן פעולות",

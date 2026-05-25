@@ -10,6 +10,8 @@ import {
 import { CreateCardholderDto } from '../dto/create-cardholder.dto';
 import { UpdateCardholderDto } from '../dto/update-cardholder.dto';
 import { CardholderQueryDto } from '../dto/cardholder-query.dto';
+import { AmadeusSyncQueueService } from '../../amadeus/services/amadeus-sync-queue.service';
+import { SyncQueueOperation, SyncQueueSource } from '../../amadeus/entities/amadeus-sync-queue.entity';
 
 @Injectable()
 export class CardholderService {
@@ -18,6 +20,7 @@ export class CardholderService {
     constructor(
         private readonly acApi: AccessControlApiService,
         private readonly auditService: AuditService,
+        private readonly syncQueue: AmadeusSyncQueueService,
     ) { }
 
     async findAll(query: CardholderQueryDto): Promise<RemoteCardholderListResponse> {
@@ -51,7 +54,17 @@ export class CardholderService {
             active: true,
         };
 
-        const result = await this.acApi.createCardholder(cardholder);
+        const queueResult = await this.syncQueue.enqueueAndExecute({
+            operation: SyncQueueOperation.CreateCardholder,
+            source: SyncQueueSource.CardholderCrud,
+            payload: cardholder,
+            personId: dto.personId,
+            createdBy: currentUserId,
+        });
+
+        const result: RemoteCardholderResponse = queueResult.executed
+            ? { success: true, cardholderId: dto.personId }
+            : { success: false, message: `Queued for retry (queueId: ${queueResult.queueId})` };
 
         this.auditService.log({
             userId: currentUserId,
@@ -59,7 +72,7 @@ export class CardholderService {
             action: 'CARDHOLDER_CREATE',
             entity: 'Cardholder',
             entityId: result.cardholderId,
-            description: `Created cardholder "${dto.firstName} ${dto.lastName}" (${dto.personId})`,
+            description: `Created cardholder "${dto.firstName} ${dto.lastName}" (${dto.personId})${queueResult.queued ? ' [queued]' : ''}`,
             newValue: { firstName: dto.firstName, lastName: dto.lastName, personId: dto.personId },
         }).catch(() => { });
 
@@ -98,7 +111,17 @@ export class CardholderService {
     }
 
     async remove(cardholderId: string, currentUserId?: string): Promise<RemoteCardholderResponse> {
-        const result = await this.acApi.deleteCardholder(cardholderId);
+        const queueResult = await this.syncQueue.enqueueAndExecute({
+            operation: SyncQueueOperation.DeleteCardholder,
+            source: SyncQueueSource.CardholderCrud,
+            payload: { amadeusUid: cardholderId },
+            cardholderId,
+            createdBy: currentUserId,
+        });
+
+        const result: RemoteCardholderResponse = queueResult.executed
+            ? { success: true, cardholderId }
+            : { success: false, message: `Queued for retry (queueId: ${queueResult.queueId})` };
 
         this.auditService.log({
             userId: currentUserId,

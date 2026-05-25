@@ -35,12 +35,6 @@
     <!-- Signature area -->
     <div class="sign-box">
 
-      <div class="sign-header">
-        <div class="sign-subtitle">
-          {{ 'SIGNATURE.SIGN_WITH_FINGER' | translate }}
-        </div>
-      </div>
-
       <div class="sign-pad"
            role="group"
            [attr.aria-label]="'SIGNATURE.SIGN_AREA' | translate">
@@ -54,21 +48,16 @@
           <span class="sign-arrow-left">❮</span>
         </div>
 
-      </div>
-
-      <div class="sign-actions">
-
         <button type="button"
                 class="btn-clear"
                 (click)="clearSignature()">
+          <lucide-icon name="rotate-cw"
+                       [size]="18"></lucide-icon>
           {{ 'SIGNATURE.CLEAR_SIGNATURE' | translate }}
         </button>
 
-        <div class="sign-note">
-          {{ 'SIGNATURE.CLEAR_NOTE' | translate }}
-        </div>
-
       </div>
+
     </div>
 
     <!-- Bottom buttons -->

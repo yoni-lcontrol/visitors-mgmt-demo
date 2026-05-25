@@ -15,7 +15,7 @@
     padding: 0;
 
     background-image: url("/assets/kiosk/Kiosk-Main_Greetings.png");
-    background-size: auto 100%;
+    background-size: cover;
     background-position: center center;
     background-repeat: no-repeat;
     overflow: hidden;
@@ -40,7 +40,7 @@
     align-items: center;
     justify-content: center;
 
-    padding-top: clamp(60px, 8vh, 100px);
+    padding-top: 38px;
     padding-bottom: clamp(10px, 1.5vh, 20px);
     gap: clamp(8px, 1.2vh, 16px);
 }
@@ -54,15 +54,16 @@
 }
 
 .hero-frame {
-    width: clamp(180px, 30vw, 380px);
+    width: clamp(240px, 40vw, 480px);
     height: auto;
     display: block;
     filter: drop-shadow(0 10px 22px rgba(27, 20, 100, 0.18));
+    margin-top: -85px;
 }
 
 /* ---------- Title typography ---------- */
 .title {
-    margin: 0;
+    margin: 75px 0 0;
     padding: 0 clamp(16px, 3vw, 32px);
 
     font-size: clamp(52px, 9vw, 130px);
@@ -111,13 +112,14 @@
     cursor: pointer;
     outline: none;
 
-    width: clamp(280px, 42vw, 480px);
+    width: clamp(220px, 34vw, 380px);
     height: clamp(80px, 10vh, 120px);
 
     display: grid;
     place-items: center;
     touch-action: manipulation;
     transition: transform 0.15s ease;
+    margin-top: 65px
 }
 
 .cta-bg {
@@ -159,7 +161,7 @@
 /* ---------- Language switch ---------- */
 .lang-switch {
     position: fixed;
-    top: clamp(70px, 9vh, 100px);
+    top: clamp(50px, 7vh, 80px);
     inset-inline-start: clamp(14px, 2vw, 28px);
 
     display: flex;

@@ -18,11 +18,19 @@ const routes: Routes = [
 
   { path: 'scan', component: ScanComponent },
 
-  { path: 'details', component: DetailsComponent, canActivate: [VisitRequiredGuard, ScanRequiredGuard] },
+  {
+    path: 'details', component: DetailsComponent,
+    // canActivate: [VisitRequiredGuard, ScanRequiredGuard] 
+  },
 
-  { path: 'consent', component: ConsentComponent, canActivate: [VisitRequiredGuard, ScanRequiredGuard, DetailsConfirmedGuard] },
-
-  { path: 'success', component: SuccessComponent, canActivate: [VisitRequiredGuard] },
+  {
+    path: 'consent', component: ConsentComponent,
+    // canActivate: [VisitRequiredGuard, ScanRequiredGuard, DetailsConfirmedGuard]
+  },
+  {
+    path: 'success', component: SuccessComponent,
+    // canActivate: [VisitRequiredGuard]
+  },
 
   { path: 'visit-not-found', component: VisitNotFoundComponent },
 

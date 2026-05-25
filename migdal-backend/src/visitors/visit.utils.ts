@@ -40,5 +40,9 @@ export function buildSmsData(visit: Visit, visitor?: Visitor): SmsTemplateData {
             phone: visitor.phone ?? '',
             carNumber: visitor.carNumber ?? '',
         } : undefined,
+        requester: req ? {
+            phone: req.phone || undefined,
+            email: req.email || undefined,
+        } : undefined,
     };
 }

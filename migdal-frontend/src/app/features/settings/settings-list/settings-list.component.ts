@@ -123,8 +123,8 @@ import { HasUnsavedChanges } from '@core/guards/unsaved-changes.guard';
       .save-bar {
         position: fixed;
         bottom: 0;
-        left: var(--sidebar-width, 260px);
-        right: 0;
+        left: 0;
+        right: var(--sidebar-width, 260px);
         display: flex;
         align-items: center;
         justify-content: flex-end;
@@ -170,7 +170,7 @@ import { HasUnsavedChanges } from '@core/guards/unsaved-changes.guard';
       }
 
       @media (max-width: 959px) {
-        .save-bar { left: 0; }
+        .save-bar { right: 0; }
       }
       @media (max-width: 767px) {
         .setting-row { flex-direction: column; }

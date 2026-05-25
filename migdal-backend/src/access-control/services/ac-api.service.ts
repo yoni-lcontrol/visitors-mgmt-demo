@@ -318,6 +318,29 @@ export class AccessControlApiService {
         );
     }
 
+    // ───────────────────── Visitor-specific operations ──────────────────────
+
+    async createVisitor(visitor: RemoteCardholder): Promise<RemoteCardholderResponse> {
+        this.logger.log(`Creating visitor on remote AC server: ${visitor.personId}`);
+        const dto = {
+            firstName: visitor.firstName,
+            lastName: visitor.lastName,
+            fromDateValid: visitor.fromDate,
+            toDateValid: visitor.toDate,
+            cardholderIdNumber: visitor.personId,
+            accessGroupApiKeys: visitor.accessLevelNames,
+            cardNumber: visitor.cardNumber,
+        };
+        return this.post<RemoteCardholderResponse>('/api/cardholders/visitors', dto);
+    }
+
+    async deleteVisitor(visitorUid: string): Promise<RemoteCardholderResponse> {
+        this.logger.log(`Deleting visitor ${visitorUid} on remote AC server`);
+        return this.delete<RemoteCardholderResponse>(
+            `/api/cardholders/visitors/${encodeURIComponent(visitorUid)}`,
+        );
+    }
+
     // ───────────────────── Cardholder batch operations ──────────────────────
 
     async createCardholderBatch(cardholders: RemoteCardholder[]): Promise<{

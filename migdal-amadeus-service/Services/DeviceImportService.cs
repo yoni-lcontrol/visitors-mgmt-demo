@@ -128,26 +128,16 @@ public class DeviceImportService : IDeviceImportService
             while (!cancellationToken.IsCancellationRequested)
             {
                 batchIndex++;
-                _logger.LogInformation(
-                    "Controller batch {Batch} started. Skip={Skip}, Top={Top}",
-                    batchIndex,
-                    skip,
-                    _batchSize);
 
                 var (externalControllers, count) = await _apiClient.GetControllersPagedAsync(skip, _batchSize, cancellationToken);
                 totalCount ??= count;
 
                 if (externalControllers.Count == 0)
                 {
-                    _logger.LogInformation("Controller batch {Batch} returned no records; stopping paging loop", batchIndex);
                     break;
                 }
 
                 result.TotalReceived += externalControllers.Count;
-                _logger.LogInformation(
-                    "Controller batch {Batch} received {BatchReceived} records from Amadeus",
-                    batchIndex,
-                    externalControllers.Count);
 
                 foreach (var ext in externalControllers)
                 {
@@ -163,13 +153,6 @@ public class DeviceImportService : IDeviceImportService
 
                 processed += externalControllers.Count;
                 skip += externalControllers.Count;
-
-                _logger.LogInformation(
-                    "Controller batch {Batch} completed. BatchProcessed={BatchProcessed}, CumulativeProcessed={CumulativeProcessed}, Total={Total}",
-                    batchIndex,
-                    externalControllers.Count,
-                    processed,
-                    totalCount);
 
                 if (externalControllers.Count < _batchSize)
                 {

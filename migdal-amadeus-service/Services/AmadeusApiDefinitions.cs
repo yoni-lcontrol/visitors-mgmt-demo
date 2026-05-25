@@ -65,6 +65,11 @@ public static class AmadeusApiDefinitions
             return $"{Cardholders}({uid})";
         }
 
+        public static string CardholdersByIdNumber(string cardholderIdNumber)
+        {
+            return $"{Cardholders}?$filter=cardholderIdNumber eq '{cardholderIdNumber}'";
+        }
+
         private static string BuildPagedPath(string entitySetPath, int skip, int top)
         {
             return $"{entitySetPath}?$skip={skip}&$top={top}&$count=true";

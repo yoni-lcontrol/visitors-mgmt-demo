@@ -2,12 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { CardholderService } from './cardholder.service';
 import { AccessControlApiService } from './ac-api.service';
 import { AuditService } from '../../audit/audit.service';
+import { AmadeusSyncQueueService } from '../../amadeus/services/amadeus-sync-queue.service';
 import { createMockAuditService } from '../../test-utils/mock.factory';
 
 describe('CardholderService', () => {
     let service: CardholderService;
     let mockAcApi: Record<string, jest.Mock>;
     let mockAuditService: ReturnType<typeof createMockAuditService>;
+    let mockSyncQueue: Record<string, jest.Mock>;
 
     beforeEach(async () => {
         mockAcApi = {
@@ -20,12 +22,16 @@ describe('CardholderService', () => {
             deleteCardholderBatch: jest.fn().mockResolvedValue({ succeeded: 1, failed: 0, errors: [] }),
         };
         mockAuditService = createMockAuditService();
+        mockSyncQueue = {
+            enqueueAndExecute: jest.fn().mockResolvedValue({ executed: true, queued: false }),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 CardholderService,
                 { provide: AccessControlApiService, useValue: mockAcApi },
                 { provide: AuditService, useValue: mockAuditService },
+                { provide: AmadeusSyncQueueService, useValue: mockSyncQueue },
             ],
         }).compile();
 
@@ -63,12 +69,14 @@ describe('CardholderService', () => {
                 'user-1',
             );
 
-            expect(mockAcApi.createCardholder).toHaveBeenCalledWith(
+            expect(mockSyncQueue.enqueueAndExecute).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    firstName: 'Jane',
-                    lastName: 'Doe',
-                    personId: '456',
-                    active: true,
+                    payload: expect.objectContaining({
+                        firstName: 'Jane',
+                        lastName: 'Doe',
+                        personId: '456',
+                        active: true,
+                    }),
                 }),
             );
             expect(result.success).toBe(true);
@@ -109,7 +117,12 @@ describe('CardholderService', () => {
         it('should delete cardholder and audit log', async () => {
             const result = await service.remove('ch-1', 'user-1');
 
-            expect(mockAcApi.deleteCardholder).toHaveBeenCalledWith('ch-1');
+            expect(mockSyncQueue.enqueueAndExecute).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    payload: { amadeusUid: 'ch-1' },
+                    cardholderId: 'ch-1',
+                }),
+            );
             expect(result.success).toBe(true);
             expect(mockAuditService.log).toHaveBeenCalledWith(
                 expect.objectContaining({

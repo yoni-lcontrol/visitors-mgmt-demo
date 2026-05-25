@@ -8,6 +8,8 @@ import { ReviewBlacklistOverrideDto } from './dto/review-blacklist-override.dto'
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import { applyTableFilters, parseTableFilters } from '../common/utils/table-filter.util';
 import { AuditService } from '../audit/audit.service';
+import { EmailNotificationService } from '../settings/email-notification.service';
+import { NotificationEvent } from '../settings/enums/notification-event.enum';
 
 @Injectable()
 export class BlacklistOverrideService {
@@ -15,6 +17,7 @@ export class BlacklistOverrideService {
         @InjectRepository(BlacklistOverrideRequest)
         private readonly overrideRepo: Repository<BlacklistOverrideRequest>,
         private readonly auditService: AuditService,
+        private readonly emailNotificationService: EmailNotificationService,
     ) {}
 
     async findAll(query: BlacklistOverrideQueryDto): Promise<PaginatedResult<any>> {
@@ -26,6 +29,7 @@ export class BlacklistOverrideService {
             .innerJoinAndSelect('vv.visit', 'visit')
             .leftJoinAndSelect('visit.createdByUser', 'creator')
             .leftJoinAndSelect('bor.reviewedByUser', 'reviewer')
+            .leftJoinAndSelect('bor.blacklistEntry', 'bl')
             .where('bor.isActive = :active', { active: true });
 
         if (status) {
@@ -83,9 +87,13 @@ export class BlacklistOverrideService {
         const saved = await this.overrideRepo.save(request);
 
         const visitor = request.visitVisitor?.visitor;
-        const auditAction = dto.status === BlacklistOverrideStatus.Approved
-            ? 'BLACKLIST_OVERRIDE_APPROVED'
-            : 'BLACKLIST_OVERRIDE_DENIED';
+        const auditActionMap: Record<string, string> = {
+            [BlacklistOverrideStatus.Approved]: 'BLACKLIST_OVERRIDE_APPROVED',
+            [BlacklistOverrideStatus.Denied]: 'BLACKLIST_OVERRIDE_DENIED',
+            [BlacklistOverrideStatus.ApprovedEscort]: 'BLACKLIST_OVERRIDE_APPROVED_ESCORT',
+            [BlacklistOverrideStatus.ApprovedSecurity]: 'BLACKLIST_OVERRIDE_APPROVED_SECURITY',
+        };
+        const auditAction = auditActionMap[dto.status] ?? 'BLACKLIST_OVERRIDE_REVIEWED';
         const visitorName = visitor
             ? [visitor.firstName, visitor.lastName].filter(Boolean).join(' ')
             : '';

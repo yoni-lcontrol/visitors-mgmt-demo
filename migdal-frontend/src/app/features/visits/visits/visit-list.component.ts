@@ -155,7 +155,7 @@ import { Subscription } from 'rxjs';
                   @if (visit.visitVisitors?.length) {
                     <div class="visitor-chips">
                       @for (vv of visit.visitVisitors!; track vv.id) {
-                        <span class="visitor-chip" [class.visitor-chip-blocked]="isVisitorBlocked(vv)" [title]="vv.visitor?.fullName || ''">
+                        <span class="visitor-chip" [class.visitor-chip-blocked]="isVisitorBlocked(vv)" [class.visitor-chip-approved]="isVisitorApproved(vv)" [class.visitor-chip-approved-escort]="isVisitorApprovedEscort(vv)" [class.visitor-chip-approved-security]="isVisitorApprovedSecurity(vv)" [title]="vv.visitor?.fullName || ''">
                           {{ vv.visitor?.firstName }} {{ vv.visitor?.lastName }}
                         </span>
                       }
@@ -533,6 +533,33 @@ import { Subscription } from 'rxjs';
     .visitor-chip-blocked:hover {
       background: rgba(239, 68, 68, 0.12);
       border-color: rgba(239, 68, 68, 0.28);
+    }
+    .visitor-chip-approved {
+      background: rgba(34, 197, 94, 0.08);
+      border-color: rgba(34, 197, 94, 0.20);
+      color: #15803d;
+    }
+    .visitor-chip-approved:hover {
+      background: rgba(34, 197, 94, 0.15);
+      border-color: rgba(34, 197, 94, 0.30);
+    }
+    .visitor-chip-approved-escort {
+      background: rgba(245, 158, 11, 0.08);
+      border-color: rgba(245, 158, 11, 0.20);
+      color: #b45309;
+    }
+    .visitor-chip-approved-escort:hover {
+      background: rgba(245, 158, 11, 0.15);
+      border-color: rgba(245, 158, 11, 0.30);
+    }
+    .visitor-chip-approved-security {
+      background: rgba(59, 130, 246, 0.08);
+      border-color: rgba(59, 130, 246, 0.20);
+      color: #1d4ed8;
+    }
+    .visitor-chip-approved-security:hover {
+      background: rgba(59, 130, 246, 0.15);
+      border-color: rgba(59, 130, 246, 0.30);
     }
     .overflow-chip {
       padding: 0.2rem 0.5rem;
@@ -1010,6 +1037,18 @@ export class VisitListComponent implements OnInit, OnDestroy {
     return vv.blacklistOverride?.status === 'pending' || vv.blacklistOverride?.status === 'denied';
   }
 
+  isVisitorApproved(vv: VisitVisitor): boolean {
+    return vv.blacklistOverride?.status === 'approved';
+  }
+
+  isVisitorApprovedEscort(vv: VisitVisitor): boolean {
+    return vv.blacklistOverride?.status === 'approved_escort';
+  }
+
+  isVisitorApprovedSecurity(vv: VisitVisitor): boolean {
+    return vv.blacklistOverride?.status === 'approved_security';
+  }
+
   // ── Visitor action handlers ──
 
   registerEvent(visit: Visit, vv: VisitVisitor, eventType: VisitorAccessEventType): void {
@@ -1017,12 +1056,15 @@ export class VisitListComponent implements OnInit, OnDestroy {
       this.notify.error('COMMON.ACTION_NOT_ALLOWED');
       return;
     }
-    this.api.post('/visitor-access-logs', {
+    this.api.post<any>('/visitor-access-logs', {
       visitVisitorId: vv.id,
       eventType,
     }).subscribe({
-      next: () => {
+      next: (res) => {
         this.notify.success('COMMON.SUCCESS');
+        if (res?.amadeusSync && !res.amadeusSync.success) {
+          this.notify.warn('VISITS.AMADEUS_SYNC_FAILED');
+        }
         this.loadData();
       },
       error: (err) => this.notify.error(err),

@@ -35,7 +35,7 @@ export class KioskController {
     @Post('validate-person-id')
     @ApiOperation({ summary: 'Find today\'s visit by person ID (scanned document)' })
     validatePersonId(@Body() dto: KioskValidatePersonIdDto) {
-        return this.checkInCodeService.findVisitByPersonId(dto.personId);
+        return this.checkInCodeService.findVisitByPersonId(dto.personId, dto.identifyNumber);
     }
 
     @Post('arrive')

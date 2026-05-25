@@ -38,6 +38,10 @@ export class ApiService {
         return this.http.delete<T>(`${this.baseUrl}${path}`);
     }
 
+    postFormData<T>(path: string, formData: FormData): Observable<T> {
+        return this.http.post<T>(`${this.baseUrl}${path}`, formData);
+    }
+
     download(path: string, params?: Record<string, string | number>): Observable<Blob> {
         let httpParams = new HttpParams();
         if (params) {

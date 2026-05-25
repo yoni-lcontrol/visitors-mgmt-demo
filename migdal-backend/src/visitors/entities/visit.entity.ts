@@ -2,6 +2,7 @@ import { Entity, Column, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { BaseEntity } from '../../common/entities/base.entity';
 import { VisitVisitor } from './visit-visitor.entity';
 import { VisitEscort } from './visit-escort.entity';
+import { VisitFile } from './visit-file.entity';
 import { Building } from '../../buildings/entities/building.entity';
 import { User } from '../../users/entities/user.entity';
 import { Sector } from '../../sectors/entities/sector.entity';
@@ -72,4 +73,7 @@ export class Visit extends BaseEntity {
 
     @OneToMany(() => VisitEscort, (ve) => ve.visit)
     visitEscorts!: VisitEscort[];
+
+    @OneToMany(() => VisitFile, (vf) => vf.visit)
+    visitFiles!: VisitFile[];
 }

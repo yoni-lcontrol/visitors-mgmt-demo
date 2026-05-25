@@ -25,8 +25,10 @@ import { AuditService } from '../audit/audit.service';
 import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
 import { BlacklistOverrideStatus } from './enums/blacklist-override-status.enum';
 import { AmadeusUsersService } from '../amadeus/services/amadeus-users.service';
+import { SyncQueueSource } from '../amadeus/entities/amadeus-sync-queue.entity';
 import { PrintingService } from '../printing/services/printing.service';
 import { Building } from '../buildings/entities/building.entity';
+import { buildSmsData } from './visit.utils';
 
 const MAX_CODE_GENERATION_ATTEMPTS = 20;
 const EARLY_ARRIVAL_BUFFER_MINUTES = 60;
@@ -302,13 +304,35 @@ export class VisitCheckInCodeService {
         };
     }
 
-    async findVisitByPersonId(personId: string) {
+    async findVisitByPersonId(personId: string, identifyNumber?: string) {
+        console.log('[KIOSK-DEBUG] findVisitByPersonId called with:', { personId, identifyNumber });
         const trimmed = personId.trim();
         if (!trimmed) return { ok: false };
 
-        const visitor = await this.visitorRepo.findOne({
+        let visitor = await this.visitorRepo.findOne({
             where: { personId: trimmed, isActive: true },
         });
+
+        // Fallback: try digits-only version (MRZ may include filler chars like '<')
+        if (!visitor) {
+            const digitsOnly = trimmed.replace(/\D/g, '');
+            if (digitsOnly && digitsOnly !== trimmed) {
+                visitor = await this.visitorRepo.findOne({
+                    where: { personId: digitsOnly, isActive: true },
+                });
+            }
+        }
+
+        // Fallback: try the identifyNumber field (Israeli ID from OCR)
+        if (!visitor && identifyNumber) {
+            const trimmedIdentify = identifyNumber.trim();
+            if (trimmedIdentify) {
+                visitor = await this.visitorRepo.findOne({
+                    where: { personId: trimmedIdentify, isActive: true },
+                });
+            }
+        }
+
         if (!visitor) return { ok: false };
 
         const now = new Date();
@@ -376,7 +400,7 @@ export class VisitCheckInCodeService {
 
         const visitVisitor = await this.visitVisitorRepo.findOne({
             where: { visitId, visitorId, isActive: true },
-            relations: ['visit'],
+            relations: ['visit', 'visit.visitRequesterUser'],
         });
         if (!visitVisitor) throw new BadRequestException('Visitor is not part of this visit');
 
@@ -415,12 +439,11 @@ export class VisitCheckInCodeService {
         const visitorName = `${visitor.firstName} ${visitor.lastName}`;
         const visitTitle = visitVisitor.visit?.title ?? 'Unknown';
 
-        // Download visitor to Amadeus
-        try {
-            await this.downloadVisitorToAmadeus(visitor, visitVisitor.visit);
-        } catch (err: any) {
-            this.logger.error(`Failed to download visitor to Amadeus: ${err.message}`, err.stack);
-            return { ok: false, visitVisitorId: visitVisitor.id, visitorName, visitTitle, error: 'amadeus_download_failed' };
+        // Send arrival notifications to host (fire-and-forget)
+        if (visitVisitor.visit) {
+            const smsData = buildSmsData(visitVisitor.visit, visitor);
+            this.smsNotification.triggerSms(NotificationEvent.VisitorArrived, smsData).catch(() => {});
+            this.emailNotification.triggerEmail(NotificationEvent.VisitorArrived, smsData).catch(() => {});
         }
 
         this.wsGateway.broadcastToAll('visits:visitor:arrived', {
@@ -430,6 +453,7 @@ export class VisitCheckInCodeService {
         });
 
         // Print card (fire-and-forget, don't block success)
+        console.log('[KIOSK-DEBUG] arriveByPersonId print check:', { workstationCode, visitId, visitorId });
         if (workstationCode) {
             this.printingService.requestKioskPrintCard(workstationCode, visitId, visitorId).catch((err) => {
                 this.logger.error(`Failed to print visitor card: ${err.message}`, err.stack);
@@ -477,10 +501,16 @@ export class VisitCheckInCodeService {
 
             // Block check-in for visitors with pending blacklist override
             const pendingOverride = await qr.manager.findOne(BlacklistOverrideRequest, {
-                where: { visitVisitorId: codeRecord.visitVisitorId, status: BlacklistOverrideStatus.Pending, isActive: true },
+                where: [
+                    { visitVisitorId: codeRecord.visitVisitorId, status: BlacklistOverrideStatus.Pending, isActive: true },
+                    { visitVisitorId: codeRecord.visitVisitorId, status: BlacklistOverrideStatus.ApprovedSecurity, isActive: true },
+                ],
             });
             if (pendingOverride) {
-                throw new ForbiddenException('Cannot check in — visitor has a pending blacklist override approval');
+                const message = pendingOverride.status === BlacklistOverrideStatus.ApprovedSecurity
+                    ? 'Please proceed to the front desk for security escort'
+                    : 'Cannot check in — visitor has a pending blacklist override approval';
+                throw new ForbiddenException(message);
             }
 
             // Mark code as used
@@ -504,9 +534,16 @@ export class VisitCheckInCodeService {
 
             // Fetch names for response
             const visitor = await this.visitorRepo.findOne({ where: { id: codeRecord.visitorId } });
-            const visit = await this.visitRepo.findOne({ where: { id: codeRecord.visitId } });
+            const visit = await this.visitRepo.findOne({ where: { id: codeRecord.visitId }, relations: ['visitRequesterUser'] });
             const visitorName = visitor ? `${visitor.firstName} ${visitor.lastName}` : 'Unknown';
             const visitTitle = visit?.title ?? 'Unknown';
+
+            // Send arrival notifications to host (fire-and-forget)
+            if (visit && visitor) {
+                const smsData = buildSmsData(visit, visitor);
+                this.smsNotification.triggerSms(NotificationEvent.VisitorArrived, smsData).catch(() => {});
+                this.emailNotification.triggerEmail(NotificationEvent.VisitorArrived, smsData).catch(() => {});
+            }
 
             // Download visitor to Amadeus
             if (visitor && visit) {
@@ -555,20 +592,28 @@ export class VisitCheckInCodeService {
             relations: ['accessLevels'],
         });
 
-        const accessLevelNames = (building?.accessLevels ?? [])
-            .filter((al) => al.isActive && al.active && al.visitorAccess)
-            .map((al) => al.name);
+        const accessLevelApiKeys = (building?.accessLevels ?? [])
+            .filter((al) => al.isActive && al.active && al.visitorAccess && al.externalId)
+            .map((al) => al.externalId!);
 
         const result = await this.amadeusUsersService.addUserToAmadeus({
             cardholderIdNumber: visitor.personId,
             firstName: visitor.firstName,
             lastName: visitor.lastName,
-            accessGroupApiKeys: accessLevelNames,
+            accessGroupApiKeys: accessLevelApiKeys,
             fromDateValid: visit.plannedStartTimeUtc?.toISOString(),
             toDateValid: visit.plannedEndTimeUtc?.toISOString() ?? undefined,
+        }, {
+            source: SyncQueueSource.VisitorCheckIn,
+            referenceId: visit.id,
+            referenceType: 'Visit',
         });
 
-        this.logger.log(`Visitor ${visitor.personId} downloaded to Amadeus: ${result?.cardholderId}`);
+        if (result.queued) {
+            this.logger.warn(`Visitor ${visitor.personId} queued for Amadeus sync (service unavailable)`);
+        } else {
+            this.logger.log(`Visitor ${visitor.personId} downloaded to Amadeus: ${result?.cardholderId}`);
+        }
     }
 
     // ── Resend / Regenerate ──

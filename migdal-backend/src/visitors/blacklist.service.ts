@@ -37,10 +37,6 @@ export class BlacklistService {
         return paginateQuery(this.buildQuery(query), query.page, query.limit);
     }
 
-    async findAllRemoved(query: PaginationQueryDto): Promise<PaginatedResult<BlacklistEntry>> {
-        return paginateQuery(this.buildRemovedQuery(query), query.page, query.limit);
-    }
-
     async exportToExcel(query: PaginationQueryDto): Promise<Buffer> {
         const qb = this.buildQuery(query);
         const entries = await qb.getMany();
@@ -108,46 +104,6 @@ export class BlacklistService {
         return qb;
     }
 
-    private buildRemovedQuery(query: PaginationQueryDto) {
-        const { search, sortBy, sortOrder, filters } = query;
-        const qb = this.repo.createQueryBuilder('b')
-            .leftJoinAndSelect('b.notifyUsers', 'nu')
-            .leftJoinAndSelect('b.createdByUser', 'creator')
-            .where('b.isActive = :active', { active: false });
-
-        if (search) {
-            qb.andWhere(
-                '(b.firstName LIKE :s OR b.lastName LIKE :s OR b.idNumber LIKE :s OR b.reason LIKE :s)',
-                { s: `%${search}%` },
-            );
-        }
-
-        applyTableFilters(qb, parseTableFilters(filters), {
-            firstName: 'b.firstName',
-            lastName: 'b.lastName',
-            idNumber: 'b.idNumber',
-            reason: 'b.reason',
-            blockedAt: 'b.blockedAt',
-            blockedUntil: 'b.blockedUntil',
-            'createdByUser.firstName': 'creator.firstName',
-        });
-
-        const sortable: Record<string, string> = {
-            firstName: 'b.firstName',
-            lastName: 'b.lastName',
-            idNumber: 'b.idNumber',
-            reason: 'b.reason',
-            blockedAt: 'b.blockedAt',
-            blockedUntil: 'b.blockedUntil',
-            createdAt: 'b.createdAt',
-            'createdByUser.firstName': 'creator.firstName',
-        };
-        const sortColumn = sortBy ? sortable[sortBy] : undefined;
-        qb.orderBy(sortColumn ?? 'b.updatedAt', sortOrder ?? 'DESC');
-
-        return qb;
-    }
-
     async findById(id: string): Promise<BlacklistEntry> {
         const entry = await this.repo.findOne({
             where: { id, isActive: true },
@@ -165,7 +121,7 @@ export class BlacklistService {
             phoneNumber: dto.phoneNumber ?? null,
             reason: dto.reason,
             blockedAt: new Date(),
-            blockedUntil: dto.blockedUntil ? new Date(dto.blockedUntil) : null,
+            blockedUntil: null,
             notes: dto.notes ?? null,
             createdBy: currentUserId ?? null,
             updatedBy: currentUserId ?? null,
@@ -413,12 +369,16 @@ export class BlacklistService {
 
         if (!affectedVvs.length) return;
 
-        // Separate already-checked-in visitors from those who can be blocked
-        const checkedInVvs = affectedVvs.filter(
-            (vv) => vv.status?.currentStatus === VisitorStatus.CheckedIn,
+        // Separate visitors by their current state:
+        // - Already on premises (arrived / checked-in): send alert
+        // - Not yet arrived (pending): create override request requiring approval
+        // - Already left (checked-out): skip
+        const onPremisesVvs = affectedVvs.filter(
+            (vv) => vv.status?.currentStatus === VisitorStatus.CheckedIn
+                || vv.status?.currentStatus === VisitorStatus.Arrived,
         );
         const blockableVvs = affectedVvs.filter(
-            (vv) => vv.status?.currentStatus !== VisitorStatus.CheckedIn,
+            (vv) => !vv.status || vv.status.currentStatus === VisitorStatus.Pending,
         );
 
         // Block visitors who haven't entered yet
@@ -436,15 +396,15 @@ export class BlacklistService {
             await this.overrideRepo.save(overrides);
         }
 
-        // Alert about visitors already inside the premises
-        if (checkedInVvs.length) {
+        // Alert about visitors already on premises (arrived or checked-in)
+        if (onPremisesVvs.length) {
             this.wsGateway.broadcastToAll('blacklist:active-visitor-alert', {
                 blacklistEntryId: blacklistEntry.id,
                 personName: `${blacklistEntry.firstName} ${blacklistEntry.lastName}`,
                 idNumber: blacklistEntry.idNumber,
                 reason: blacklistEntry.reason,
-                visitVisitorIds: checkedInVvs.map((vv) => vv.id),
-                count: checkedInVvs.length,
+                visitVisitorIds: onPremisesVvs.map((vv) => vv.id),
+                count: onPremisesVvs.length,
             });
         }
 
@@ -454,7 +414,7 @@ export class BlacklistService {
             action: 'BLACKLIST_BLOCK_VISITS',
             entity: 'BlacklistOverrideRequest',
             entityId: blacklistEntry.id,
-            description: `Blocked ${blockableVvs.length} visit-visitor(s), alerted ${checkedInVvs.length} checked-in visitor(s) for blacklisted person "${blacklistEntry.firstName} ${blacklistEntry.lastName}"`,
+            description: `Blocked ${blockableVvs.length} visit-visitor(s), alerted ${onPremisesVvs.length} on-premises visitor(s) for blacklisted person "${blacklistEntry.firstName} ${blacklistEntry.lastName}"`,
         }).catch(() => { });
     }
 }

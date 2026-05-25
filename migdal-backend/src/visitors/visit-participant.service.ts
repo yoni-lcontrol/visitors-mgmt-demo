@@ -18,11 +18,14 @@ import { UpdateVisitEscortDto } from './dto/update-visit-escort.dto';
 import { VisitorStatus } from './enums/visitor-status.enum';
 import { ParkingRequestStatus } from './enums/parking-request-status.enum';
 import { ParkingRequest } from './entities/parking-request.entity';
+import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
+import { BlacklistOverrideStatus } from './enums/blacklist-override-status.enum';
 import { PermissionKey } from '../common/enums/permission-key.enum';
 import { BlacklistService } from './blacklist.service';
 import { VisitCheckInCodeService } from './visit-check-in-code.service';
 import { AuditService } from '../audit/audit.service';
 import { VisitorPersistenceService } from './visitor-persistence.service';
+import { AmadeusParkingSyncService } from '../amadeus/services/amadeus-parking-sync.service';
 
 @Injectable()
 export class VisitParticipantService {
@@ -42,35 +45,32 @@ export class VisitParticipantService {
         private readonly checkInCodeService: VisitCheckInCodeService,
         @InjectRepository(ParkingRequest)
         private readonly parkingRequestRepo: Repository<ParkingRequest>,
+        @InjectRepository(BlacklistOverrideRequest)
+        private readonly blacklistOverrideRepo: Repository<BlacklistOverrideRequest>,
         private readonly auditService: AuditService,
         private readonly visitorPersistence: VisitorPersistenceService,
+        private readonly amadeusParkingSync: AmadeusParkingSyncService,
     ) { }
 
     // ── Validation helpers (public for use by VisitsService.createVisit) ──
 
-    async validateVisitorsNotBlacklisted(visitors: { personId?: string; carNumber?: string }[]): Promise<void> {
+    async validateVisitorsNotBlacklisted(visitors: { personId?: string }[]): Promise<Map<string, { blacklistId?: string; reason?: string }>> {
         const personIds = visitors.map((v) => v.personId).filter(Boolean) as string[];
-        const carNumbers = visitors.map((v) => v.carNumber).filter(Boolean) as string[];
 
-        const [personMap, vehicleMap] = await Promise.all([
-            personIds.length ? this.blacklistService.checkBlacklistStatusBatch(personIds) : new Map(),
-            carNumbers.length ? this.blacklistService.checkVehicleBlacklistStatusBatch(carNumbers) : new Map(),
-        ]);
+        const personMap = personIds.length ? await this.blacklistService.checkBlacklistStatusBatch(personIds) : new Map();
+
+        const blacklistedMap = new Map<string, { blacklistId?: string; reason?: string }>();
 
         for (const v of visitors) {
             if (v.personId) {
                 const result = personMap.get(v.personId);
                 if (result?.isBlacklisted) {
-                    throw new BadRequestException(`Visitor with ID ${v.personId} is currently blacklisted: ${result.reason}`);
-                }
-            }
-            if (v.carNumber) {
-                const result = vehicleMap.get(v.carNumber);
-                if (result?.isBlacklisted) {
-                    throw new BadRequestException(`Vehicle ${v.carNumber} is currently blacklisted: ${result.reason}`);
+                    blacklistedMap.set(v.personId, { blacklistId: result.blacklistId, reason: result.reason });
                 }
             }
         }
+
+        return blacklistedMap;
     }
 
     // ── Visit Visitors ──
@@ -90,8 +90,14 @@ export class VisitParticipantService {
             : [];
         const parkingMap = new Map(parkingRequests.map(pr => [pr.visitVisitorId, pr]));
 
+        const blacklistOverrides = vvIds.length
+            ? await this.blacklistOverrideRepo.find({ where: vvIds.map(id => ({ visitVisitorId: id, isActive: true })) })
+            : [];
+        const blacklistOverrideMap = new Map(blacklistOverrides.map(bo => [bo.visitVisitorId, bo]));
+
         return visitors.map((vv) => {
             const pr = parkingMap.get(vv.id);
+            const bo = blacklistOverrideMap.get(vv.id);
             return {
                 id: vv.id,
                 visitId: vv.visitId,
@@ -109,6 +115,7 @@ export class VisitParticipantService {
                     vehicleType: vv.visitor.vehicleType,
                 } : null,
                 parkingRequest: pr ? { status: pr.status } : null,
+                blacklistOverride: bo ? { status: bo.status, reason: bo.blacklistReason } : null,
                 status: vv.status ? {
                     currentStatus: vv.status.currentStatus,
                     arrivedAtUtc: vv.status.arrivedAtUtc,
@@ -125,12 +132,14 @@ export class VisitParticipantService {
         const visit = await this.visitRepo.findOne({ where: { id: visitId, isActive: true } });
         if (!visit) throw new NotFoundException('Visit not found');
 
-        await this.validateVisitorsNotBlacklisted(dto.visitors);
+        const blacklistedMap = await this.validateVisitorsNotBlacklisted(dto.visitors);
 
         const qr = this.dataSource.createQueryRunner();
         await qr.connect();
         await qr.startTransaction();
         try {
+            const approvedParkingRequestIds: string[] = [];
+
             for (const v of dto.visitors) {
                 const { visitor: savedVisitor } = await this.visitorPersistence.upsertByPersonId({
                     firstName: v.firstName,
@@ -159,6 +168,19 @@ export class VisitParticipantService {
                 });
                 await qr.manager.save(status);
 
+                // Create blacklist override request if visitor is blacklisted
+                const personBlacklist = v.personId ? blacklistedMap.get(v.personId) : undefined;
+                if (personBlacklist) {
+                    const overrideReq = qr.manager.create(BlacklistOverrideRequest, {
+                        visitVisitorId: savedVv.id,
+                        blacklistId: personBlacklist.blacklistId ?? null,
+                        blacklistReason: personBlacklist.reason ?? null,
+                        status: BlacklistOverrideStatus.Pending,
+                        createdBy: currentUserId ?? null,
+                    });
+                    await qr.manager.save(overrideReq);
+                }
+
                 // Create parking request if requested and user has permission
                 if (v.requestParking && v.hasVehicle && userPermissions?.includes(PermissionKey.ParkingRequest)) {
                     const autoApprove = userPermissions.includes(PermissionKey.ParkingAutoApprove);
@@ -169,11 +191,19 @@ export class VisitParticipantService {
                         reviewedAt: autoApprove ? new Date() : null,
                         createdBy: currentUserId ?? null,
                     });
-                    await qr.manager.save(parkingReq);
+                    const savedParkingReq = await qr.manager.save(parkingReq);
+                    if (autoApprove) {
+                        approvedParkingRequestIds.push(savedParkingReq.id);
+                    }
                 }
             }
 
             await qr.commitTransaction();
+
+            // Sync approved parking visitors to Amadeus (fire-and-forget, after commit)
+            for (const prId of approvedParkingRequestIds) {
+                this.amadeusParkingSync.syncApprovedParkingVisitorToAmadeus(prId).catch(() => { });
+            }
 
             this.auditService.log({
                 userId: currentUserId,
@@ -208,11 +238,15 @@ export class VisitParticipantService {
 
         const oldVisitorValue = { firstName: visitor.firstName, lastName: visitor.lastName, personId: visitor.personId, email: visitor.email, phone: visitor.phone };
 
+        let blacklistOverrideNeeded = false;
+        let blacklistInfo: { blacklistId?: string; reason?: string } | undefined;
+
         if (dto.personId !== undefined) {
             const normalizedPersonId = this.visitorPersistence.normalizePersonId(dto.personId);
             const blacklistResult = await this.blacklistService.checkBlacklistStatus(normalizedPersonId);
             if (blacklistResult.isBlacklisted) {
-                throw new BadRequestException(`Visitor with ID ${normalizedPersonId} is currently blacklisted: ${blacklistResult.reason}`);
+                blacklistOverrideNeeded = true;
+                blacklistInfo = { blacklistId: blacklistResult.blacklistId, reason: blacklistResult.reason };
             }
 
             if (normalizedPersonId !== visitor.personId) {
@@ -254,11 +288,29 @@ export class VisitParticipantService {
                     reviewedAt: autoApprove ? new Date() : null,
                     createdBy: currentUserId ?? null,
                 });
-                await this.parkingRequestRepo.save(parkingReq);
+                const savedParkingReq = await this.parkingRequestRepo.save(parkingReq);
+                if (autoApprove) {
+                    this.amadeusParkingSync.syncApprovedParkingVisitorToAmadeus(savedParkingReq.id).catch(() => { });
+                }
             } else if (!dto.requestParking && existing) {
                 existing.isActive = false;
                 existing.updatedBy = currentUserId ?? null;
                 await this.parkingRequestRepo.save(existing);
+            }
+        }
+
+        // Handle blacklist override request on update
+        if (blacklistOverrideNeeded && blacklistInfo) {
+            const existingOverride = await this.blacklistOverrideRepo.findOne({ where: { visitVisitorId, isActive: true } });
+            if (!existingOverride) {
+                const overrideReq = this.blacklistOverrideRepo.create({
+                    visitVisitorId,
+                    blacklistId: blacklistInfo.blacklistId ?? null,
+                    blacklistReason: blacklistInfo.reason ?? null,
+                    status: BlacklistOverrideStatus.Pending,
+                    createdBy: currentUserId ?? null,
+                });
+                await this.blacklistOverrideRepo.save(overrideReq);
             }
         }
 

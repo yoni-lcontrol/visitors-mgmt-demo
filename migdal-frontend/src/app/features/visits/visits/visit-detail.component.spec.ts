@@ -3,7 +3,6 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of, Subject, BehaviorSubject } from 'rxjs';
-import { fakeAsync, tick } from '@angular/core/testing';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { VisitDetailComponent } from './visit-detail.component';
 import { ApiService } from '@core/api/api.service';
@@ -97,7 +96,7 @@ describe('VisitDetailComponent', () => {
                 { provide: ApiService, useValue: mockApi },
                 { provide: NotificationService, useValue: mockNotify },
                 { provide: ExcelImportService, useValue: jasmine.createSpyObj('ExcelImportService', ['importExcel']) },
-                { provide: BlacklistCheckService, useValue: jasmine.createSpyObj('BlacklistCheckService', ['check', 'checkVehicle']) },
+                { provide: BlacklistCheckService, useValue: jasmine.createSpyObj('BlacklistCheckService', ['check']) },
                 { provide: VisitorSearchService, useValue: jasmine.createSpyObj('VisitorSearchService', ['search']) },
                 { provide: AdSearchService, useValue: jasmine.createSpyObj('AdSearchService', ['searchPeople']) },
                 { provide: VisitsApiService, useValue: { getVisit: () => of({ id: 'visit-1', title: 'Test Visit', plannedStartTimeUtc: '2026-01-01T09:00:00Z', plannedEndTimeUtc: '2026-01-01T17:00:00Z' }), getVisitors: () => of([]), getEscorts: () => of([]), getCheckInCodes: () => of([]), resendCode: jasmine.createSpy().and.returnValue(of({})), regenerateCode: jasmine.createSpy().and.returnValue(of({})) } },
@@ -213,84 +212,6 @@ describe('VisitDetailComponent', () => {
             component.printCard({ id: 'vv-2', visitorId: null } as any);
 
             expect(mockPrintService.requestPrint).not.toHaveBeenCalled();
-        });
-    });
-
-    describe('vehicle blacklist — add visitor', () => {
-        it('onNewCarNumberChange should set checking then resolve', fakeAsync(() => {
-            mockBlacklistCheck.checkVehicle.and.returnValue(of({ isBlacklisted: true, reason: 'stolen' }));
-            component.onNewCarNumberChange(0, 'ABC123');
-            expect(component.vehicleBlacklistMap.has(0)).toBeFalse(); // not yet — debounce
-            tick(600);
-            const status = component.vehicleBlacklistMap.get(0);
-            expect(status).toEqual({ checking: false, blacklisted: true, reason: 'stolen' });
-        }));
-
-        it('onNewCarNumberChange should clear state for empty value', () => {
-            component.vehicleBlacklistMap.set(0, { checking: false, blacklisted: true });
-            component.onNewCarNumberChange(0, '');
-            expect(component.vehicleBlacklistMap.has(0)).toBeFalse();
-        });
-
-        it('hasBlacklistedNewVisitor should return true when vehicle is blacklisted', () => {
-            component.vehicleBlacklistMap.set(0, { checking: false, blacklisted: true });
-            expect(component.hasBlacklistedNewVisitor()).toBeTrue();
-        });
-
-        it('hasBlacklistedNewVisitor should return false when vehicle is not blacklisted', () => {
-            component.vehicleBlacklistMap.set(0, { checking: false, blacklisted: false });
-            expect(component.hasBlacklistedNewVisitor()).toBeFalse();
-        });
-
-        it('onNewVehicleCheckboxChange should clear vehicle blacklist when unchecked', () => {
-            const v = { hasVehicle: false, carNumber: 'X', vehicleType: 'car', requestParking: true } as any;
-            component.newVisitors = [v];
-            component.vehicleBlacklistMap.set(0, { checking: false, blacklisted: true });
-            component.onNewVehicleCheckboxChange(v);
-            expect(component.vehicleBlacklistMap.has(0)).toBeFalse();
-            expect(v.carNumber).toBe('');
-        });
-    });
-
-    describe('vehicle blacklist — edit visitor', () => {
-        it('onEditCarNumberChange should set checking then resolve', fakeAsync(() => {
-            mockBlacklistCheck.checkVehicle.and.returnValue(of({ isBlacklisted: false }));
-            component.onEditCarNumberChange('DEF456');
-            tick(600);
-            expect(component.editVehicleBlacklistStatus).toEqual({ checking: false, blacklisted: false, reason: undefined });
-        }));
-
-        it('onEditCarNumberChange should clear state for empty value', () => {
-            component.editVehicleBlacklistStatus = { checking: false, blacklisted: true };
-            component.onEditCarNumberChange('');
-            expect(component.editVehicleBlacklistStatus).toBeNull();
-        });
-
-        it('onEditVehicleCheckboxChange should clear vehicle blacklist when unchecked', () => {
-            component.editingVisitor = { hasVehicle: false, carNumber: 'X', vehicleType: 'car' } as any;
-            component.editVehicleBlacklistStatus = { checking: false, blacklisted: true };
-            component.onEditVehicleCheckboxChange();
-            expect(component.editVehicleBlacklistStatus).toBeNull();
-            expect(component.editingVisitor!.carNumber).toBe('');
-        });
-
-        it('isEditVisitorValid should return false when vehicle is blacklisted', () => {
-            component.editingVisitor = {
-                firstName: 'A', lastName: 'B', personId: '123',
-                hasVehicle: false, carNumber: '', vehicleType: '',
-            } as any;
-            component.editVehicleBlacklistStatus = { checking: false, blacklisted: true };
-            expect(component.isEditVisitorValid()).toBeFalse();
-        });
-    });
-
-    describe('clearBlacklistState', () => {
-        it('should clear all vehicle blacklist state', () => {
-            component.vehicleBlacklistMap.set(0, { checking: false, blacklisted: true });
-            component.editVehicleBlacklistStatus = { checking: false, blacklisted: true };
-            (component as any).clearBlacklistState();
-            expect(component.vehicleBlacklistMap.size).toBe(0);
-            expect(component.editVehicleBlacklistStatus).toBeNull();
         });
     });
 

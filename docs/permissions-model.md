@@ -39,8 +39,9 @@ User
 | `vehicle-models` | view, create, update, delete, export | `vehicle-models.view`, `vehicle-models.create`, `vehicle-models.update`, `vehicle-models.delete`, `vehicle-models.export` |
 | `blacklist` | create, read, update, delete, check | `blacklist.create`, `blacklist.read`, `blacklist.update`, `blacklist.delete`, `blacklist.check` |
 | `parking` | request, auto-approve, approve | `parking.request`, `parking.auto-approve`, `parking.approve` |
+| `domains` | create, read, update, delete | `domains.create`, `domains.read`, `domains.update`, `domains.delete` |
 
-**Total: 72 permissions**
+**Total: 76 permissions**
 
 ## Default Roles
 

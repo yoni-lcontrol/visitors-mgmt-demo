@@ -47,4 +47,9 @@ export class CreateCardholderDto {
     @IsOptional()
     @IsBoolean()
     isVisitor?: boolean;
+
+    @ApiPropertyOptional({ example: '12-345-67', description: 'Vehicle license plate number' })
+    @IsOptional()
+    @IsString()
+    licensePlate?: string;
 }

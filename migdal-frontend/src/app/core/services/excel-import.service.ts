@@ -41,6 +41,12 @@ const COLUMN_MAP: Record<string, string> = {
     'car_number': 'carNumber',
     'license plate': 'carNumber',
     'מספר רכב': 'carNumber',
+
+    'vehicletype': 'vehicleType',
+    'vehicle type': 'vehicleType',
+    'vehicle_type': 'vehicleType',
+    'car type': 'vehicleType',
+    'סוג רכב': 'vehicleType',
 };
 
 @Injectable({ providedIn: 'root' })

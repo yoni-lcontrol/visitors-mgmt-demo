@@ -2,6 +2,11 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BlacklistEntry } from './entities/blacklist.entity';
+import { VisitVisitor } from './entities/visit-visitor.entity';
+import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
+import { BlacklistOverrideStatus } from './enums/blacklist-override-status.enum';
+import { VisitVisitorStatus } from './entities/visit-visitor-status.entity';
+import { VisitorStatus } from './enums/visitor-status.enum';
 import { CreateBlacklistDto } from './dto/create-blacklist.dto';
 import { UpdateBlacklistDto } from './dto/update-blacklist.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -20,71 +25,59 @@ export class BlacklistService {
         private readonly repo: Repository<BlacklistEntry>,
         @InjectRepository(User)
         private readonly userRepo: Repository<User>,
+        @InjectRepository(VisitVisitor)
+        private readonly visitVisitorRepo: Repository<VisitVisitor>,
+        @InjectRepository(BlacklistOverrideRequest)
+        private readonly overrideRepo: Repository<BlacklistOverrideRequest>,
         private readonly wsGateway: UsersGateway,
         private readonly auditService: AuditService,
     ) { }
 
-    async findAll(query: PaginationQueryDto, blacklistType?: 'person' | 'vehicle'): Promise<PaginatedResult<BlacklistEntry>> {
-        return paginateQuery(this.buildQuery(query, blacklistType), query.page, query.limit);
+    async findAll(query: PaginationQueryDto): Promise<PaginatedResult<BlacklistEntry>> {
+        return paginateQuery(this.buildQuery(query), query.page, query.limit);
     }
 
-    async exportToExcel(query: PaginationQueryDto, blacklistType: 'person' | 'vehicle'): Promise<Buffer> {
-        const qb = this.buildQuery(query, blacklistType);
+    async findAllRemoved(query: PaginationQueryDto): Promise<PaginatedResult<BlacklistEntry>> {
+        return paginateQuery(this.buildRemovedQuery(query), query.page, query.limit);
+    }
+
+    async exportToExcel(query: PaginationQueryDto): Promise<Buffer> {
+        const qb = this.buildQuery(query);
         const entries = await qb.getMany();
 
         const rows: Array<Record<string, unknown>> = entries.map((e) => {
             const creator = e.createdByUser
                 ? `${e.createdByUser.firstName} ${e.createdByUser.lastName}`.trim()
                 : '';
-            const duration = e.isPermanent
-                ? 'Permanent'
-                : `${e.startDate ? new Date(e.startDate).toLocaleDateString('en-GB') : ''} – ${e.endDate ? new Date(e.endDate).toLocaleDateString('en-GB') : ''}`;
             const notifyNames = (e.notifyUsers ?? []).map(u => `${u.firstName} ${u.lastName}`).join(', ');
 
-            if (blacklistType === 'person') {
-                return {
-                    'First Name': e.firstName ?? '',
-                    'Last Name': e.lastName ?? '',
-                    'ID Number': e.idNumber ?? '',
-                    'Phone Number': e.phoneNumber ?? '',
-                    'Reason': e.reason,
-                    'Duration': duration,
-                    'Blocked At': e.blockedAt,
-                    'Created By': creator,
-                    'Notify Users': notifyNames,
-                    'Notes': e.notes ?? '',
-                };
-            }
             return {
-                'Car Number': e.carNumber ?? '',
-                'Vehicle Type': e.vehicleType ?? '',
+                'First Name': e.firstName ?? '',
+                'Last Name': e.lastName ?? '',
+                'ID Number': e.idNumber ?? '',
+                'Phone Number': e.phoneNumber ?? '',
                 'Reason': e.reason,
-                'Duration': duration,
                 'Blocked At': e.blockedAt,
+                'Blocked Until': e.blockedUntil ?? '',
                 'Created By': creator,
                 'Notify Users': notifyNames,
                 'Notes': e.notes ?? '',
             };
         });
 
-        const sheetName = blacklistType === 'person' ? 'Person Blacklist' : 'Vehicle Blacklist';
-        return toExcelBuffer(rows, sheetName);
+        return toExcelBuffer(rows, 'Blacklist');
     }
 
-    private buildQuery(query: PaginationQueryDto, blacklistType?: 'person' | 'vehicle') {
+    private buildQuery(query: PaginationQueryDto) {
         const { search, sortBy, sortOrder, filters } = query;
         const qb = this.repo.createQueryBuilder('b')
             .leftJoinAndSelect('b.notifyUsers', 'nu')
             .leftJoinAndSelect('b.createdByUser', 'creator')
             .where('b.isActive = :active', { active: true });
 
-        if (blacklistType) {
-            qb.andWhere('b.blacklistType = :blacklistType', { blacklistType });
-        }
-
         if (search) {
             qb.andWhere(
-                '(b.firstName LIKE :s OR b.lastName LIKE :s OR b.idNumber LIKE :s OR b.carNumber LIKE :s OR b.reason LIKE :s)',
+                '(b.firstName LIKE :s OR b.lastName LIKE :s OR b.idNumber LIKE :s OR b.reason LIKE :s)',
                 { s: `%${search}%` },
             );
         }
@@ -93,10 +86,9 @@ export class BlacklistService {
             firstName: 'b.firstName',
             lastName: 'b.lastName',
             idNumber: 'b.idNumber',
-            carNumber: 'b.carNumber',
-            vehicleType: 'b.vehicleType',
             reason: 'b.reason',
             blockedAt: 'b.blockedAt',
+            blockedUntil: 'b.blockedUntil',
             'createdByUser.firstName': 'creator.firstName',
         });
 
@@ -104,15 +96,54 @@ export class BlacklistService {
             firstName: 'b.firstName',
             lastName: 'b.lastName',
             idNumber: 'b.idNumber',
-            carNumber: 'b.carNumber',
-            vehicleType: 'b.vehicleType',
             reason: 'b.reason',
             blockedAt: 'b.blockedAt',
+            blockedUntil: 'b.blockedUntil',
             createdAt: 'b.createdAt',
             'createdByUser.firstName': 'creator.firstName',
         };
         const sortColumn = sortBy ? sortable[sortBy] : undefined;
         qb.orderBy(sortColumn ?? 'b.blockedAt', sortOrder ?? 'DESC');
+
+        return qb;
+    }
+
+    private buildRemovedQuery(query: PaginationQueryDto) {
+        const { search, sortBy, sortOrder, filters } = query;
+        const qb = this.repo.createQueryBuilder('b')
+            .leftJoinAndSelect('b.notifyUsers', 'nu')
+            .leftJoinAndSelect('b.createdByUser', 'creator')
+            .where('b.isActive = :active', { active: false });
+
+        if (search) {
+            qb.andWhere(
+                '(b.firstName LIKE :s OR b.lastName LIKE :s OR b.idNumber LIKE :s OR b.reason LIKE :s)',
+                { s: `%${search}%` },
+            );
+        }
+
+        applyTableFilters(qb, parseTableFilters(filters), {
+            firstName: 'b.firstName',
+            lastName: 'b.lastName',
+            idNumber: 'b.idNumber',
+            reason: 'b.reason',
+            blockedAt: 'b.blockedAt',
+            blockedUntil: 'b.blockedUntil',
+            'createdByUser.firstName': 'creator.firstName',
+        });
+
+        const sortable: Record<string, string> = {
+            firstName: 'b.firstName',
+            lastName: 'b.lastName',
+            idNumber: 'b.idNumber',
+            reason: 'b.reason',
+            blockedAt: 'b.blockedAt',
+            blockedUntil: 'b.blockedUntil',
+            createdAt: 'b.createdAt',
+            'createdByUser.firstName': 'creator.firstName',
+        };
+        const sortColumn = sortBy ? sortable[sortBy] : undefined;
+        qb.orderBy(sortColumn ?? 'b.updatedAt', sortOrder ?? 'DESC');
 
         return qb;
     }
@@ -128,18 +159,13 @@ export class BlacklistService {
 
     async create(dto: CreateBlacklistDto, currentUserId?: string): Promise<BlacklistEntry> {
         const entry = this.repo.create({
-            blacklistType: dto.blacklistType,
-            firstName: dto.firstName ?? null,
-            lastName: dto.lastName ?? null,
-            idNumber: dto.idNumber ?? null,
+            firstName: dto.firstName,
+            lastName: dto.lastName,
+            idNumber: dto.idNumber,
             phoneNumber: dto.phoneNumber ?? null,
-            carNumber: dto.carNumber ?? null,
-            vehicleType: dto.vehicleType ?? '',
             reason: dto.reason,
-            isPermanent: dto.isPermanent,
-            startDate: dto.startDate ? new Date(dto.startDate) : null,
-            endDate: dto.endDate ? new Date(dto.endDate) : null,
             blockedAt: new Date(),
+            blockedUntil: dto.blockedUntil ? new Date(dto.blockedUntil) : null,
             notes: dto.notes ?? null,
             createdBy: currentUserId ?? null,
             updatedBy: currentUserId ?? null,
@@ -151,9 +177,7 @@ export class BlacklistService {
 
         const saved = await this.repo.save(entry);
 
-        const displayName = dto.blacklistType === 'vehicle'
-            ? `vehicle ${saved.carNumber}`
-            : `${saved.firstName} ${saved.lastName}`;
+        const displayName = `${saved.firstName} ${saved.lastName}`;
 
         this.auditService.log({
             userId: currentUserId,
@@ -162,28 +186,20 @@ export class BlacklistService {
             entity: 'BlacklistEntry',
             entityId: saved.id,
             description: `Created blacklist entry for "${displayName}"`,
-            newValue: dto.blacklistType === 'vehicle'
-                ? { blacklistType: dto.blacklistType, carNumber: dto.carNumber, reason: dto.reason, isPermanent: dto.isPermanent }
-                : { blacklistType: dto.blacklistType, firstName: dto.firstName, lastName: dto.lastName, idNumber: dto.idNumber, reason: dto.reason, isPermanent: dto.isPermanent },
+            newValue: { firstName: dto.firstName, lastName: dto.lastName, idNumber: dto.idNumber, reason: dto.reason },
         }).catch(() => { });
+
+        // Block existing active visit-visitors matching this person
+        this.blockExistingVisitVisitors(saved, currentUserId).catch(() => { });
 
         return saved;
     }
 
     async update(id: string, dto: UpdateBlacklistDto, currentUserId?: string): Promise<BlacklistEntry> {
         const entry = await this.findById(id);
-        const oldValue = entry.blacklistType === 'vehicle'
-            ? { carNumber: entry.carNumber, reason: entry.reason, isPermanent: entry.isPermanent }
-            : { firstName: entry.firstName, lastName: entry.lastName, reason: entry.reason, isPermanent: entry.isPermanent };
+        const oldValue = { firstName: entry.firstName, lastName: entry.lastName, reason: entry.reason };
         const { notifyUserIds, ...rest } = dto;
         Object.assign(entry, rest, { updatedBy: currentUserId ?? null });
-
-        if (rest.startDate !== undefined) {
-            entry.startDate = rest.startDate ? new Date(rest.startDate) : null;
-        }
-        if (rest.endDate !== undefined) {
-            entry.endDate = rest.endDate ? new Date(rest.endDate) : null;
-        }
 
         if (notifyUserIds !== undefined) {
             entry.notifyUsers = notifyUserIds.map((uid) => ({ id: uid }) as User);
@@ -191,9 +207,7 @@ export class BlacklistService {
 
         const saved = await this.repo.save(entry);
 
-        const displayName = saved.blacklistType === 'vehicle'
-            ? `vehicle ${saved.carNumber}`
-            : `${saved.firstName} ${saved.lastName}`;
+        const displayName = `${saved.firstName} ${saved.lastName}`;
 
         this.auditService.log({
             userId: currentUserId,
@@ -215,9 +229,7 @@ export class BlacklistService {
         entry.updatedBy = currentUserId ?? null;
         await this.repo.save(entry);
 
-        const displayName = entry.blacklistType === 'vehicle'
-            ? `vehicle ${entry.carNumber}`
-            : `${entry.firstName} ${entry.lastName}`;
+        const displayName = `${entry.firstName} ${entry.lastName}`;
 
         this.auditService.log({
             userId: currentUserId,
@@ -229,32 +241,73 @@ export class BlacklistService {
         }).catch(() => { });
     }
 
+    async restore(id: string, currentUserId?: string): Promise<BlacklistEntry> {
+        const entry = await this.repo.findOne({
+            where: { id },
+            relations: ['notifyUsers'],
+        });
+        if (!entry) throw new NotFoundException('Blacklist entry not found');
+        if (entry.isActive) return entry;
+
+        entry.isActive = true;
+        entry.blockedAt = new Date();
+        entry.updatedBy = currentUserId ?? null;
+        const saved = await this.repo.save(entry);
+
+        const displayName = `${saved.firstName} ${saved.lastName}`;
+
+        this.auditService.log({
+            userId: currentUserId,
+            module: 'visitors',
+            action: 'RESTORE',
+            entity: 'BlacklistEntry',
+            entityId: id,
+            description: `Restored blacklist entry for "${displayName}"`,
+        }).catch(() => { });
+
+        // Re-block existing active visit-visitors matching this person
+        this.blockExistingVisitVisitors(saved, currentUserId).catch(() => { });
+
+        return saved;
+    }
+
     /**
-     * Check if a blacklist entry is currently active (within date range or permanent).
+     * Check if a blacklist entry is currently active.
+     * An entry is inactive if isActive is false or if blockedUntil has passed.
      */
     isEntryActive(entry: BlacklistEntry): boolean {
         if (!entry.isActive) return false;
-        if (entry.isPermanent) return true;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const start = entry.startDate ? new Date(entry.startDate) : null;
-        const end = entry.endDate ? new Date(entry.endDate) : null;
-        if (start) start.setHours(0, 0, 0, 0);
-        if (end) end.setHours(23, 59, 59, 999);
-        if (start && today < start) return false;
-        if (end && today > end) return false;
+        if (entry.blockedUntil && entry.blockedUntil <= new Date()) return false;
         return true;
+    }
+
+    /**
+     * Deactivate all blacklist entries whose blockedUntil date has passed.
+     * Returns the number of entries that were deactivated.
+     */
+    async removeExpired(): Promise<number> {
+        const result = await this.repo
+            .createQueryBuilder()
+            .update(BlacklistEntry)
+            .set({ isActive: false })
+            .where('isActive = :active', { active: true })
+            .andWhere('blockedUntil IS NOT NULL')
+            .andWhere('blockedUntil <= :now', { now: new Date() })
+            .execute();
+
+        return result.affected ?? 0;
     }
 
     /**
      * Check if a person is currently blacklisted by idNumber.
      * Returns a clean response for frontend consumption.
      */
-    async checkBlacklistStatus(idNumber: string): Promise<{ isBlacklisted: boolean; blacklistId?: string; reason?: string }> {
+    async checkBlacklistStatus(idNumber: string): Promise<{ isBlacklisted: boolean; blacklistId?: string; reason?: string; blockedUntil?: Date | null }> {
         const activeEntries = await this.findActiveByIdNumber(idNumber);
-        if (activeEntries.length > 0) {
-            const entry = activeEntries[0];
-            return { isBlacklisted: true, blacklistId: entry.id, reason: entry.reason };
+        const now = new Date();
+        const current = activeEntries.find(e => !e.blockedUntil || e.blockedUntil > now);
+        if (current) {
+            return { isBlacklisted: true, blacklistId: current.id, reason: current.reason, blockedUntil: current.blockedUntil };
         }
         return { isBlacklisted: false };
     }
@@ -271,15 +324,17 @@ export class BlacklistService {
 
         const unique = [...new Set(idNumbers)];
         const entries = await this.repo.find({
-            where: unique.map((id) => ({ idNumber: id, isActive: true, blacklistType: 'person' as const })),
+            where: unique.map((id) => ({ idNumber: id, isActive: true })),
             relations: ['notifyUsers'],
         });
 
-        const activeEntries = entries.filter((e) => this.isEntryActive(e));
         const byId = new Map<string, BlacklistEntry>();
-        for (const e of activeEntries) {
+        const now = new Date();
+        for (const e of entries) {
             if (e.idNumber && !byId.has(e.idNumber)) {
-                byId.set(e.idNumber, e);
+                if (!e.blockedUntil || e.blockedUntil > now) {
+                    byId.set(e.idNumber, e);
+                }
             }
         }
 
@@ -294,82 +349,24 @@ export class BlacklistService {
     }
 
     /**
-     * Batch check vehicle blacklist status for multiple car numbers.
-     */
-    async checkVehicleBlacklistStatusBatch(
-        carNumbers: string[],
-    ): Promise<Map<string, { isBlacklisted: boolean; reason?: string }>> {
-        const result = new Map<string, { isBlacklisted: boolean; reason?: string }>();
-        if (!carNumbers.length) return result;
-
-        const unique = [...new Set(carNumbers)];
-        const entries = await this.repo.find({
-            where: unique.map((cn) => ({ carNumber: cn, isActive: true, blacklistType: 'vehicle' as const })),
-            relations: ['notifyUsers'],
-        });
-
-        const activeEntries = entries.filter((e) => this.isEntryActive(e));
-        const byCar = new Map<string, BlacklistEntry>();
-        for (const e of activeEntries) {
-            if (e.carNumber && !byCar.has(e.carNumber)) {
-                byCar.set(e.carNumber, e);
-            }
-        }
-
-        for (const cn of unique) {
-            const entry = byCar.get(cn);
-            result.set(cn, entry
-                ? { isBlacklisted: true, reason: entry.reason }
-                : { isBlacklisted: false },
-            );
-        }
-        return result;
-    }
-
-    /**
      * Find all active blacklist entries matching a visitor by idNumber.
      * Returns entries with notifyUsers loaded.
      */
     async findActiveByIdNumber(idNumber: string): Promise<BlacklistEntry[]> {
-        const entries = await this.repo.find({
-            where: { idNumber, isActive: true, blacklistType: 'person' },
+        return this.repo.find({
+            where: { idNumber, isActive: true },
             relations: ['notifyUsers'],
         });
-        return entries.filter((e) => this.isEntryActive(e));
     }
 
     /**
      * Find all active blacklist entries matching a visitor by name.
      */
     async findActiveByName(firstName: string, lastName: string): Promise<BlacklistEntry[]> {
-        const entries = await this.repo.find({
-            where: { firstName, lastName, isActive: true, blacklistType: 'person' },
+        return this.repo.find({
+            where: { firstName, lastName, isActive: true },
             relations: ['notifyUsers'],
         });
-        return entries.filter((e) => this.isEntryActive(e));
-    }
-
-    /**
-     * Check if a vehicle is currently blacklisted by car number.
-     */
-    async checkVehicleBlacklistStatus(carNumber: string): Promise<{ isBlacklisted: boolean; blacklistId?: string; reason?: string }> {
-        const activeEntries = await this.findActiveByCarNumber(carNumber);
-        if (activeEntries.length > 0) {
-            const entry = activeEntries[0];
-            return { isBlacklisted: true, blacklistId: entry.id, reason: entry.reason };
-        }
-        return { isBlacklisted: false };
-    }
-
-    /**
-     * Find all active blacklist entries matching a vehicle by car number.
-     */
-    async findActiveByCarNumber(carNumber: string): Promise<BlacklistEntry[]> {
-        const entries = await this.repo.find({
-            where: { carNumber, isActive: true, blacklistType: 'vehicle' },
-            relations: ['notifyUsers'],
-        });
-        return entries.filter((e) => this.isEntryActive(e));
     }
 
     /**
@@ -385,5 +382,79 @@ export class BlacklistService {
                 message: `Blacklisted person "${visitorName}" has arrived at the site.`,
             });
         }
+    }
+
+    /**
+     * When a person is added to the blacklist, find all their active visit-visitors
+     * in future/current visits and create pending blacklist override requests.
+     * Visitors who are already CheckedIn are NOT blocked — instead an alert is sent.
+     */
+    private async blockExistingVisitVisitors(blacklistEntry: BlacklistEntry, currentUserId?: string): Promise<void> {
+        if (!blacklistEntry.idNumber) return;
+
+        const now = new Date();
+        const affectedVvs = await this.visitVisitorRepo
+            .createQueryBuilder('vv')
+            .innerJoin('vv.visitor', 'visitor')
+            .innerJoin('vv.visit', 'visit')
+            .leftJoinAndSelect('vv.status', 'status')
+            .leftJoin(
+                BlacklistOverrideRequest,
+                'existing',
+                'existing.visitVisitorId = vv.id AND existing.isActive = :active',
+                { active: true },
+            )
+            .where('visitor.personId = :personId', { personId: blacklistEntry.idNumber })
+            .andWhere('vv.isActive = :active', { active: true })
+            .andWhere('visit.isActive = :active', { active: true })
+            .andWhere('visit.plannedEndTimeUtc >= :now', { now })
+            .andWhere('existing.id IS NULL')
+            .getMany();
+
+        if (!affectedVvs.length) return;
+
+        // Separate already-checked-in visitors from those who can be blocked
+        const checkedInVvs = affectedVvs.filter(
+            (vv) => vv.status?.currentStatus === VisitorStatus.CheckedIn,
+        );
+        const blockableVvs = affectedVvs.filter(
+            (vv) => vv.status?.currentStatus !== VisitorStatus.CheckedIn,
+        );
+
+        // Block visitors who haven't entered yet
+        if (blockableVvs.length) {
+            const overrides = blockableVvs.map((vv) =>
+                this.overrideRepo.create({
+                    visitVisitorId: vv.id,
+                    blacklistId: blacklistEntry.id,
+                    blacklistReason: blacklistEntry.reason,
+                    status: BlacklistOverrideStatus.Pending,
+                    createdBy: currentUserId ?? null,
+                }),
+            );
+
+            await this.overrideRepo.save(overrides);
+        }
+
+        // Alert about visitors already inside the premises
+        if (checkedInVvs.length) {
+            this.wsGateway.broadcastToAll('blacklist:active-visitor-alert', {
+                blacklistEntryId: blacklistEntry.id,
+                personName: `${blacklistEntry.firstName} ${blacklistEntry.lastName}`,
+                idNumber: blacklistEntry.idNumber,
+                reason: blacklistEntry.reason,
+                visitVisitorIds: checkedInVvs.map((vv) => vv.id),
+                count: checkedInVvs.length,
+            });
+        }
+
+        this.auditService.log({
+            userId: currentUserId,
+            module: 'visitors',
+            action: 'BLACKLIST_BLOCK_VISITS',
+            entity: 'BlacklistOverrideRequest',
+            entityId: blacklistEntry.id,
+            description: `Blocked ${blockableVvs.length} visit-visitor(s), alerted ${checkedInVvs.length} checked-in visitor(s) for blacklisted person "${blacklistEntry.firstName} ${blacklistEntry.lastName}"`,
+        }).catch(() => { });
     }
 }

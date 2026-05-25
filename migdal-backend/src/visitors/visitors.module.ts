@@ -10,6 +10,7 @@ import { VisitorAccessLog } from './entities/visitor-access-log.entity';
 import { VisitVisitorStatus } from './entities/visit-visitor-status.entity';
 import { VisitVisitorCheckInCode } from './entities/visit-visitor-check-in-code.entity';
 import { ParkingRequest } from './entities/parking-request.entity';
+import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
 import { BlacklistModule } from './blacklist.module';
 import { BlacklistController } from './blacklist.controller';
 import { VisitorLogController } from './visitor-log.controller';
@@ -22,12 +23,15 @@ import { VisitStatusService } from './visit-status.service';
 import { VisitCheckInCodeService } from './visit-check-in-code.service';
 import { ParkingRequestService } from './parking-request.service';
 import { ParkingRequestController } from './parking-request.controller';
+import { BlacklistOverrideController } from './blacklist-override.controller';
+import { BlacklistOverrideService } from './blacklist-override.service';
 import { VisitorAccessLogController } from './visitor-access-log.controller';
 import { VisitVisitorsController } from './visit-visitors.controller';
 import { VisitorPersistenceService } from './visitor-persistence.service';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { PrintingModule } from '../printing/printing.module';
 import { SettingsModule } from '../settings/settings.module';
+import { AmadeusModule } from '../amadeus/amadeus.module';
 import { User } from '../users/entities/user.entity';
 import { Building } from '../buildings/entities/building.entity';
 import { AmadeusModule } from '../amadeus/amadeus.module';
@@ -39,6 +43,7 @@ import { AmadeusModule } from '../amadeus/amadeus.module';
             Visit, VisitVisitor, VisitEscort, VisitorAccessLog, VisitVisitorStatus,
             VisitVisitorCheckInCode,
             ParkingRequest,
+            BlacklistOverrideRequest,
             Building,
         ]),
         BlacklistModule,
@@ -50,12 +55,13 @@ import { AmadeusModule } from '../amadeus/amadeus.module';
     controllers: [
         BlacklistController,
         ParkingRequestController,
+        BlacklistOverrideController,
         VisitorAccessLogController, VisitVisitorsController,
         VisitorLogController,
         VisitsController, VisitorsController,
         KioskController,
     ],
-    providers: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService],
-    exports: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService],
+    providers: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService, BlacklistOverrideService],
+    exports: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService, BlacklistOverrideService],
 })
 export class VisitorsModule { }

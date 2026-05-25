@@ -32,6 +32,7 @@ describe('AmadeusUsersService', () => {
                 fromDateValid: '2026-01-01T00:00:00Z',
                 toDateValid: '2026-12-31T23:59:59Z',
                 accessGroupApiKeys: ['group-1', 'group-2'],
+                licensePlate: '12-345-67',
             };
 
             const result = await service.addUserToAmadeus(dto);
@@ -43,9 +44,31 @@ describe('AmadeusUsersService', () => {
                 fromDate: '2026-01-01T00:00:00Z',
                 toDate: '2026-12-31T23:59:59Z',
                 accessLevelNames: ['group-1', 'group-2'],
+                licensePlate: '12-345-67',
             });
             expect(result.success).toBe(true);
             expect(result.cardholderId).toBe('ch-1');
+        });
+
+        it('should call acApi.createCardholder without licensePlate when not provided', async () => {
+            const dto = {
+                cardholderIdNumber: '987654321',
+                firstName: 'Jane',
+                lastName: 'Smith',
+            };
+
+            const result = await service.addUserToAmadeus(dto);
+
+            expect(mockAcApi.createCardholder).toHaveBeenCalledWith({
+                personId: '987654321',
+                firstName: 'Jane',
+                lastName: 'Smith',
+                fromDate: undefined,
+                toDate: undefined,
+                accessLevelNames: undefined,
+                licensePlate: undefined,
+            });
+            expect(result.success).toBe(true);
         });
 
         it('should propagate errors from acApi', async () => {

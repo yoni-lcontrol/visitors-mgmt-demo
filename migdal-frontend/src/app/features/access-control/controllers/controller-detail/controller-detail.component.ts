@@ -94,6 +94,7 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                 <th>{{ 'ACCESS_CONTROL.DOOR_NAME' | translate }}</th>
                 <th>{{ 'ACCESS_CONTROL.DOOR_INDEX' | translate }}</th>
                 <th>{{ 'ACCESS_CONTROL.ENTRY_TYPE' | translate }}</th>
+                <th>{{ 'ACCESS_CONTROL.FOR_ESCORT' | translate }}</th>
                 <th>{{ 'COMMON.ACTIVE' | translate }}</th>
                 <th>{{ 'ACCESS_CONTROL.DOOR_IOS' | translate }}</th>
                 <th style="width: 7rem">{{ 'COMMON.ACTIONS' | translate }}</th>
@@ -111,6 +112,9 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
                 <td>{{ door.doorsIndex }}</td>
                 <td>{{ entryTypeLabel(door.entryType) }}</td>
                 <td>
+                  <i class="pi" [ngClass]="door.forEscort ? 'pi-check-circle for-escort-yes' : 'pi-times-circle for-escort-no'"></i>
+                </td>
+                <td>
                   <p-inputSwitch [(ngModel)]="door.isActive" (onChange)="toggleDoorActive(door)"></p-inputSwitch>
                 </td>
                 <td>
@@ -126,7 +130,7 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
             </ng-template>
             <ng-template pTemplate="expandedrow" let-door>
               <tr>
-                <td colspan="7" class="expansion-cell">
+                <td colspan="8" class="expansion-cell">
                   <div class="nested-section">
                     <div class="nested-header">
                       <i class="pi pi-sitemap"></i>
@@ -318,6 +322,10 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
             <option [ngValue]="1">{{ 'ACCESS_CONTROL.ENTRY_IN' | translate }}</option>
             <option [ngValue]="2">{{ 'ACCESS_CONTROL.ENTRY_OUT' | translate }}</option>
           </select></div>
+        <div class="field checkbox-field"><label>
+          <input type="checkbox" [(ngModel)]="doorForm.forEscort" />
+          {{ 'ACCESS_CONTROL.FOR_ESCORT' | translate }}
+        </label></div>
       </div>
       }
       <ng-template pTemplate="footer">
@@ -475,6 +483,10 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
     .dialog-form { display: flex; flex-direction: column; gap: 1rem; }
     .dialog-form .field { display: flex; flex-direction: column; gap: 0.3rem; }
     .dialog-form .field label { font-weight: 500; font-size: 0.85rem; color: var(--color-text-secondary); }
+    .checkbox-field label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+    .checkbox-field input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+    .for-escort-yes { color: #2e7d32; font-size: 1.1rem; }
+    .for-escort-no { color: var(--color-text-muted, #9896ad); font-size: 1.1rem; }
 
     @media (max-width: 991px) { .info-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 575px) { .info-grid { grid-template-columns: 1fr; } .nested-section { margin-left: 0.5rem; } }
@@ -501,7 +513,7 @@ export class ControllerDetailComponent implements OnInit {
   // Door dialog
   showDoorDialog = false;
   editingDoor: Door | null = null;
-  doorForm = { name: '', doorsIndex: 0 as number, entryType: 0 as number };
+  doorForm = { name: '', doorsIndex: 0 as number, entryType: 0 as number, forEscort: false };
 
   // Extension dialog
   showExtDialog = false;
@@ -685,8 +697,8 @@ export class ControllerDetailComponent implements OnInit {
   openDoorDialog(door?: Door): void {
     this.editingDoor = door ?? null;
     this.doorForm = door
-      ? { name: door.name, doorsIndex: door.doorsIndex, entryType: door.entryType }
-      : { name: '', doorsIndex: 0, entryType: 0 };
+      ? { name: door.name, doorsIndex: door.doorsIndex, entryType: door.entryType, forEscort: door.forEscort ?? false }
+      : { name: '', doorsIndex: 0, entryType: 0, forEscort: false };
     this.showDoorDialog = true;
   }
 
@@ -800,7 +812,7 @@ export class ControllerDetailComponent implements OnInit {
   }
 
   onDoorDialogHide(): void {
-    this.doorForm = { name: '', doorsIndex: 0, entryType: 0 };
+    this.doorForm = { name: '', doorsIndex: 0, entryType: 0, forEscort: false };
     this.editingDoor = null;
   }
 

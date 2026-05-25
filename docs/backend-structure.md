@@ -360,7 +360,7 @@ backend/src/visitors/
 
 `BlacklistModule` is extracted as a standalone module so it can be imported by any module without depending on the full visitors module:
 
-- **Provides**: `BlacklistService` (including `checkBlacklistStatusBatch`, `checkVehicleBlacklistStatusBatch`)
+- **Provides**: `BlacklistService` (including `checkBlacklistStatusBatch`)
 - **Imports**: `TypeOrmModule.forFeature([BlacklistEntry, User])`, `WebsocketModule`
 - **Controllers**: Registered in `VisitorsModule` (before `VisitorsController`) to avoid wildcard `:id` route conflicts. `BlacklistModule` itself has no controllers.
 - **Imported by**: `VisitorsModule`
@@ -379,7 +379,6 @@ backend/src/visitors/
 
 Blacklist checks use batch methods to avoid N+1 queries:
 - `checkBlacklistStatusBatch(idNumbers[])` — single DB query for multiple person IDs
-- `checkVehicleBlacklistStatusBatch(carNumbers[])` — single DB query for multiple car numbers
 - Used in: `VisitStatusService.findOnSiteVisitors()`, `VisitParticipantService.validateVisitorsNotBlacklisted()`
 
 All blacklist lookups (single and batch) filter through `isEntryActive()`, which handles:

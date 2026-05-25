@@ -19,6 +19,7 @@ import { AuditService } from '../audit/audit.service';
 import { VisitParticipantService } from './visit-participant.service';
 import { VisitCheckInCodeService } from './visit-check-in-code.service';
 import { VisitorPersistenceService } from './visitor-persistence.service';
+import { AmadeusParkingSyncService } from '../amadeus/services/amadeus-parking-sync.service';
 import {
     createMockRepository,
     createMockQueryBuilder,
@@ -51,7 +52,7 @@ describe('VisitsService', () => {
         mockDs = createMockDataSource();
         mockWs = createMockWsGateway();
         mockAuditService = createMockAuditService();
-        mockParticipantService = { validateVisitorsNotBlacklisted: jest.fn() };
+        mockParticipantService = { validateVisitorsNotBlacklisted: jest.fn().mockResolvedValue(new Map()) };
         mockVisitorPersistence = {
             upsertByPersonId: jest.fn().mockResolvedValue({
                 action: 'created',
@@ -76,6 +77,7 @@ describe('VisitsService', () => {
                 { provide: VisitorPersistenceService, useValue: mockVisitorPersistence },
                 { provide: VisitParticipantService, useValue: mockParticipantService },
                 { provide: VisitCheckInCodeService, useValue: { generateCodesForVisit: jest.fn().mockResolvedValue([]), sendCodeNotifications: jest.fn().mockResolvedValue({}) } },
+                { provide: AmadeusParkingSyncService, useValue: { syncApprovedParkingVisitorToAmadeus: jest.fn().mockResolvedValue(undefined) } },
             ],
         }).compile();
 

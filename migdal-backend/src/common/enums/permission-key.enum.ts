@@ -87,6 +87,7 @@ export enum PermissionKey {
     BlacklistUpdate = 'blacklist.update',
     BlacklistDelete = 'blacklist.delete',
     BlacklistCheck = 'blacklist.check',
+    BlacklistApprove = 'blacklist.approve',
 
     // Parking
     ParkingRequest = 'parking.request',
@@ -104,4 +105,10 @@ export enum PermissionKey {
     VehicleModelsUpdate = 'vehicle-models.update',
     VehicleModelsDelete = 'vehicle-models.delete',
     VehicleModelsExport = 'vehicle-models.export',
+
+    // Domains (Sectors)
+    DomainsRead = 'domains.read',
+    DomainsCreate = 'domains.create',
+    DomainsUpdate = 'domains.update',
+    DomainsDelete = 'domains.delete',
 }

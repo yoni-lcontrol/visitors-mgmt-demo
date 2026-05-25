@@ -118,6 +118,12 @@ import { TranslateModule } from '@ngx-translate/core';
                 <span>{{ 'NAV.PARKING_REQUESTS' | translate }}</span>
               </a>
             </li>
+            <li *hasPermission="'blacklist.approve'">
+              <a routerLink="/visits/blacklist-overrides" routerLinkActive="active" (click)="menuItemClicked.emit()">
+                <i class="pi pi-shield"></i>
+                <span>{{ 'NAV.BLACKLIST_OVERRIDES' | translate }}</span>
+              </a>
+            </li>
             <li *hasPermission="'visits.read'">
               <a routerLink="/visits/entrance-exit-logs" routerLinkActive="active" (click)="menuItemClicked.emit()">
                 <i class="pi pi-history"></i>
@@ -404,6 +410,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
       'visits.read',
       'blacklist.read',
       'parking.approve',
+      'blacklist.approve',
     ]);
   }
 
@@ -418,7 +425,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
             ? '/visits/blacklist'
             : this.permissionService.hasPermission('parking.approve')
               ? '/visits/parking-requests'
-              : '/visits';
+              : this.permissionService.hasPermission('blacklist.approve')
+                ? '/visits/blacklist-overrides'
+                : '/visits';
       this.router.navigate([target]);
       this.menuItemClicked.emit();
     } else {

@@ -9,11 +9,13 @@ import { VisitEscort } from './entities/visit-escort.entity';
 import { VisitVisitorStatus } from './entities/visit-visitor-status.entity';
 import { Visitor } from './entities/visitor.entity';
 import { ParkingRequest } from './entities/parking-request.entity';
+import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
 import { VisitorStatus } from './enums/visitor-status.enum';
 import { BlacklistService } from './blacklist.service';
 import { VisitCheckInCodeService } from './visit-check-in-code.service';
 import { AuditService } from '../audit/audit.service';
 import { VisitorPersistenceService } from './visitor-persistence.service';
+import { AmadeusParkingSyncService } from '../amadeus/services/amadeus-parking-sync.service';
 import {
     createMockRepository,
     createMockQueryBuilder,
@@ -30,6 +32,7 @@ describe('VisitParticipantService', () => {
     let mockStatusRepo: ReturnType<typeof createMockRepository>;
     let mockVisitorRepo: ReturnType<typeof createMockRepository>;
     let mockParkingRepo: ReturnType<typeof createMockRepository>;
+    let mockBlacklistOverrideRepo: ReturnType<typeof createMockRepository>;
     let mockDs: ReturnType<typeof createMockDataSource>;
     let mockBl: ReturnType<typeof createMockBlacklistService>;
     let mockAuditService: ReturnType<typeof createMockAuditService>;
@@ -42,6 +45,7 @@ describe('VisitParticipantService', () => {
         mockStatusRepo = createMockRepository();
         mockVisitorRepo = createMockRepository();
         mockParkingRepo = createMockRepository();
+        mockBlacklistOverrideRepo = createMockRepository();
         mockDs = createMockDataSource();
         mockBl = createMockBlacklistService();
         mockAuditService = createMockAuditService();
@@ -60,11 +64,13 @@ describe('VisitParticipantService', () => {
                 { provide: getRepositoryToken(VisitVisitorStatus), useValue: mockStatusRepo },
                 { provide: getRepositoryToken(Visitor), useValue: mockVisitorRepo },
                 { provide: getRepositoryToken(ParkingRequest), useValue: mockParkingRepo },
+                { provide: getRepositoryToken(BlacklistOverrideRequest), useValue: mockBlacklistOverrideRepo },
                 { provide: DataSource, useValue: mockDs },
                 { provide: BlacklistService, useValue: mockBl },
                 { provide: VisitCheckInCodeService, useValue: { generateCodesForVisit: jest.fn().mockResolvedValue([]), sendCodeNotifications: jest.fn().mockResolvedValue({}) } },
                 { provide: AuditService, useValue: mockAuditService },
                 { provide: VisitorPersistenceService, useValue: mockVisitorPersistence },
+                { provide: AmadeusParkingSyncService, useValue: { syncApprovedParkingVisitorToAmadeus: jest.fn().mockResolvedValue(undefined) } },
             ],
         }).compile();
 
@@ -83,12 +89,14 @@ describe('VisitParticipantService', () => {
                 status: { currentStatus: VisitorStatus.Pending, arrivedAtUtc: null, checkedInAtUtc: null, checkedOutAtUtc: null, lastEventTimeUtc: null },
             }]);
             mockParkingRepo.find.mockResolvedValue([]);
+            mockBlacklistOverrideRepo.find.mockResolvedValue([]);
 
             const result = await service.getVisitVisitors('v1');
 
             expect(result).toHaveLength(1);
             expect(result[0].visitor.firstName).toBe('Jane');
             expect(result[0].parkingRequest).toBeNull();
+            expect(result[0].blacklistOverride).toBeNull();
         });
 
         it('should return parkingRequest status when one exists', async () => {
@@ -100,6 +108,7 @@ describe('VisitParticipantService', () => {
                 status: null,
             }]);
             mockParkingRepo.find.mockResolvedValue([{ visitVisitorId: 'vv1', status: 'Pending', isActive: true }]);
+            mockBlacklistOverrideRepo.find.mockResolvedValue([]);
 
             const result = await service.getVisitVisitors('v1');
 
@@ -130,13 +139,27 @@ describe('VisitParticipantService', () => {
             expect(mockVisitorRepo.save).toHaveBeenCalledWith(expect.objectContaining({ firstName: 'Updated' }));
         });
 
-        it('should throw if updated personId is blacklisted', async () => {
+        it('should create blacklist override request when updated personId is blacklisted', async () => {
             mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true });
-            mockVisitorRepo.findOne.mockResolvedValue({ id: 'vis1', isActive: true });
-            mockBl.checkBlacklistStatus.mockResolvedValue({ isBlacklisted: true, reason: 'Banned' });
+            mockVisitorRepo.findOne.mockResolvedValue({ id: 'vis1', firstName: 'Jane', lastName: 'Smith', personId: '123', isActive: true });
+            mockBl.checkBlacklistStatus.mockResolvedValue({ isBlacklisted: true, blacklistId: 'bl-1', reason: 'Banned' });
+            mockVisitorPersistence.findByPersonId.mockResolvedValue(null);
+            mockVisitorRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+            mockVvRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+            mockBlacklistOverrideRepo.findOne.mockResolvedValue(null);
+            mockBlacklistOverrideRepo.create.mockImplementation((dto: any) => dto);
+            mockBlacklistOverrideRepo.save.mockImplementation((e: any) => Promise.resolve({ id: 'bor-1', ...e }));
+            mockVisitRepo.findOne.mockResolvedValue({ id: 'v1', isActive: true });
+            mockVvRepo.find.mockResolvedValue([]);
+            mockParkingRepo.find.mockResolvedValue([]);
+            mockBlacklistOverrideRepo.find.mockResolvedValue([]);
 
-            await expect(service.updateVisitVisitor('v1', 'vv1', { personId: '999' } as any))
-                .rejects.toThrow(BadRequestException);
+            await service.updateVisitVisitor('v1', 'vv1', { personId: '999' } as any, 'user-1');
+
+            expect(mockBlacklistOverrideRepo.create).toHaveBeenCalledWith(
+                expect.objectContaining({ visitVisitorId: 'vv1', blacklistReason: 'Banned', status: 'pending' }),
+            );
+            expect(mockBlacklistOverrideRepo.save).toHaveBeenCalled();
         });
 
         it('should throw NotFoundException on missing visit-visitor', async () => {

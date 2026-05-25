@@ -3,7 +3,6 @@ import {
     IsString,
     IsOptional,
     IsArray,
-    IsDateString,
     Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
@@ -40,11 +39,6 @@ export class CreateBlacklistDto {
     @IsOptional()
     @IsString()
     notes?: string;
-
-    @ApiPropertyOptional({ example: '2026-12-31T23:59:59.000Z', description: 'Block until this date. Null means permanent.' })
-    @IsOptional()
-    @IsDateString()
-    blockedUntil?: string;
 
     @ApiPropertyOptional({ example: ['user-uuid-1'], type: [String] })
     @IsOptional()

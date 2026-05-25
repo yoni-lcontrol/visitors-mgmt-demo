@@ -4,7 +4,13 @@ import { BlacklistOverrideStatus } from '../enums/blacklist-override-status.enum
 
 export class BlacklistOverrideQueryDto {
     @IsOptional()
-    @IsIn([BlacklistOverrideStatus.Pending, BlacklistOverrideStatus.Approved, BlacklistOverrideStatus.Denied])
+    @IsIn([
+        BlacklistOverrideStatus.Pending,
+        BlacklistOverrideStatus.Approved,
+        BlacklistOverrideStatus.Denied,
+        BlacklistOverrideStatus.ApprovedEscort,
+        BlacklistOverrideStatus.ApprovedSecurity,
+    ])
     status?: BlacklistOverrideStatus;
 
     @IsOptional()

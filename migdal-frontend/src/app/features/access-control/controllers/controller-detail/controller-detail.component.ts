@@ -309,13 +309,13 @@ import { AcController, Door, Extension, DoorIo, ExtensionIo } from '@core/models
       @if (showDoorDialog) {
       <div class="dialog-form">
         <div class="field"><label>{{ 'ACCESS_CONTROL.DOOR_NAME' | translate }} <span class="required">*</span></label>
-          <input type="text" [(ngModel)]="doorForm.name" required #doorNameField="ngModel" [placeholder]="'PLACEHOLDER.ENTER_DOOR_NAME' | translate" />
+          <input type="text" [(ngModel)]="doorForm.name" required #doorNameField="ngModel" [placeholder]="'PLACEHOLDER.ENTER_DOOR_NAME' | translate" disabled />
           @if (doorNameField.invalid && doorNameField.touched) {
             <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
           }
         </div>
         <div class="field"><label>{{ 'ACCESS_CONTROL.DOOR_INDEX' | translate }}</label>
-          <input type="number" [(ngModel)]="doorForm.doorsIndex" [placeholder]="'PLACEHOLDER.ENTER_DOOR_INDEX' | translate" /></div>
+          <input type="number" [(ngModel)]="doorForm.doorsIndex" [placeholder]="'PLACEHOLDER.ENTER_DOOR_INDEX' | translate" disabled /></div>
         <div class="field"><label>{{ 'ACCESS_CONTROL.ENTRY_TYPE' | translate }}</label>
           <select [(ngModel)]="doorForm.entryType">
             <option [ngValue]="0">{{ 'ACCESS_CONTROL.ENTRY_NONE' | translate }}</option>

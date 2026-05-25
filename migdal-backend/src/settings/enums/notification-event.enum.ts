@@ -6,6 +6,7 @@ export enum NotificationEvent {
     VisitorBlacklisted = 'visitor_blacklisted',
     CheckInCodeSent = 'check_in_code_sent',
     ParkingRequestDecision = 'parking_request_decision',
+    BlacklistOverrideDecision = 'blacklist_override_decision',
     VisitorCheckedOut = 'visitor_checked_out',
     VisitorOverstay = 'visitor_overstay',
 }

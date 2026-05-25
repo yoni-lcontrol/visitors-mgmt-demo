@@ -27,11 +27,11 @@ export class NotificationService {
         });
     }
 
-    warn(detail: string): void {
+    warn(detailKey: string): void {
         this.messageService.add({
             severity: 'warn',
             summary: this.translate.instant('COMMON.WARNING'),
-            detail,
+            detail: this.translate.instant(detailKey),
             life: 5000,
         });
     }

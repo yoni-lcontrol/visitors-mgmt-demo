@@ -13,6 +13,7 @@ import { UsersGateway } from '../websocket/gateways/users.gateway';
 import { SmsNotificationService } from '../settings/sms-notification.service';
 import { EmailNotificationService } from '../settings/email-notification.service';
 import { AuditService } from '../audit/audit.service';
+import { NotificationEvent } from '../settings/enums/notification-event.enum';
 import { AmadeusUsersService } from '../amadeus/services/amadeus-users.service';
 import { PrintingService } from '../printing/services/printing.service';
 import { Building } from '../buildings/entities/building.entity';
@@ -286,6 +287,40 @@ describe('VisitCheckInCodeService', () => {
             );
         });
 
+        it('should send VisitorArrived SMS and email notifications after arrival', async () => {
+            const mockStatus = {
+                visitVisitorId: 'vv-1',
+                currentStatus: VisitorStatus.Pending,
+                arrivedAtUtc: null,
+                checkedInAtUtc: null,
+            };
+            const qrManagerQb = createMockQueryBuilder([{ ...mockCodeRecord }]);
+            mockDs._qrManager.createQueryBuilder = jest.fn().mockReturnValue(qrManagerQb);
+            mockDs._qrManager.findOne
+                .mockResolvedValueOnce(null)       // BlacklistOverrideRequest — no pending override
+                .mockResolvedValueOnce(mockStatus); // VisitVisitorStatus
+            mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+            mockVisitRepo.findOne.mockResolvedValue({ ...mockVisit, visitRequesterUser: null });
+            mockBuildingRepo.findOne.mockResolvedValue(null);
+
+            await service.consumeCodeAndArrive('012345');
+
+            expect(mockSms.triggerSms).toHaveBeenCalledWith(
+                NotificationEvent.VisitorArrived,
+                expect.objectContaining({
+                    visit: expect.objectContaining({ title: 'Meeting' }),
+                    visitor: expect.objectContaining({ firstName: 'Jane', lastName: 'Doe' }),
+                }),
+            );
+            expect(mockEmail.triggerEmail).toHaveBeenCalledWith(
+                NotificationEvent.VisitorArrived,
+                expect.objectContaining({
+                    visit: expect.objectContaining({ title: 'Meeting' }),
+                    visitor: expect.objectContaining({ firstName: 'Jane', lastName: 'Doe' }),
+                }),
+            );
+        });
+
         it('should throw BadRequestException for invalid code', async () => {
             const qrManagerQb = createMockQueryBuilder([]);
             qrManagerQb.getOne.mockResolvedValue(null);
@@ -310,7 +345,7 @@ describe('VisitCheckInCodeService', () => {
             mockDs._qrManager.createQueryBuilder = jest.fn().mockReturnValue(qrManagerQb);
             mockDs._qrManager.findOne.mockResolvedValueOnce({ id: 'override-1', visitVisitorId: 'vv-1', status: 'pending' });
 
-            await expect(service.consumeCodeAndCheckIn('012345')).rejects.toThrow(ForbiddenException);
+            await expect(service.consumeCodeAndArrive('012345')).rejects.toThrow(ForbiddenException);
             expect(mockDs._queryRunner.rollbackTransaction).toHaveBeenCalled();
         });
     });
@@ -425,6 +460,68 @@ describe('VisitCheckInCodeService', () => {
             mockCodeRepo.findOne.mockResolvedValue(null);
             const result = await service.getActiveCodeForVisitVisitor('vv-1');
             expect(result).toBeNull();
+        });
+    });
+
+    // ── arriveByPersonId ──
+
+    describe('arriveByPersonId', () => {
+        it('should send VisitorArrived SMS and email notifications on arrival', async () => {
+            mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+            mockVvRepo.findOne.mockResolvedValue({ ...mockVV, visit: { ...mockVisit, visitRequesterUser: null } });
+            mockStatusRepo.findOne.mockResolvedValue({
+                visitVisitorId: 'vv-1',
+                currentStatus: VisitorStatus.Pending,
+                arrivedAtUtc: null,
+            });
+            mockStatusRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+            mockBuildingRepo.findOne.mockResolvedValue(null);
+            mockAmadeusUsers.addUserToAmadeus.mockResolvedValue({ cardholderId: 'ch-1' });
+
+            const result = await service.arriveByPersonId('visit-1', 'visitor-1', '123456789');
+
+            expect(result.ok).toBe(true);
+            expect(mockSms.triggerSms).toHaveBeenCalledWith(
+                NotificationEvent.VisitorArrived,
+                expect.objectContaining({
+                    visit: expect.objectContaining({ title: 'Meeting' }),
+                    visitor: expect.objectContaining({ firstName: 'Jane', lastName: 'Doe' }),
+                }),
+            );
+            expect(mockEmail.triggerEmail).toHaveBeenCalledWith(
+                NotificationEvent.VisitorArrived,
+                expect.objectContaining({
+                    visit: expect.objectContaining({ title: 'Meeting' }),
+                    visitor: expect.objectContaining({ firstName: 'Jane', lastName: 'Doe' }),
+                }),
+            );
+        });
+
+        it('should not block arrival if notification fails', async () => {
+            mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+            mockVvRepo.findOne.mockResolvedValue({ ...mockVV, visit: { ...mockVisit, visitRequesterUser: null } });
+            mockStatusRepo.findOne.mockResolvedValue({
+                visitVisitorId: 'vv-1',
+                currentStatus: VisitorStatus.Pending,
+                arrivedAtUtc: null,
+            });
+            mockStatusRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+            mockBuildingRepo.findOne.mockResolvedValue(null);
+            mockAmadeusUsers.addUserToAmadeus.mockResolvedValue({ cardholderId: 'ch-1' });
+            mockSms.triggerSms.mockRejectedValue(new Error('SMS service down'));
+            mockEmail.triggerEmail.mockRejectedValue(new Error('Email service down'));
+
+            const result = await service.arriveByPersonId('visit-1', 'visitor-1', '123456789');
+
+            expect(result.ok).toBe(true);
+        });
+
+        it('should throw BadRequestException if visitor not found', async () => {
+            mockVisitorRepo.findOne.mockResolvedValue(null);
+
+            await expect(
+                service.arriveByPersonId('visit-1', 'visitor-1', '123456789'),
+            ).rejects.toThrow(BadRequestException);
         });
     });
 

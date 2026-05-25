@@ -49,6 +49,9 @@ export class KioskSocketService {
   private readonly _scanResults$ = new Subject<ScanResult>();
   readonly scanResults$: Observable<ScanResult> = this._scanResults$.asObservable();
 
+  /** Buffered scan result for when /scan page isn't mounted yet */
+  private _pendingScanResult: ScanResult | null = null;
+
   private readonly _scannerStatus$ = new Subject<ScannerStatus>();
   readonly scannerStatus$: Observable<ScannerStatus> = this._scannerStatus$.asObservable();
 
@@ -119,7 +122,10 @@ export class KioskSocketService {
 
     // Scan results (document scanned on our workstation)
     this.socket.on('kiosk:scan-result', (data: ScanResult) => {
-      this.zone.run(() => this._scanResults$.next(data));
+      this.zone.run(() => {
+        this._pendingScanResult = data;
+        this._scanResults$.next(data);
+      });
     });
 
     // Error from backend
@@ -162,5 +168,12 @@ export class KioskSocketService {
     this.started = false;
     this._connected$.next(false);
     this._registered$.next(false);
+  }
+
+  /** Return and clear any buffered scan result (consumed by ScanComponent on init) */
+  consumePendingScanResult(): ScanResult | null {
+    const result = this._pendingScanResult;
+    this._pendingScanResult = null;
+    return result;
   }
 }

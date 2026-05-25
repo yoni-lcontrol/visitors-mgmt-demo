@@ -80,8 +80,11 @@ public class AccessGroupImportServiceTests
         public Task<List<AmadeusAccessGroup>> GetAccessGroupsAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<(List<AmadeusCardholder> Items, int? TotalCount)> GetCardholdersPagedAsync(int skip, int top, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<AmadeusCardholder?> GetCardholderByUidAsync(string uid, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<AmadeusCardholder?> GetCardholderByIdNumberAsync(string cardholderIdNumber, CancellationToken cancellationToken) => Task.FromResult<AmadeusCardholder?>(null);
         public Task<AmadeusCardholder> CreateCardholderAsync(object payload, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task UpdateCardholderAsync(string uid, object payload, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task DeleteCardholderAsync(string uid, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<AmadeusCardholderPersonalDetails?> GetCardholderPersonalDetailsAsync(string cardholderUid, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<AmadeusCardholderPersonalDetails> UpsertLicensePlateAsync(string cardholderUid, string licensePlate, CancellationToken cancellationToken) => throw new NotImplementedException();
     }
 }

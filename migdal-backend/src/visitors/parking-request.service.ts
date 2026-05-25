@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ParkingRequest } from './entities/parking-request.entity';
 import { ParkingRequestStatus } from './enums/parking-request-status.enum';
+import { AmadeusSyncStatus } from './enums/amadeus-sync-status.enum';
 import { ParkingRequestQueryDto } from './dto/parking-request-query.dto';
 import { ReviewParkingRequestDto } from './dto/review-parking-request.dto';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
@@ -42,6 +43,7 @@ export class ParkingRequestService {
 
         // Sync approved parking visitor to Amadeus (fire-and-forget)
         if (autoApprove) {
+            this.parkingRepo.update(saved.id, { amadeusSyncStatus: AmadeusSyncStatus.Pending }).catch(() => { });
             this.amadeusParkingSync.syncApprovedParkingVisitorToAmadeus(saved.id).catch(() => { });
         }
 
@@ -138,7 +140,13 @@ export class ParkingRequestService {
 
         // Sync approved parking visitor to Amadeus (fire-and-forget)
         if (dto.status === ParkingRequestStatus.Approved) {
+            this.parkingRepo.update(saved.id, { amadeusSyncStatus: AmadeusSyncStatus.Pending }).catch(() => { });
             this.amadeusParkingSync.syncApprovedParkingVisitorToAmadeus(saved.id).catch(() => { });
+        }
+
+        // Remove rejected parking visitor from Amadeus if they exist (fire-and-forget)
+        if (dto.status === ParkingRequestStatus.Denied) {
+            this.amadeusParkingSync.removeRejectedParkingVisitorFromAmadeus(saved.id).catch(() => { });
         }
 
         return saved;

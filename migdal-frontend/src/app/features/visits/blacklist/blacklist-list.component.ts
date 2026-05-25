@@ -25,22 +25,12 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
     <div class="page-header">
       <h1>{{ 'BLACKLIST.TITLE' | translate }}</h1>
       <div class="header-actions">
-        <div class="view-toggle">
-          <button class="btn" [class.btn-primary]="viewMode === 'active'" [class.btn-outline]="viewMode !== 'active'" (click)="switchView('active')">
-            {{ 'BLACKLIST.ACTIVE' | translate }}
-          </button>
-          <button class="btn" [class.btn-primary]="viewMode === 'removed'" [class.btn-outline]="viewMode !== 'removed'" (click)="switchView('removed')">
-            {{ 'BLACKLIST.REMOVED' | translate }}
-          </button>
-        </div>
-        @if (viewMode === 'active') {
         <button class="btn btn-outline" *hasPermission="'blacklist.read'" (click)="exportData()" [disabled]="exporting">
           <i class="pi" [ngClass]="exporting ? 'pi-spin pi-spinner' : 'pi-file-excel'"></i> {{ 'COMMON.EXPORT' | translate }}
         </button>
         <button class="btn btn-primary" *hasPermission="'blacklist.create'" (click)="openDialog()">
           <i class="pi pi-plus"></i> {{ 'BLACKLIST.ADD_PERSON' | translate }}
         </button>
-        }
       </div>
     </div>
     <div class="card table-card">
@@ -77,7 +67,6 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
             <th pSortableColumn="phoneNumber">{{ 'BLACKLIST.PHONE_NUMBER' | translate }} <p-sortIcon field="phoneNumber" /> <p-columnFilter field="phoneNumber" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="reason">{{ 'BLACKLIST.REASON' | translate }} <p-sortIcon field="reason" /> <p-columnFilter field="reason" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="blockedAt">{{ 'BLACKLIST.BLOCKED_AT' | translate }} <p-sortIcon field="blockedAt" /> <p-columnFilter field="blockedAt" type="date" display="menu"></p-columnFilter></th>
-            <th pSortableColumn="blockedUntil">{{ 'BLACKLIST.BLOCKED_UNTIL' | translate }} <p-sortIcon field="blockedUntil" /> <p-columnFilter field="blockedUntil" type="date" display="menu"></p-columnFilter></th>
             <th pSortableColumn="createdByUser.firstName">{{ 'BLACKLIST.CREATED_BY' | translate }} <p-sortIcon field="createdByUser.firstName" /> <p-columnFilter field="createdByUser.firstName" type="text" display="menu"></p-columnFilter></th>
             <th>{{ 'BLACKLIST.NOTIFY_USERS' | translate }}</th>
             <th>{{ 'COMMON.ACTIONS' | translate }}</th>
@@ -90,7 +79,6 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
             <td>{{ entry.phoneNumber }}</td>
             <td>{{ entry.reason }}</td>
             <td dir="ltr">{{ entry.blockedAt | dateFormat }}</td>
-            <td dir="ltr">{{ entry.blockedUntil ? (entry.blockedUntil | dateFormat) : ('BLACKLIST.PERMANENT' | translate) }}</td>
             <td>{{ getCreatedByName(entry) }}</td>
             <td>
               @if (entry.notifyUsers?.length) {
@@ -107,18 +95,12 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
               }
             </td>
             <td class="actions">
-              @if (viewMode === 'active') {
               <button class="btn-icon" *hasPermission="'blacklist.update'" (click)="openDialog(entry)" [title]="'COMMON.EDIT' | translate">
                 <i class="pi pi-pencil"></i>
               </button>
               <button class="btn-icon danger" *hasPermission="'blacklist.delete'" (click)="onDelete(entry)" [title]="'COMMON.DELETE' | translate">
                 <i class="pi pi-trash"></i>
               </button>
-              } @else {
-              <button class="btn-icon success" *hasPermission="'blacklist.create'" (click)="onRestore(entry)" [title]="'BLACKLIST.RESTORE' | translate">
-                <i class="pi pi-replay"></i>
-              </button>
-              }
             </td>
           </tr>
         </ng-template>
@@ -168,10 +150,6 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
           @if (reasonField.invalid && reasonField.touched) {
             <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
           }
-        </div>
-
-        <div class="field"><label>{{ 'BLACKLIST.BLOCKED_UNTIL' | translate }}</label>
-          <p-calendar [(ngModel)]="form.blockedUntil" [showIcon]="true" [minDate]="minBlockedUntilDate" dateFormat="dd/mm/yy" [showButtonBar]="true" [placeholder]="'BLACKLIST.PERMANENT' | translate" appendTo="body" [style]="{'width':'100%'}" />
         </div>
 
         <!-- Notification Section -->
@@ -298,7 +276,6 @@ export class BlacklistListComponent implements OnInit {
   private api = inject(ApiService);
   private notify = inject(NotificationService);
 
-  viewMode: 'active' | 'removed' = 'active';
   items: BlacklistEntry[] = [];
   totalRecords = 0;
   rows = 20;
@@ -385,7 +362,7 @@ export class BlacklistListComponent implements OnInit {
     const global = event.filters?.global?.value;
     if (global) params['search'] = global;
 
-    const endpoint = this.viewMode === 'removed' ? '/visitors/blacklist/removed' : '/visitors/blacklist';
+    const endpoint = '/visitors/blacklist';
     this.api.get<PaginatedResult<BlacklistEntry>>(endpoint, params).subscribe((r) => {
       this.items = r.items;
       this.totalRecords = r.total;
@@ -457,7 +434,6 @@ export class BlacklistListComponent implements OnInit {
     };
     if (this.form.phoneNumber) body.phoneNumber = this.form.phoneNumber;
     if (this.form.notes) body.notes = this.form.notes;
-    body.blockedUntil = this.form.blockedUntil ? this.form.blockedUntil.toISOString() : null;
 
     const req$ = this.editing
       ? this.api.patch(`/visitors/blacklist/${this.editing.id}`, body)
@@ -472,23 +448,6 @@ export class BlacklistListComponent implements OnInit {
     const displayName = entry.firstName + ' ' + entry.lastName;
     if (await this.confirmService.confirm('BLACKLIST.DELETE_CONFIRM')) {
       this.api.delete(`/visitors/blacklist/${entry.id}`).subscribe({
-        next: () => { this.notify.success('COMMON.SUCCESS'); this.loadData(); },
-        error: (err) => this.notify.error(err),
-      });
-    }
-  }
-
-  switchView(mode: 'active' | 'removed'): void {
-    if (this.viewMode === mode) return;
-    this.viewMode = mode;
-    this.first = 0;
-    this.lastLazyEvent = { ...this.lastLazyEvent, first: 0 };
-    this.loadData();
-  }
-
-  async onRestore(entry: BlacklistEntry): Promise<void> {
-    if (await this.confirmService.confirm('BLACKLIST.RESTORE_CONFIRM')) {
-      this.api.patch(`/visitors/blacklist/${entry.id}/restore`, {}).subscribe({
         next: () => { this.notify.success('COMMON.SUCCESS'); this.loadData(); },
         error: (err) => this.notify.error(err),
       });

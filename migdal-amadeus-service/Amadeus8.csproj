@@ -12,6 +12,11 @@
     <Content Remove="Amadeus8.Tests/**" />
     <None Remove="Amadeus8.Tests/**" />
     <EmbeddedResource Remove="Amadeus8.Tests/**" />
+    <!-- Exclude the QueryDb project subfolder -->
+    <Compile Remove="QueryDb/**" />
+    <Content Remove="QueryDb/**" />
+    <None Remove="QueryDb/**" />
+    <EmbeddedResource Remove="QueryDb/**" />
   </ItemGroup>
 
   <ItemGroup>

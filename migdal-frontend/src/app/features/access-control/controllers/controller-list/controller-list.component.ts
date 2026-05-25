@@ -83,9 +83,6 @@ import { Subscription } from 'rxjs';
               <button class="btn-icon" (click)="router.navigate(['/access-control/controllers', ctrl.id])" [title]="'ACCESS_CONTROL.VIEW_CONTROLLER' | translate">
                 <i class="pi pi-eye"></i>
               </button>
-              <button class="btn-icon" *hasPermission="'access-control.update'" (click)="openDialog(ctrl)" [title]="'COMMON.EDIT' | translate">
-                <i class="pi pi-pencil"></i>
-              </button>
               <button class="btn-icon danger" *hasPermission="'access-control.delete'" (click)="onDelete(ctrl)" [title]="'COMMON.DELETE' | translate">
                 <i class="pi pi-trash"></i>
               </button>

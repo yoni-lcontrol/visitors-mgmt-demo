@@ -29,6 +29,7 @@ import { AccessControlApiService } from './services/ac-api.service';
 import { CardholderService } from './services/cardholder.service';
 import { Building } from '../buildings/entities/building.entity';
 import { WebsocketModule } from '../websocket/websocket.module';
+import { AmadeusSyncQueueModule } from './amadeus-sync-queue.module';
 
 @Module({
     imports: [
@@ -45,6 +46,7 @@ import { WebsocketModule } from '../websocket/websocket.module';
             httpsAgent: new https.Agent({ rejectUnauthorized: false }),
         }),
         WebsocketModule,
+        AmadeusSyncQueueModule,
     ],
     controllers: [
         AcControllerController,

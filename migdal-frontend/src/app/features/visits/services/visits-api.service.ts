@@ -120,6 +120,15 @@ export interface TodaySummary {
     completedToday: number;
 }
 
+export interface VisitFileItem {
+    id: string;
+    visitId: string;
+    originalName: string;
+    mimeType: string;
+    size: number;
+    createdAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class VisitsApiService {
     private api = inject(ApiService);
@@ -319,5 +328,25 @@ export class VisitsApiService {
 
     reviewBlacklistOverride(id: string, body: { status: string; reviewNote?: string }): Observable<unknown> {
         return this.api.patch(`/blacklist-override-requests/${id}/review`, body);
+    }
+
+    // ── Visit Files ──
+
+    uploadVisitFiles(visitId: string, files: File[]): Observable<VisitFileItem[]> {
+        const formData = new FormData();
+        files.forEach(f => formData.append('files', f));
+        return this.api.postFormData<VisitFileItem[]>(`/visits/${visitId}/files`, formData);
+    }
+
+    getVisitFiles(visitId: string): Observable<VisitFileItem[]> {
+        return this.api.get<VisitFileItem[]>(`/visits/${visitId}/files`);
+    }
+
+    deleteVisitFile(visitId: string, fileId: string): Observable<void> {
+        return this.api.delete<void>(`/visits/${visitId}/files/${fileId}`);
+    }
+
+    downloadVisitFile(visitId: string, fileId: string): Observable<Blob> {
+        return this.api.download(`/visits/${visitId}/files/${fileId}/download`);
     }
 }

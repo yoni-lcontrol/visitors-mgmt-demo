@@ -30,7 +30,7 @@ public class CardholderCommandService : ICardholderCommandService
     {
         _logger.LogInformation("Creating cardholder via Amadeus API");
 
-        var payload = BuildCreatePayload(dto);
+        var payload = await BuildCreatePayloadAsync(dto, cancellationToken);
         var created = await _apiClient.CreateCardholderAsync(payload, cancellationToken);
 
         var entity = new CardholderEntity
@@ -72,7 +72,7 @@ public class CardholderCommandService : ICardholderCommandService
     {
         _logger.LogInformation("Updating cardholder {Uid} via Amadeus API", amadeusUid);
 
-        var payload = BuildUpdatePayload(dto);
+        var payload = await BuildUpdatePayloadAsync(dto, cancellationToken);
         await _apiClient.UpdateCardholderAsync(amadeusUid, payload, cancellationToken);
 
         var entity = await _dbContext.Cardholders
@@ -289,7 +289,7 @@ public class CardholderCommandService : ICardholderCommandService
 
     public async Task<VisitorCreationResultDto> CreateVisitorAsync(CreateAmadeusVisitorDto dto, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Starting visitor creation in Amadeus");
+        _logger.LogInformation("Starting visitor create-or-update in Amadeus for {PersonId}", dto.CardholderIdNumber);
 
         // Validate configuration
         if (string.IsNullOrWhiteSpace(_options.VisitorCardholderTypeUid))
@@ -318,11 +318,25 @@ public class CardholderCommandService : ICardholderCommandService
             };
         }
 
-        _logger.LogInformation("Visitor payload validated. Sending create request to Amadeus");
+        // Check if visitor already exists locally by CardholderIdNumber
+        var existingEntity = !string.IsNullOrWhiteSpace(dto.CardholderIdNumber)
+            ? await _dbContext.Cardholders.FirstOrDefaultAsync(
+                c => c.CardholderIdNumber == dto.CardholderIdNumber
+                     && c.CardholderTypeUid == _options.VisitorCardholderTypeUid
+                     && !c.IsDeleted,
+                cancellationToken)
+            : null;
+
+        if (existingEntity is not null)
+        {
+            return await UpdateExistingVisitorAsync(existingEntity, dto, cancellationToken);
+        }
+
+        _logger.LogInformation("Visitor not found locally. Sending create request to Amadeus");
 
         try
         {
-            var payload = BuildVisitorPayload(dto);
+            var payload = await BuildVisitorPayloadAsync(dto, cancellationToken);
             var created = await _apiClient.CreateCardholderAsync(payload, cancellationToken);
 
             var entity = new CardholderEntity
@@ -362,16 +376,12 @@ public class CardholderCommandService : ICardholderCommandService
                 LastSyncedAtUtc = DateTime.UtcNow
             };
         }
-        catch (HttpRequestException ex) when (ex.Message.Contains("409") || ex.Message.Contains("Conflict", StringComparison.OrdinalIgnoreCase))
+        catch (HttpRequestException ex) when (ex.Message.Contains("409") || ex.Message.Contains("Conflict", StringComparison.OrdinalIgnoreCase)
+            || ex.Message.Contains("422") || ex.Message.Contains("UnprocessableEntity", StringComparison.OrdinalIgnoreCase)
+            || ex.Message.Contains("ThereIsAlreadyACardholderName", StringComparison.OrdinalIgnoreCase))
         {
-            _logger.LogError(ex, "Failed to create visitor in Amadeus: duplicate cardholder or card number");
-            return new VisitorCreationResultDto
-            {
-                Success = false,
-                SyncStatus = "Failed",
-                ErrorMessage = "Duplicate cardholder or card number in Amadeus",
-                IsRetryable = false
-            };
+            _logger.LogWarning(ex, "Visitor already exists in Amadeus. Attempting to find and update");
+            return await HandleConflictAndUpdateAsync(dto, cancellationToken);
         }
         catch (HttpRequestException ex) when (ex.Message.Contains("400") || ex.Message.Contains("BadRequest", StringComparison.OrdinalIgnoreCase))
         {
@@ -397,6 +407,209 @@ public class CardholderCommandService : ICardholderCommandService
         }
     }
 
+    private async Task<VisitorCreationResultDto> UpdateExistingVisitorAsync(CardholderEntity existingEntity, CreateAmadeusVisitorDto dto, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Visitor {PersonId} already exists locally (AmadeusUid: {Uid}). Updating properties in Amadeus",
+            dto.CardholderIdNumber, existingEntity.AmadeusUid);
+
+        try
+        {
+            var payload = await BuildVisitorPayloadAsync(dto, cancellationToken);
+
+            // Check if cardholder still exists in Amadeus; if deleted remotely, resolve correct UID
+            var remoteCardholder = await _apiClient.GetCardholderByUidAsync(existingEntity.AmadeusUid, cancellationToken);
+            if (remoteCardholder == null)
+            {
+                _logger.LogWarning("Cardholder {Uid} not found in Amadeus by UID. Searching by CardholderIdNumber {PersonId}",
+                    existingEntity.AmadeusUid, dto.CardholderIdNumber);
+
+                // Search Amadeus for the cardholder by ID number to get the correct UID
+                var resolvedUid = await FindCardholderUidByIdNumberAsync(dto.CardholderIdNumber, cancellationToken);
+                if (resolvedUid is not null)
+                {
+                    _logger.LogInformation("Found cardholder in Amadeus under different UID {NewUid}. Updating", resolvedUid);
+
+                    // Remove any duplicate local entity that already has this UID to avoid UNIQUE constraint violation
+                    var duplicateEntity = await _dbContext.Cardholders
+                        .FirstOrDefaultAsync(c => c.AmadeusUid == resolvedUid && c.Id != existingEntity.Id, cancellationToken);
+                    if (duplicateEntity is not null)
+                    {
+                        _logger.LogWarning("Removing duplicate local entity (Id={DupId}) with AmadeusUid {Uid}", duplicateEntity.Id, resolvedUid);
+                        _dbContext.Cardholders.Remove(duplicateEntity);
+                    }
+
+                    existingEntity.AmadeusUid = resolvedUid;
+                    await _apiClient.UpdateCardholderAsync(resolvedUid, payload, cancellationToken);
+                }
+                else
+                {
+                    _logger.LogInformation("Cardholder not found in Amadeus at all. Re-creating visitor {PersonId}", dto.CardholderIdNumber);
+                    var created = await _apiClient.CreateCardholderAsync(payload, cancellationToken);
+                    existingEntity.AmadeusUid = created.Id;
+                }
+            }
+            else
+            {
+                await _apiClient.UpdateCardholderAsync(existingEntity.AmadeusUid, payload, cancellationToken);
+            }
+
+            // Update local entity
+            existingEntity.FirstName = dto.FirstName;
+            existingEntity.LastName = dto.LastName;
+            existingEntity.Description = dto.Notes;
+            existingEntity.FromDateValidUtc = dto.FromDateValid.ToUniversalTime();
+            existingEntity.ToDateValidUtc = dto.ToDateValid.ToUniversalTime();
+            existingEntity.SecurityGroupApiKey = dto.SecurityGroupApiKey;
+            existingEntity.AccessGroupApiKeysRaw = dto.AccessGroupApiKeys != null ? string.Join(",", dto.AccessGroupApiKeys) : existingEntity.AccessGroupApiKeysRaw;
+            existingEntity.DepartmentUid = dto.DepartmentUid ?? existingEntity.DepartmentUid;
+            existingEntity.UpdatedUtc = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            _logger.LogInformation("Amadeus visitor updated successfully. AmadeusUid: {Uid}", existingEntity.AmadeusUid);
+
+            return new VisitorCreationResultDto
+            {
+                Success = true,
+                AmadeusExternalId = existingEntity.AmadeusUid,
+                SyncStatus = "Synced",
+                LastSyncedAtUtc = DateTime.UtcNow
+            };
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Failed to update existing visitor {Uid} in Amadeus", existingEntity.AmadeusUid);
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                AmadeusExternalId = existingEntity.AmadeusUid,
+                SyncStatus = "Failed",
+                ErrorMessage = $"Amadeus API error: {ex.Message}",
+                IsRetryable = true
+            };
+        }
+    }
+
+    private async Task<VisitorCreationResultDto> HandleConflictAndUpdateAsync(CreateAmadeusVisitorDto dto, CancellationToken cancellationToken)
+    {
+        // Try to find the existing visitor in Amadeus by paging through cardholders
+        // and matching by CardholderIdNumber
+        if (string.IsNullOrWhiteSpace(dto.CardholderIdNumber))
+        {
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                SyncStatus = "Failed",
+                ErrorMessage = "Visitor already exists in Amadeus but CardholderIdNumber is empty — cannot locate for update",
+                IsRetryable = false
+            };
+        }
+
+        // Search local DB first (might have been created by sync)
+        var localEntity = await _dbContext.Cardholders.FirstOrDefaultAsync(
+            c => c.CardholderIdNumber == dto.CardholderIdNumber && !c.IsDeleted,
+            cancellationToken);
+
+        if (localEntity is not null)
+        {
+            return await UpdateExistingVisitorAsync(localEntity, dto, cancellationToken);
+        }
+
+        // Not in local DB — search Amadeus API
+        _logger.LogInformation("Searching Amadeus for existing visitor with personId {PersonId}", dto.CardholderIdNumber);
+        var skip = 0;
+        const int pageSize = 100;
+        string? foundUid = null;
+
+        while (true)
+        {
+            var (items, _) = await _apiClient.GetCardholdersPagedAsync(skip, pageSize, cancellationToken);
+            var match = items.FirstOrDefault(c => c.CardholderIdNumber == dto.CardholderIdNumber);
+            if (match is not null)
+            {
+                foundUid = match.Id;
+                break;
+            }
+            if (items.Count < pageSize) break;
+            skip += pageSize;
+        }
+
+        if (foundUid is null)
+        {
+            _logger.LogWarning("Could not find existing visitor {PersonId} in Amadeus after conflict", dto.CardholderIdNumber);
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                SyncStatus = "Failed",
+                ErrorMessage = "Visitor conflict in Amadeus but unable to locate existing record for update",
+                IsRetryable = false
+            };
+        }
+
+        _logger.LogInformation("Found existing visitor in Amadeus. AmadeusUid: {Uid}. Updating", foundUid);
+
+        try
+        {
+            var payload = await BuildVisitorPayloadAsync(dto, cancellationToken);
+            await _apiClient.UpdateCardholderAsync(foundUid, payload, cancellationToken);
+
+            // Persist locally
+            var entity = new CardholderEntity
+            {
+                AmadeusUid = foundUid,
+                CardholderIdNumber = dto.CardholderIdNumber,
+                FirstName = dto.FirstName,
+                LastName = dto.LastName,
+                Description = dto.Notes,
+                CardholderTypeUid = _options.VisitorCardholderTypeUid,
+                DepartmentUid = dto.DepartmentUid,
+                SecurityGroupApiKey = dto.SecurityGroupApiKey,
+                AccessGroupApiKeysRaw = dto.AccessGroupApiKeys != null ? string.Join(",", dto.AccessGroupApiKeys) : null,
+                Status = "Active",
+                FromDateValidUtc = dto.FromDateValid.ToUniversalTime(),
+                ToDateValidUtc = dto.ToDateValid.ToUniversalTime(),
+                IsFromDateActive = true,
+                IsToDateActive = true,
+                IsDeleted = false,
+                IsArchived = false,
+                CreatedUtc = DateTime.UtcNow,
+                UpdatedUtc = DateTime.UtcNow
+            };
+
+            _dbContext.Cardholders.Add(entity);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+
+            return new VisitorCreationResultDto
+            {
+                Success = true,
+                AmadeusExternalId = foundUid,
+                SyncStatus = "Synced",
+                LastSyncedAtUtc = DateTime.UtcNow
+            };
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Failed to update visitor {Uid} in Amadeus after conflict", foundUid);
+            return new VisitorCreationResultDto
+            {
+                Success = false,
+                AmadeusExternalId = foundUid,
+                SyncStatus = "Failed",
+                ErrorMessage = $"Amadeus API error: {ex.Message}",
+                IsRetryable = true
+            };
+        }
+    }
+
+    private async Task<string?> FindCardholderUidByIdNumberAsync(string? cardholderIdNumber, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(cardholderIdNumber))
+            return null;
+
+        var match = await _apiClient.GetCardholderByIdNumberAsync(cardholderIdNumber, cancellationToken);
+        return match?.Id;
+    }
+
     private static string? ValidateVisitorDto(CreateAmadeusVisitorDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.FirstName))
@@ -420,7 +633,24 @@ public class CardholderCommandService : ICardholderCommandService
         return null;
     }
 
-    private Dictionary<string, object?> BuildVisitorPayload(CreateAmadeusVisitorDto dto)
+    private async Task<string?> ResolveAccessGroupUidsAsync(List<string> apiKeys, CancellationToken cancellationToken)
+    {
+        var groups = await _dbContext.AccessGroups
+            .AsNoTracking()
+            .Where(g => apiKeys.Contains(g.ApiKey!) || apiKeys.Contains(g.AmadeusUid))
+            .ToListAsync(cancellationToken);
+
+        var uids = new List<string>();
+        foreach (var key in apiKeys)
+        {
+            var group = groups.FirstOrDefault(g => g.ApiKey == key || g.AmadeusUid == key);
+            uids.Add(group?.AmadeusUid ?? key);
+        }
+
+        return uids.Count > 0 ? string.Join(";", uids) : null;
+    }
+
+    private Task<Dictionary<string, object?>> BuildVisitorPayloadAsync(CreateAmadeusVisitorDto dto, CancellationToken cancellationToken)
     {
         var payload = new Dictionary<string, object?>
         {
@@ -434,15 +664,25 @@ public class CardholderCommandService : ICardholderCommandService
         };
 
         if (dto.CardholderIdNumber is not null) payload["cardholderIdNumber"] = dto.CardholderIdNumber;
-        if (dto.SecurityGroupApiKey is not null) payload["securityGroupApiKey"] = dto.SecurityGroupApiKey;
-        if (dto.AccessGroupApiKeys is not null) payload["accessGroupApiKeys"] = string.Join(",", dto.AccessGroupApiKeys);
+        if (dto.SecurityGroupApiKey is not null)
+        {
+            payload["securityGroupApiKey"] = dto.SecurityGroupApiKey;
+        }
+        else if (!string.IsNullOrWhiteSpace(_options.VisitorDefaultSecurityGroupApiKey))
+        {
+            payload["securityGroupApiKey"] = _options.VisitorDefaultSecurityGroupApiKey;
+        }
+        if (dto.AccessGroupApiKeys is not null && dto.AccessGroupApiKeys.Count > 0)
+        {
+            payload["accessGroupApiKeys"] = string.Join(",", dto.AccessGroupApiKeys);
+        }
         if (dto.DepartmentUid is not null) payload["departmentUID"] = dto.DepartmentUid;
         if (dto.Notes is not null) payload["description"] = dto.Notes;
 
-        return payload;
+        return Task.FromResult(payload);
     }
 
-    private static object BuildCreatePayload(CardholderCreateDto dto)
+    private async Task<object> BuildCreatePayloadAsync(CardholderCreateDto dto, CancellationToken cancellationToken)
     {
         var payload = new Dictionary<string, object?>();
 
@@ -452,7 +692,11 @@ public class CardholderCommandService : ICardholderCommandService
         if (dto.Description is not null) payload["description"] = dto.Description;
         if (dto.CardholderTypeUid is not null) payload["cardholderTypeUID"] = dto.CardholderTypeUid;
         if (dto.SecurityGroupApiKey is not null) payload["securityGroupApiKey"] = dto.SecurityGroupApiKey;
-        if (dto.AccessGroupApiKeys is not null) payload["accessGroupApiKeys"] = string.Join(",", dto.AccessGroupApiKeys);
+        if (dto.AccessGroupApiKeys is not null)
+        {
+            var resolved = await ResolveAccessGroupUidsAsync(dto.AccessGroupApiKeys, cancellationToken);
+            if (resolved is not null) payload["accessGroupUIDs"] = resolved;
+        }
         if (dto.FromDateValid.HasValue) payload["fromDateValid"] = dto.FromDateValid.Value;
         if (dto.ToDateValid.HasValue) payload["toDateValid"] = dto.ToDateValid.Value;
         if (dto.IsFromDateActive.HasValue) payload["isFromDateActive"] = dto.IsFromDateActive.Value;
@@ -461,7 +705,7 @@ public class CardholderCommandService : ICardholderCommandService
         return payload;
     }
 
-    private static object BuildUpdatePayload(CardholderUpdateDto dto)
+    private async Task<object> BuildUpdatePayloadAsync(CardholderUpdateDto dto, CancellationToken cancellationToken)
     {
         var payload = new Dictionary<string, object?>();
 
@@ -470,7 +714,11 @@ public class CardholderCommandService : ICardholderCommandService
         if (dto.LastName is not null) payload["lastName"] = dto.LastName;
         if (dto.Description is not null) payload["description"] = dto.Description;
         if (dto.SecurityGroupApiKey is not null) payload["securityGroupApiKey"] = dto.SecurityGroupApiKey;
-        if (dto.AccessGroupApiKeys is not null) payload["accessGroupApiKeys"] = string.Join(",", dto.AccessGroupApiKeys);
+        if (dto.AccessGroupApiKeys is not null)
+        {
+            var resolved = await ResolveAccessGroupUidsAsync(dto.AccessGroupApiKeys, cancellationToken);
+            if (resolved is not null) payload["accessGroupUIDs"] = resolved;
+        }
         if (dto.FromDateValid.HasValue) payload["fromDateValid"] = dto.FromDateValid.Value;
         if (dto.ToDateValid.HasValue) payload["toDateValid"] = dto.ToDateValid.Value;
         if (dto.IsFromDateActive.HasValue) payload["isFromDateActive"] = dto.IsFromDateActive.Value;

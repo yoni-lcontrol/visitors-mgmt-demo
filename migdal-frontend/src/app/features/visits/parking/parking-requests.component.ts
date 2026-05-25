@@ -69,6 +69,7 @@ import { DateFormatPipe } from '@shared/pipes/date-format.pipe';
             <th pSortableColumn="createdBy">{{ 'PARKING.CREATED_BY' | translate }} <p-sortIcon field="createdBy" /> <p-columnFilter field="createdBy" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="carNumber">{{ 'VISITORS.CAR_NUMBER' | translate }} <p-sortIcon field="carNumber" /> <p-columnFilter field="carNumber" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="status">{{ 'PARKING.STATUS' | translate }} <p-sortIcon field="status" /></th>
+            <!-- <th>{{ 'PARKING.AMADEUS_SYNC' | translate }}</th> -->
             <th pSortableColumn="createdAt">{{ 'PARKING.REQUESTED_AT' | translate }} <p-sortIcon field="createdAt" /> <p-columnFilter field="createdAt" type="date" display="menu"></p-columnFilter></th>
             <th pSortableColumn="reviewedBy">{{ 'PARKING.REVIEWED_BY' | translate }} <p-sortIcon field="reviewedBy" /> <p-columnFilter field="reviewedBy" type="text" display="menu"></p-columnFilter></th>
             <th>{{ 'PARKING.REVIEW_NOTE' | translate }}</th>
@@ -87,6 +88,17 @@ import { DateFormatPipe } from '@shared/pipes/date-format.pipe';
                 {{ getStatusTranslationKey(item.status) | translate }}
               </span>
             </td>
+            <!-- <td>
+              @if (item.amadeusSyncStatus) {
+                <span class="sync-badge" [class]="'sync-' + item.amadeusSyncStatus"
+                  [pTooltip]="item.amadeusSyncMessage || ''" tooltipPosition="top">
+                  <i [class]="getSyncIcon(item.amadeusSyncStatus)"></i>
+                  {{ getSyncTranslationKey(item.amadeusSyncStatus) | translate }}
+                </span>
+              } @else {
+                <span class="sync-badge sync-none">-</span>
+              }
+            </td> -->
             <td dir="ltr">{{ item.createdAt | dateFormat }}</td>
             <td>{{ item.reviewedByUser ? (item.reviewedByUser.firstName + ' ' + item.reviewedByUser.lastName) : '-' }}</td>
             <td>{{ item.reviewNote || '-' }}</td>
@@ -110,7 +122,7 @@ import { DateFormatPipe } from '@shared/pipes/date-format.pipe';
         </ng-template>
 
         <ng-template pTemplate="emptymessage">
-          <tr><td [attr.colspan]="9" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
+          <tr><td [attr.colspan]="10" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
         </ng-template>
       </p-table>
     </div>
@@ -150,6 +162,13 @@ import { DateFormatPipe } from '@shared/pipes/date-format.pipe';
     .dialog-form .field label { font-weight: 500; font-size: 0.85rem; color: var(--color-text-secondary); }
     .btn-icon.success { color: var(--color-text-muted); }
     .btn-icon.success:hover { background: rgba(34, 197, 94, 0.08); color: #15803d; border-color: rgba(34, 197, 94, 0.15); }
+    .sync-badge { display: inline-flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; padding: 0.15rem 0.5rem; border-radius: 4px; }
+    .sync-badge i { font-size: 0.75rem; }
+    .sync-pending { background: rgba(234, 179, 8, 0.1); color: #a16207; }
+    .sync-synced { background: rgba(34, 197, 94, 0.1); color: #15803d; }
+    .sync-failed { background: rgba(239, 68, 68, 0.1); color: #dc2626; }
+    .sync-not_required { background: rgba(148, 163, 184, 0.1); color: #64748b; }
+    .sync-none { color: var(--color-text-muted); }
   `],
 })
 export class ParkingRequestsComponent implements OnInit {
@@ -189,6 +208,20 @@ export class ParkingRequestsComponent implements OnInit {
 
   getStatusTranslationKey(status: string): string {
     return 'PARKING.STATUS_' + (status ?? '').toUpperCase();
+  }
+
+  getSyncIcon(syncStatus: string): string {
+    const map: Record<string, string> = {
+      pending: 'pi pi-spin pi-spinner',
+      synced: 'pi pi-check-circle',
+      failed: 'pi pi-exclamation-triangle',
+      not_required: 'pi pi-minus-circle',
+    };
+    return map[syncStatus] ?? 'pi pi-question-circle';
+  }
+
+  getSyncTranslationKey(syncStatus: string): string {
+    return 'PARKING.SYNC_' + (syncStatus ?? '').toUpperCase();
   }
 
   onLazyLoad(event: any): void {

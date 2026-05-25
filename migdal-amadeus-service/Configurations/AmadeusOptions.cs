@@ -44,4 +44,10 @@ public class AmadeusOptions
     /// Obtain from GET /odata/API_CardholderTypes in the target environment.
     /// </summary>
     public string? VisitorCardholderTypeUid { get; set; }
+
+    /// <summary>
+    /// Default Multiple Access-Group (Security Group) API key assigned to visitors when none is specified.
+    /// Maps to the "securityGroupApiKey" field in the Amadeus OData payload.
+    /// </summary>
+    public string? VisitorDefaultSecurityGroupApiKey { get; set; }
 }

@@ -39,6 +39,12 @@ export class ScanComponent implements OnInit {
     this.bindScanStatus();
     this.bindScanResults();
 
+    // Check for a buffered scan result that arrived before this page was mounted
+    const pending = this.kioskSocket.consumePendingScanResult();
+    if (pending) {
+      this.handleScanResult(pending);
+    }
+
     this.destroyRef.onDestroy(() => {
       this.spinner.hide();
     });
@@ -89,7 +95,11 @@ export class ScanComponent implements OnInit {
   private bindScanResults(): void {
     this.kioskSocket.scanResults$
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((scan: ScanResult) => this.handleScanResult(scan));
+      .subscribe((scan: ScanResult) => {
+        // Clear buffer so it's not replayed on next mount
+        this.kioskSocket.consumePendingScanResult();
+        this.handleScanResult(scan);
+      });
   }
 
   private handleScanResult(scan: ScanResult): void {
@@ -114,14 +124,14 @@ export class ScanComponent implements OnInit {
 
     const data = scan.result;
 
-    if (!data.personId) {
+    if (!data.personId && !data.identifyNumber) {
       stopUi();
       this.scanError = true;
       return;
     }
 
-    // Look up today's visit for this personId
-    this.kioskApi.validatePersonId(data.personId).subscribe({
+    // Look up today's visit for this personId (fallback to identifyNumber)
+    this.kioskApi.validatePersonId(data.personId || data.identifyNumber, data.identifyNumber).subscribe({
       next: (visit: VisitResponse) => {
         stopUi();
         if (visit.ok === false) {

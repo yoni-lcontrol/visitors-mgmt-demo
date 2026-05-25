@@ -23,6 +23,7 @@ public interface IAmadeusApiClient
     // Cardholders
     Task<(List<AmadeusCardholder> Items, int? TotalCount)> GetCardholdersPagedAsync(int skip, int top, CancellationToken cancellationToken);
     Task<AmadeusCardholder?> GetCardholderByUidAsync(string uid, CancellationToken cancellationToken);
+    Task<AmadeusCardholder?> GetCardholderByIdNumberAsync(string cardholderIdNumber, CancellationToken cancellationToken);
     Task<AmadeusCardholder> CreateCardholderAsync(object payload, CancellationToken cancellationToken);
     Task UpdateCardholderAsync(string uid, object payload, CancellationToken cancellationToken);
     Task DeleteCardholderAsync(string uid, CancellationToken cancellationToken);

@@ -27,6 +27,10 @@ export interface SmsTemplateData {
         status?: string;
         reviewNote?: string;
     };
+    requester?: {
+        phone?: string;
+        email?: string;
+    };
 }
 
 @Injectable()

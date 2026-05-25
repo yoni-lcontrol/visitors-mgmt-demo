@@ -552,8 +552,8 @@ const EVENTS = ['visitor_arrived', 'visit_created', 'visit_updated', 'visit_dele
     .save-bar {
       position: fixed;
       bottom: 0;
-      left: var(--sidebar-width, 260px);
-      right: 0;
+      left: 0;
+      right: var(--sidebar-width, 260px);
       display: flex;
       align-items: center;
       justify-content: flex-end;
@@ -606,7 +606,7 @@ const EVENTS = ['visitor_arrived', 'visit_created', 'visit_updated', 'visit_dele
         grid-template-columns: 1fr;
       }
       .save-bar {
-        left: 0;
+        right: 0;
       }
     }
 

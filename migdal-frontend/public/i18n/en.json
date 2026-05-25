@@ -444,7 +444,12 @@
         "ALL_STATUSES": "All Statuses",
         "STATUS_PENDING": "Pending",
         "STATUS_APPROVED": "Approved",
-        "STATUS_DENIED": "Denied"
+        "STATUS_DENIED": "Denied",
+        "AMADEUS_SYNC": "Amadeus Sync",
+        "SYNC_PENDING": "Syncing",
+        "SYNC_SYNCED": "Synced",
+        "SYNC_FAILED": "Failed",
+        "SYNC_NOT_REQUIRED": "N/A"
     },
     "SETTINGS": {
         "TITLE": "System Settings",
@@ -1075,7 +1080,14 @@
         "FILTER_TODAY": "Today",
         "FILTER_FUTURE": "Future",
         "FILTER_HISTORY": "History",
-        "SEARCH_ALL": "All"
+        "SEARCH_ALL": "All",
+        "ATTACHMENTS": "Attachments",
+        "DROP_FILES_HERE": "Drag files here or click to browse",
+        "MAX_FILE_SIZE": "Max size: 10MB per file",
+        "FILE_TOO_LARGE": "File exceeds the maximum size of 10MB",
+        "MAX_FILES_REACHED": "Maximum of 10 files allowed",
+        "UPLOAD_FILE": "Upload File",
+        "NO_FILES": "No files attached"
     },
     "AUDIT": {
         "TITLE": "Audit Logs",

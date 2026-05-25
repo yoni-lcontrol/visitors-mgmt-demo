@@ -39,16 +39,18 @@ import { ExternalEventLog } from '../integrations/common/entities/external-event
 import { Building } from '../buildings/entities/building.entity';
 import { ParkingRequest } from '../visitors/entities/parking-request.entity';
 import { BlacklistOverrideRequest } from '../visitors/entities/blacklist-override-request.entity';
+import { VisitFile } from '../visitors/entities/visit-file.entity';
 import { Sector } from '../sectors/entities/sector.entity';
 import { AdGroupRoleMapping } from '../ad-group-role-mappings/entities/ad-group-role-mapping.entity';
 import { VehicleManufacturer } from '../settings/entities/vehicle-manufacturer.entity';
 import { VehicleModel } from '../settings/entities/vehicle-model.entity';
+import { AmadeusSyncQueue } from '../amadeus/entities/amadeus-sync-queue.entity';
 
 const entities = [
     User, Role, Permission, RefreshToken,
     AcController, Door, DoorIo, Extension, ExtensionIo, AccessLevel,
     Visitor, BlacklistEntry,
-    Visit, VisitVisitor, VisitEscort, VisitorAccessLog, VisitVisitorStatus, VisitVisitorCheckInCode, ParkingRequest, BlacklistOverrideRequest,
+    Visit, VisitVisitor, VisitEscort, VisitorAccessLog, VisitVisitorStatus, VisitVisitorCheckInCode, ParkingRequest, BlacklistOverrideRequest, VisitFile,
     Setting, NotificationSetting, AdConfiguration, SmsTemplate, EmailTemplate, CardTemplate, PermanentEscort, AuditLog,
     VehicleManufacturer, VehicleModel,
     Workstation, UserWorkstationSession, WorkstationUser, WorkstationRole, WorkstationEnrollmentToken,
@@ -56,6 +58,7 @@ const entities = [
     Building,
     Sector,
     AdGroupRoleMapping,
+    AmadeusSyncQueue,
 ];
 
 @Module({

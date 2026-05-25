@@ -65,9 +65,11 @@ import { DateFormatPipe } from '@shared/pipes/date-format.pipe';
         <ng-template pTemplate="header">
           <tr>
             <th pSortableColumn="visitorName">{{ 'BLACKLIST_OVERRIDE.VISITOR' | translate }} <p-sortIcon field="visitorName" /> <p-columnFilter field="visitorName" type="text" display="menu"></p-columnFilter></th>
+            <th pSortableColumn="visitorPersonId">{{ 'BLACKLIST_OVERRIDE.PERSON_ID' | translate }} <p-sortIcon field="visitorPersonId" /> <p-columnFilter field="visitorPersonId" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="visitTitle">{{ 'BLACKLIST_OVERRIDE.VISIT_TITLE' | translate }} <p-sortIcon field="visitTitle" /> <p-columnFilter field="visitTitle" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="createdBy">{{ 'BLACKLIST_OVERRIDE.CREATED_BY' | translate }} <p-sortIcon field="createdBy" /> <p-columnFilter field="createdBy" type="text" display="menu"></p-columnFilter></th>
             <th>{{ 'BLACKLIST_OVERRIDE.BLACKLIST_REASON' | translate }}</th>
+            <th>{{ 'BLACKLIST_OVERRIDE.BLOCKED_UNTIL' | translate }}</th>
             <th pSortableColumn="status">{{ 'BLACKLIST_OVERRIDE.STATUS' | translate }} <p-sortIcon field="status" /></th>
             <th pSortableColumn="createdAt">{{ 'BLACKLIST_OVERRIDE.REQUESTED_AT' | translate }} <p-sortIcon field="createdAt" /> <p-columnFilter field="createdAt" type="date" display="menu"></p-columnFilter></th>
             <th pSortableColumn="reviewedBy">{{ 'BLACKLIST_OVERRIDE.REVIEWED_BY' | translate }} <p-sortIcon field="reviewedBy" /> <p-columnFilter field="reviewedBy" type="text" display="menu"></p-columnFilter></th>
@@ -79,9 +81,11 @@ import { DateFormatPipe } from '@shared/pipes/date-format.pipe';
         <ng-template pTemplate="body" let-item>
           <tr>
             <td class="name-cell">{{ item.visitVisitor?.visitor?.firstName }} {{ item.visitVisitor?.visitor?.lastName }}</td>
+            <td>{{ item.visitVisitor?.visitor?.personId || '-' }}</td>
             <td>{{ item.visitVisitor?.visit?.title }}</td>
             <td>{{ item.visitVisitor?.visit?.createdByUser ? (item.visitVisitor.visit.createdByUser.firstName + ' ' + item.visitVisitor.visit.createdByUser.lastName) : '-' }}</td>
             <td>{{ item.blacklistReason || '-' }}</td>
+            <td dir="ltr">{{ item.blacklistEntry?.blockedUntil ? (item.blacklistEntry.blockedUntil | dateFormat) : ('BLACKLIST.PERMANENT' | translate) }}</td>
             <td>
               <span class="status-badge" [class]="getStatusClass(item.status)">
                 {{ getStatusTranslationKey(item.status) | translate }}
@@ -92,13 +96,19 @@ import { DateFormatPipe } from '@shared/pipes/date-format.pipe';
             <td>{{ item.reviewNote || '-' }}</td>
             <td *hasPermission="'blacklist.approve'">
               <div class="actions">
-                @if (item.status !== 'approved') {
+                @if (item.status === 'pending') {
                   <button class="btn-icon success" (click)="openReviewDialog(item, 'approved')"
                     [pTooltip]="'BLACKLIST_OVERRIDE.APPROVE' | translate" tooltipPosition="top">
                     <i class="pi pi-check"></i>
                   </button>
-                }
-                @if (item.status !== 'denied') {
+                  <button class="btn-icon warning" (click)="openReviewDialog(item, 'approved_escort')"
+                    [pTooltip]="'BLACKLIST_OVERRIDE.APPROVE_ESCORT' | translate" tooltipPosition="top">
+                    <i class="pi pi-users"></i>
+                  </button>
+                  <button class="btn-icon info" (click)="openReviewDialog(item, 'approved_security')"
+                    [pTooltip]="'BLACKLIST_OVERRIDE.APPROVE_SECURITY' | translate" tooltipPosition="top">
+                    <i class="pi pi-shield"></i>
+                  </button>
                   <button class="btn-icon danger" (click)="openReviewDialog(item, 'denied')"
                     [pTooltip]="'BLACKLIST_OVERRIDE.DENY' | translate" tooltipPosition="top">
                     <i class="pi pi-times"></i>
@@ -110,13 +120,13 @@ import { DateFormatPipe } from '@shared/pipes/date-format.pipe';
         </ng-template>
 
         <ng-template pTemplate="emptymessage">
-          <tr><td [attr.colspan]="9" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
+          <tr><td [attr.colspan]="11" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
         </ng-template>
       </p-table>
     </div>
 
     <!-- Review Dialog -->
-    <p-dialog [header]="reviewAction === 'approved' ? ('BLACKLIST_OVERRIDE.APPROVE' | translate) : ('BLACKLIST_OVERRIDE.DENY' | translate)"
+    <p-dialog [header]="getDialogHeader()"
       [(visible)]="showReviewDialog" [modal]="true" [style]="{width: '400px'}" [draggable]="false">
       @if (showReviewDialog) {
         <div class="dialog-form">
@@ -130,7 +140,7 @@ import { DateFormatPipe } from '@shared/pipes/date-format.pipe';
       <ng-template pTemplate="footer">
         <button class="btn btn-secondary" (click)="showReviewDialog = false">{{ 'COMMON.CANCEL' | translate }}</button>
         <button class="btn btn-primary" (click)="submitReview()" [disabled]="saving">
-          {{ (reviewAction === 'approved' ? 'BLACKLIST_OVERRIDE.APPROVE' : 'BLACKLIST_OVERRIDE.DENY') | translate }}
+          {{ getDialogHeader() }}
         </button>
       </ng-template>
     </p-dialog>
@@ -150,6 +160,10 @@ import { DateFormatPipe } from '@shared/pipes/date-format.pipe';
     .dialog-form .field label { font-weight: 500; font-size: 0.85rem; color: var(--color-text-secondary); }
     .btn-icon.success { color: var(--color-text-muted); }
     .btn-icon.success:hover { background: rgba(34, 197, 94, 0.08); color: #15803d; border-color: rgba(34, 197, 94, 0.15); }
+    .btn-icon.warning { color: var(--color-text-muted); }
+    .btn-icon.warning:hover { background: rgba(234, 179, 8, 0.08); color: #a16207; border-color: rgba(234, 179, 8, 0.15); }
+    .btn-icon.info { color: var(--color-text-muted); }
+    .btn-icon.info:hover { background: rgba(59, 130, 246, 0.08); color: #1d4ed8; border-color: rgba(59, 130, 246, 0.15); }
   `],
 })
 export class BlacklistOverridesComponent implements OnInit {
@@ -168,7 +182,7 @@ export class BlacklistOverridesComponent implements OnInit {
   lastLazyEvent: any = null;
 
   showReviewDialog = false;
-  reviewAction: 'approved' | 'denied' = 'approved';
+  reviewAction: 'approved' | 'denied' | 'approved_escort' | 'approved_security' = 'approved';
   reviewNote = '';
   reviewingItem: any = null;
 
@@ -178,12 +192,20 @@ export class BlacklistOverridesComponent implements OnInit {
     this.statusOptions = [
       { label: this.translate.instant('BLACKLIST_OVERRIDE.STATUS_PENDING'), value: 'pending' },
       { label: this.translate.instant('BLACKLIST_OVERRIDE.STATUS_APPROVED'), value: 'approved' },
+      { label: this.translate.instant('BLACKLIST_OVERRIDE.STATUS_APPROVED_ESCORT'), value: 'approved_escort' },
+      { label: this.translate.instant('BLACKLIST_OVERRIDE.STATUS_APPROVED_SECURITY'), value: 'approved_security' },
       { label: this.translate.instant('BLACKLIST_OVERRIDE.STATUS_DENIED'), value: 'denied' },
     ];
   }
 
   getStatusClass(status: string): string {
-    const map: Record<string, string> = { pending: 'status-badge pending', approved: 'status-badge approved', denied: 'status-badge denied' };
+    const map: Record<string, string> = {
+      pending: 'status-badge pending',
+      approved: 'status-badge approved',
+      approved_escort: 'status-badge approved',
+      approved_security: 'status-badge approved',
+      denied: 'status-badge denied',
+    };
     return map[status] ?? 'status-badge unknown';
   }
 
@@ -229,7 +251,17 @@ export class BlacklistOverridesComponent implements OnInit {
     }
   }
 
-  openReviewDialog(item: any, action: 'approved' | 'denied'): void {
+  getDialogHeader(): string {
+    const map: Record<string, string> = {
+      approved: this.translate.instant('BLACKLIST_OVERRIDE.APPROVE'),
+      denied: this.translate.instant('BLACKLIST_OVERRIDE.DENY'),
+      approved_escort: this.translate.instant('BLACKLIST_OVERRIDE.APPROVE_ESCORT'),
+      approved_security: this.translate.instant('BLACKLIST_OVERRIDE.APPROVE_SECURITY'),
+    };
+    return map[this.reviewAction] ?? '';
+  }
+
+  openReviewDialog(item: any, action: 'approved' | 'denied' | 'approved_escort' | 'approved_security'): void {
     this.reviewingItem = item;
     this.reviewAction = action;
     this.reviewNote = '';

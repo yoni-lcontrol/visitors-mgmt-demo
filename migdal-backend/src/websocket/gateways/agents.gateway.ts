@@ -32,6 +32,7 @@ import {
     cors: {
         origin: '*',
     },
+    maxHttpBufferSize: 10e6, // 10MB to accommodate base64 scan images
 })
 export class AgentsGateway
     implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect {
@@ -313,35 +314,59 @@ export class AgentsGateway
         if (!(client as any).agentRegistered || !payload?.correlationId) return;
 
         const workstationId = (client as any).workstationId;
-        const userInfo = await this.commandRouting.handleCommandResult(
-            payload.correlationId,
-            payload.success,
-            payload.result,
-            payload.errorMessage,
-        );
+        console.log('[KIOSK-DEBUG] handleCommandResult:', { correlationId: payload.correlationId, success: payload.success, workstationId, hasResult: !!payload.result, personId: (payload.result as any)?.personId });
+
+        // Strip image from the result before storing to DB (can be multi-MB)
+        const resultForDb = payload.result ? { ...payload.result } : undefined;
+        if (resultForDb && 'image' in resultForDb) {
+            (resultForDb as any).image = resultForDb.image ? '[base64_stripped]' : '';
+        }
+
+        let userInfo: any = null;
+        try {
+            userInfo = await this.commandRouting.handleCommandResult(
+                payload.correlationId,
+                payload.success,
+                resultForDb,
+                payload.errorMessage,
+            );
+        } catch (err) {
+            console.error('[KIOSK-DEBUG] commandRouting.handleCommandResult failed:', err);
+        }
 
         // Scanner results: broadcast to all users bound to this workstation
         // (covers both auto-scan from tray and user-initiated scans)
         if (workstationId && (!userInfo || userInfo.providerType === 'scanner')) {
-            const event = payload.success
-                ? WsEvent.ScannerActionCompleted
-                : WsEvent.ScannerActionFailed;
-            const data = payload.success
-                ? { correlationId: payload.correlationId, result: payload.result || {} }
-                : { correlationId: payload.correlationId, reason: payload.errorMessage || 'Scan failed' };
-
-            const sessions = await this.workstationSession.findActiveSessionsByWorkstation(workstationId);
-            for (const session of sessions) {
-                this.emitToUser(session.userSocketId, session.userId, event, data);
+            // Forward scan results to kiosk FIRST (highest priority for kiosk flow)
+            // Strip image to keep WebSocket message small (kiosk only needs personId for API call)
+            const kioskResult = payload.result ? { ...payload.result } : undefined;
+            if (kioskResult && 'image' in kioskResult) {
+                delete (kioskResult as any).image;
             }
-
-            // Also forward scan results to any kiosks on this workstation
+            console.log('[KIOSK-DEBUG] Emitting scan result to kiosk workstation:', workstationId, 'resultKeys:', kioskResult ? Object.keys(kioskResult) : 'none');
             this.kioskGateway.emitScanResultToWorkstation(workstationId, {
                 correlationId: payload.correlationId,
                 success: payload.success,
-                result: payload.result,
+                result: kioskResult,
                 errorMessage: payload.errorMessage,
             });
+
+            // Then broadcast to user sessions (non-critical for kiosk flow)
+            try {
+                const event = payload.success
+                    ? WsEvent.ScannerActionCompleted
+                    : WsEvent.ScannerActionFailed;
+                const data = payload.success
+                    ? { correlationId: payload.correlationId, result: payload.result || {} }
+                    : { correlationId: payload.correlationId, reason: payload.errorMessage || 'Scan failed' };
+
+                const sessions = await this.workstationSession.findActiveSessionsByWorkstation(workstationId);
+                for (const session of sessions) {
+                    this.emitToUser(session.userSocketId, session.userId, event, data);
+                }
+            } catch (err) {
+                console.error('[KIOSK-DEBUG] Error broadcasting to user sessions:', err);
+            }
         } else if (userInfo) {
             // Route printer results to print-specific events
             if (payload.success) {

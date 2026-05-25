@@ -208,7 +208,10 @@ export class KioskGateway
      * Called from AgentsGateway when a scanner command result arrives.
      */
     emitScanResultToWorkstation(workstationId: string, data: unknown): void {
-        this.server.to(`workstation:${workstationId}`).emit(WsEvent.KioskScanResult, data);
+        const room = `workstation:${workstationId}`;
+        const sockets = this.server.adapter.rooms?.get(room);
+        console.log(`[KIOSK-DEBUG] emitScanResult to room=${room}, socketsInRoom=${sockets?.size ?? 0}`);
+        this.server.to(room).emit(WsEvent.KioskScanResult, data);
     }
 
     /**

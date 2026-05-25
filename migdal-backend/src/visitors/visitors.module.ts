@@ -28,13 +28,14 @@ import { BlacklistOverrideService } from './blacklist-override.service';
 import { VisitorAccessLogController } from './visitor-access-log.controller';
 import { VisitVisitorsController } from './visit-visitors.controller';
 import { VisitorPersistenceService } from './visitor-persistence.service';
+import { VisitFilesService } from './visit-files.service';
+import { VisitFile } from './entities/visit-file.entity';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { PrintingModule } from '../printing/printing.module';
 import { SettingsModule } from '../settings/settings.module';
 import { AmadeusModule } from '../amadeus/amadeus.module';
 import { User } from '../users/entities/user.entity';
 import { Building } from '../buildings/entities/building.entity';
-import { AmadeusModule } from '../amadeus/amadeus.module';
 
 @Module({
     imports: [
@@ -45,6 +46,7 @@ import { AmadeusModule } from '../amadeus/amadeus.module';
             ParkingRequest,
             BlacklistOverrideRequest,
             Building,
+            VisitFile,
         ]),
         BlacklistModule,
         WebsocketModule,
@@ -61,7 +63,7 @@ import { AmadeusModule } from '../amadeus/amadeus.module';
         VisitsController, VisitorsController,
         KioskController,
     ],
-    providers: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService, BlacklistOverrideService],
-    exports: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService, BlacklistOverrideService],
+    providers: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService, BlacklistOverrideService, VisitFilesService],
+    exports: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService, BlacklistOverrideService, VisitFilesService],
 })
 export class VisitorsModule { }

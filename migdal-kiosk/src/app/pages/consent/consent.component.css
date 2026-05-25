@@ -4,12 +4,12 @@
     overflow: hidden;
     position: relative;
 
-    background: var(--kiosk-background-color, #D8D6F0);
+    background: var(--kiosk-background-color, rgb(183 199 228));
 
     display: flex;
     flex-direction: column;
 
-    padding-top: clamp(65px, 8.2vh, 81px);
+    padding-top: 38px;
 
     line-height: 1.1;
     text-rendering: optimizeLegibility;
@@ -21,10 +21,11 @@
     flex: 0 0 auto;
     background: var(--kiosk-header-gradient, linear-gradient(to bottom, #1B1464 0%, #2B2870 50%, #3B38A8 100%));
 
-    padding: clamp(26px, 4vh, 70px) 0 clamp(28px, 4.5vh, 88px);
+    padding: clamp(50px, 7vh, 120px) 0 clamp(52px, 7.5vh, 130px);
 
     text-align: center;
     box-shadow: 0 6px 18px rgba(27, 20, 100, 0.18);
+    border-bottom: 4px solid rgb(70 85 217);
 }
 
 .header-title {
@@ -32,7 +33,7 @@
     font-weight: 900;
     letter-spacing: 0.01em;
     line-height: 1.02;
-    color: var(--kiosk-text-header, #FFFFFF);
+    color: rgb(213 217 255);
 }
 
 /* Body */
@@ -64,12 +65,14 @@
 
 /* PDF viewer box */
 .pdf-box {
+    box-sizing: border-box;
     width: min(780px, 94vw);
 
     height: clamp(320px, 40vh, 720px);
     overflow: auto;
 
     background: rgba(255, 255, 255, 0.92);
+    border: 6px solid rgb(103 108 142);
     border-radius: var(--kiosk-card-radius, 18px);
     box-shadow: var(--kiosk-card-shadow, 0 18px 50px rgba(27, 20, 100, 0.12));
 
@@ -116,25 +119,21 @@
 
 /* Signature box */
 .sign-box {
+    box-sizing: border-box;
     width: min(780px, 94vw);
 
     background: var(--kiosk-sign-box-bg, rgba(200, 200, 230, 0.25));
     border: 1px solid rgba(255, 255, 255, 0.35);
     border-radius: var(--kiosk-card-radius, 18px);
 
-    padding: clamp(12px, 1.8vh, 16px);
+    padding: 0;
 
     box-shadow: 0 14px 22px rgba(27, 20, 100, 0.10);
     backdrop-filter: blur(6px);
 }
 
 .sign-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-
-    gap: 12px;
-    margin-bottom: clamp(8px, 1.2vh, 12px);
+    display: none;
 }
 
 .sign-subtitle {
@@ -158,13 +157,13 @@
 
     background:
         radial-gradient(circle at 1px 1px, var(--kiosk-sign-pad-dot, rgba(27, 20, 100, 0.15)) 1px, transparent 1.2px) 0 0 / 16px 16px,
-        var(--kiosk-sign-pad-bg, rgba(255, 255, 255, 0.92));
+        rgb(209 213 221);
 
     box-shadow:
         inset 0 2px 0 rgba(255, 255, 255, 0.6),
         inset 0 -1px 0 rgba(0, 0, 0, 0.05);
 
-    border: 1px solid var(--kiosk-sign-pad-border, rgba(27, 20, 100, 0.15));
+    border: 3px dashed rgb(103 108 142);
 }
 
 .sign-pad canvas {
@@ -204,33 +203,32 @@
 
 /* Actions row */
 .sign-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-
-    gap: 14px;
-    margin-top: clamp(10px, 1.6vh, 14px);
+    display: none;
 }
 
 .btn-clear {
-    height: clamp(25px, 3vh, 86px);
-    padding: 0 clamp(14px, 2vh, 20px);
-    border-radius: var(--kiosk-button-radius, 999px);
-    border: 5px solid rgb(226, 252, 222);
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 10;
 
-    background: rgb(159, 231, 148);
+    height: auto;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: none;
+
+    background: rgb(84 103 218);
 
     box-shadow:
-        0 8px 28px rgba(27, 20, 100, 0.22),
-        0 2px 8px rgba(92, 192, 122, 0.3),
-        inset 0 2px 0 rgba(255, 255, 255, 0.5);
+        0 4px 12px rgba(27, 20, 100, 0.18),
+        inset 0 2px 0 rgba(255, 255, 255, 0.3);
 
-    font-size: clamp(18px, 2.1vh, 28px);
-    font-weight: 900;
+    font-size: clamp(14px, 1.8vh, 22px);
+    font-weight: 700;
     letter-spacing: 0.02em;
     line-height: 1;
 
-    color: var(--kiosk-primary-color, #1B1464);
+    color: #FFFFFF;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
     cursor: pointer;
     user-select: none;
@@ -238,9 +236,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 5px;
 
     touch-action: manipulation;
     transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.btn-clear lucide-icon {
+    display: flex;
 }
 
 .btn-clear:active {

@@ -17,7 +17,7 @@ import { ScanComponent } from './pages/scan/scan.component';
 import { DetailsComponent } from './pages/details/details.component';
 import { ConsentComponent } from './pages/consent/consent.component';
 import { LucideAngularModule } from 'lucide-angular';
-import { Phone, Mail, IdCard, Building2, Wallet, User } from 'lucide-angular';
+import { Phone, Mail, IdCard, Building2, Wallet, User, RefreshCw, RotateCw } from 'lucide-angular';
 import { PdfViewerModule } from 'ng2-pdf-viewer';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { PairComponent } from './pair/pair.component';
@@ -73,6 +73,8 @@ export function initKioskConfig(cfg: KioskConfigService) {
       Building2,
       Wallet,
       User,
+      RefreshCw,
+      RotateCw,
     }),
     TranslateModule.forRoot({
       fallbackLang: 'en',

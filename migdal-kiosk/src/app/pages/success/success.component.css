@@ -4,12 +4,12 @@
     overflow: hidden;
     position: relative;
 
-    background: var(--kiosk-background-color, #D8D6F0);
+    background: var(--kiosk-background-color, rgb(183 199 228));
 
     display: flex;
     flex-direction: column;
 
-    padding-top: clamp(65px, 8.2vh, 81px);
+    padding-top: 38px;
 
     line-height: 1.1;
     text-rendering: optimizeLegibility;
@@ -21,10 +21,11 @@
     flex: 0 0 auto;
     background: var(--kiosk-header-gradient, linear-gradient(to bottom, #1B1464 0%, #2B2870 50%, #3B38A8 100%));
 
-    padding: clamp(26px, 4vh, 70px) 0 clamp(28px, 4.5vh, 88px);
+    padding: clamp(50px, 7vh, 120px) 0 clamp(52px, 7.5vh, 130px);
 
     text-align: center;
     box-shadow: 0 6px 18px rgba(27, 20, 100, 0.18);
+    border-bottom: 4px solid rgb(70 85 217);
 }
 
 .header-title {
@@ -32,7 +33,7 @@
     font-weight: 900;
     letter-spacing: 0.01em;
     line-height: 1.02;
-    color: var(--kiosk-text-header, #FFFFFF);
+    color: rgb(213 217 255);
 }
 
 .header-sub {
@@ -203,13 +204,12 @@
     align-items: center;
     justify-content: center;
 
-    width: clamp(260px, 44vw, 420px);
+    width: clamp(210px, 40vw, 360px);
     height: clamp(74px, 8.5vh, 100px);
 
     border: none;
     background: transparent;
     padding: 0;
-
     cursor: pointer;
     outline: none;
 
@@ -219,12 +219,17 @@
 .continue-bg {
     position: absolute;
     inset: 0;
-
     border-radius: var(--kiosk-button-radius, 999px);
-    background: var(--kiosk-accent-green-gradient, linear-gradient(180deg, #B8EC92 0%, #82D49E 55%, #6FCF8A 100%));
-    border: 4px solid var(--kiosk-accent-green-border, rgba(130, 212, 158, 0.8));
 
-    box-shadow: var(--kiosk-button-shadow);
+    background: rgb(159, 231, 148);
+    border: 5px solid rgb(226, 252, 222);
+
+    box-shadow:
+        0 8px 28px rgba(27, 20, 100, 0.22),
+        0 2px 8px rgba(92, 192, 122, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.5);
+
+    transition: box-shadow 0.2s ease, transform 0.15s ease;
 }
 
 .continue-text {
@@ -234,11 +239,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: clamp(22px, 3vh, 40px);
+    font-size: clamp(30px, 4.5vh, 56px);
     font-weight: 900;
-    letter-spacing: 0.01em;
+    letter-spacing: 0.02em;
     line-height: 1;
     color: var(--kiosk-primary-color, #1B1464);
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .continue:disabled {

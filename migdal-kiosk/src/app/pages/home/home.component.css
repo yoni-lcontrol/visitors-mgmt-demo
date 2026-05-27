@@ -70,7 +70,7 @@
     font-weight: 900;
     letter-spacing: 0.01em;
     line-height: 1.05;
-    color: var(--kiosk-primary-color, #1B1464);
+    color: rgb(70 85 217);
     text-align: center;
 }
 
@@ -86,7 +86,7 @@
 /* Hint text + arrow */
 .hint {
     text-align: center;
-    color: var(--kiosk-muted-text-color, #6B68A0);
+    color: rgb(97 113 206);
     font-weight: 800;
     font-size: clamp(22px, 3.2vw, 54px);
     line-height: 1.1;

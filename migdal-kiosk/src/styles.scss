@@ -73,6 +73,10 @@ button {
     -webkit-user-drag: none;
 }
 
+button {
+    font-family: inherit;
+}
+
 /* Optional: make Hebrew look nicer */
 html[lang="he"] body {
     letter-spacing: 0.01em;

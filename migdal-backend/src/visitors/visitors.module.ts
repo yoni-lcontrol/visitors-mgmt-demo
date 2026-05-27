@@ -29,6 +29,7 @@ import { VisitorAccessLogController } from './visitor-access-log.controller';
 import { VisitVisitorsController } from './visit-visitors.controller';
 import { VisitorPersistenceService } from './visitor-persistence.service';
 import { VisitFilesService } from './visit-files.service';
+import { VisitorNotificationDispatcherService } from './notifications/visitor-notification-dispatcher.service';
 import { VisitFile } from './entities/visit-file.entity';
 import { WebsocketModule } from '../websocket/websocket.module';
 import { PrintingModule } from '../printing/printing.module';
@@ -63,7 +64,7 @@ import { Building } from '../buildings/entities/building.entity';
         VisitsController, VisitorsController,
         KioskController,
     ],
-    providers: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService, BlacklistOverrideService, VisitFilesService],
-    exports: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService, BlacklistOverrideService, VisitFilesService],
+    providers: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService, BlacklistOverrideService, VisitFilesService, VisitorNotificationDispatcherService],
+    exports: [VisitorsService, VisitorPersistenceService, VisitorLogService, VisitsService, VisitParticipantService, VisitStatusService, VisitCheckInCodeService, ParkingRequestService, BlacklistOverrideService, VisitFilesService, VisitorNotificationDispatcherService],
 })
 export class VisitorsModule { }

@@ -36,10 +36,13 @@ import { NotificationSettingsService } from './notification-settings.service';
         NotificationSettingsService,
         SmsTemplateService,
         SmsTemplateRendererService,
+        SmsProviderService,
         SmsNotificationService,
         EmailTemplateService,
         EmailTemplateRendererService,
+        EmailProviderService,
         EmailNotificationService,
+        TypeOrmModule,
     ],
 })
 export class NotificationsModule { }

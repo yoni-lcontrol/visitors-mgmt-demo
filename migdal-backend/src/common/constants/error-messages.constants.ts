@@ -30,6 +30,10 @@ export const ErrorMessages = {
 
     // Visitors
     VISITOR_NOT_FOUND: 'Visitor not found',
+    VISIT_NOT_VALID_TODAY: 'Invitation is not valid for today',
+    VISIT_TIME_NOT_VALID: 'Invitation time is not valid now',
+    VISIT_EXPIRED: 'Invitation has expired',
+    VISIT_NOT_STARTED: 'Invitation has not started yet',
 
     // Settings
     SETTING_NOT_FOUND: 'Setting not found',

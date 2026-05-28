@@ -14,8 +14,6 @@ import { NotificationEvent } from '../settings/enums/notification-event.enum';
 import { SmsTemplateData } from '../settings/sms-template-renderer.service';
 import { AuditService } from '../audit/audit.service';
 import { AmadeusParkingSyncService } from '../amadeus/services/amadeus-parking-sync.service';
-import { VisitorNotificationDispatcherService } from './notifications/visitor-notification-dispatcher.service';
-import { VisitorNotificationScenario } from './notifications/visitor-notification.types';
 
 @Injectable()
 export class ParkingRequestService {
@@ -26,7 +24,6 @@ export class ParkingRequestService {
         private readonly emailNotification: EmailNotificationService,
         private readonly auditService: AuditService,
         private readonly amadeusParkingSync: AmadeusParkingSyncService,
-        private readonly notificationDispatcher: VisitorNotificationDispatcherService,
     ) {}
 
     async createRequest(visitVisitorId: string, autoApprove: boolean, currentUserId?: string): Promise<ParkingRequest> {
@@ -160,43 +157,35 @@ export class ParkingRequestService {
         const visitor = request.visitVisitor?.visitor;
         if (!visit || !visitor) return;
 
-        const scenario = request.status === ParkingRequestStatus.Approved
-            ? VisitorNotificationScenario.ParkingApproved
-            : VisitorNotificationScenario.ParkingRejected;
+        const requester = visit.createdByUser;
+        const hostName = requester
+            ? [requester.firstName, requester.lastName].filter(Boolean).join(' ')
+            : '';
 
-        const creator = visit.createdByUser;
-
-        this.notificationDispatcher.dispatch(scenario, {
+        const data: SmsTemplateData = {
             visit: {
-                id: visit.id,
                 title: visit.title,
-                plannedStartTimeUtc: visit.plannedStartTimeUtc,
-                plannedEndTimeUtc: visit.plannedEndTimeUtc,
-                siteId: visit.siteId,
-                purposeOfVisit: visit.purposeOfVisit,
+                startTime: visit.plannedStartTimeUtc?.toLocaleString('he-IL') ?? '',
+                endTime: visit.plannedEndTimeUtc?.toLocaleString('he-IL') ?? '',
+                hostName,
+                siteName: visit.siteId ?? '',
+                purposeOfVisit: visit.purposeOfVisit ?? '',
             },
             visitor: {
-                id: visitor.id,
                 firstName: visitor.firstName,
                 lastName: visitor.lastName,
                 personId: visitor.personId,
-                phone: visitor.phone,
-                email: visitor.email,
-                carNumber: visitor.carNumber,
+                phone: visitor.phone ?? '',
+                carNumber: visitor.carNumber ?? '',
             },
-            creator: creator ? {
-                id: creator.id,
-                firstName: creator.firstName,
-                lastName: creator.lastName,
-                email: creator.email,
-                phone: creator.phone,
-            } : undefined,
-            hasEscort: false,
             parking: {
                 status: request.status,
-                reviewNote: request.reviewNote ?? undefined,
+                reviewNote: request.reviewNote ?? '',
             },
-        }).catch(() => { });
+        };
+
+        this.smsNotification.triggerSms(NotificationEvent.ParkingRequestDecision, data).catch(() => { });
+        this.emailNotification.triggerEmail(NotificationEvent.ParkingRequestDecision, data).catch(() => { });
     }
 
     async findByVisitVisitorIds(visitVisitorIds: string[]): Promise<ParkingRequest[]> {

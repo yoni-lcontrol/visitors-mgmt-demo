@@ -38,7 +38,6 @@ export enum WsEvent {
     VisitorsVisitorUpdated = 'visitors:visitor:updated',
     VisitorsVisitorCheckedIn = 'visitors:visitor:checked-in',
     VisitorsVisitorCheckedOut = 'visitors:visitor:checked-out',
-    VisitorsVisitorOverstay = 'visitors:visitor:overstay',
     VisitorsVisitorDeleted = 'visitors:visitor:deleted',
 
     // Settings

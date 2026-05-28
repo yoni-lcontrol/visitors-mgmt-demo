@@ -41,11 +41,18 @@ describe('VisitCheckInCodeService', () => {
     let mockAmadeusUsers: { addUserToAmadeus: jest.Mock; deleteUserFromAmadeus: jest.Mock };
     let mockPrinting: { requestKioskPrintCard: jest.Mock };
 
+    const now = new Date();
     const mockVisit: Partial<Visit> = {
         id: 'visit-1',
         title: 'Meeting',
-        plannedStartTimeUtc: new Date('2026-04-01T09:00:00Z'),
-        plannedEndTimeUtc: new Date('2026-04-01T11:00:00Z'),
+        plannedStartTimeUtc: new Date(
+            now.getFullYear(), now.getMonth(), now.getDate(),
+            now.getHours() - 1, 0, 0,
+        ),
+        plannedEndTimeUtc: new Date(
+            now.getFullYear(), now.getMonth(), now.getDate(),
+            now.getHours() + 2, 0, 0,
+        ),
         visitRequesterFirstName: 'Host',
         visitRequesterLastName: 'User',
         siteId: 'site-a',
@@ -261,6 +268,7 @@ describe('VisitCheckInCodeService', () => {
             mockDs._qrManager.createQueryBuilder = jest.fn().mockReturnValue(qrManagerQb);
             mockDs._qrManager.findOne
                 .mockResolvedValueOnce(null)       // BlacklistOverrideRequest — no pending override
+                .mockResolvedValueOnce(mockVisit)  // Visit for time validation
                 .mockResolvedValueOnce(mockStatus); // VisitVisitorStatus
             mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
             mockVisitRepo.findOne.mockResolvedValue(mockVisit);
@@ -298,6 +306,7 @@ describe('VisitCheckInCodeService', () => {
             mockDs._qrManager.createQueryBuilder = jest.fn().mockReturnValue(qrManagerQb);
             mockDs._qrManager.findOne
                 .mockResolvedValueOnce(null)       // BlacklistOverrideRequest — no pending override
+                .mockResolvedValueOnce(mockVisit)  // Visit for time validation
                 .mockResolvedValueOnce(mockStatus); // VisitVisitorStatus
             mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
             mockVisitRepo.findOne.mockResolvedValue({ ...mockVisit, visitRequesterUser: null });
@@ -333,7 +342,9 @@ describe('VisitCheckInCodeService', () => {
         it('should rollback transaction on error', async () => {
             const qrManagerQb = createMockQueryBuilder([{ ...mockCodeRecord }]);
             mockDs._qrManager.createQueryBuilder = jest.fn().mockReturnValue(qrManagerQb);
-            mockDs._qrManager.findOne.mockResolvedValueOnce(null); // no pending override
+            mockDs._qrManager.findOne
+                .mockResolvedValueOnce(null)       // no pending override
+                .mockResolvedValueOnce(mockVisit); // Visit for time validation
             mockDs._qrManager.save.mockRejectedValueOnce(new Error('DB error'));
 
             await expect(service.consumeCodeAndArrive('012345')).rejects.toThrow('DB error');
@@ -565,6 +576,272 @@ describe('VisitCheckInCodeService', () => {
         it('should throw NotFoundException if visit not found', async () => {
             mockVisitRepo.findOne.mockResolvedValue(null);
             await expect(service.sendCodeNotifications('bad-id')).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    // ── Visit Time Validation ──
+
+    describe('visit time validation', () => {
+        describe('arriveByPersonId - date validation', () => {
+            it('should reject when visit has not started yet (future date)', async () => {
+                const futureVisit = {
+                    ...mockVisit,
+                    plannedStartTimeUtc: new Date(Date.now() + 86400_000 * 2), // 2 days from now
+                    plannedEndTimeUtc: new Date(Date.now() + 86400_000 * 3),
+                    visitRequesterUser: null,
+                };
+                mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+                mockVvRepo.findOne.mockResolvedValue({ ...mockVV, visit: futureVisit });
+
+                await expect(
+                    service.arriveByPersonId('visit-1', 'visitor-1', '123456789'),
+                ).rejects.toThrow(BadRequestException);
+
+                await expect(
+                    service.arriveByPersonId('visit-1', 'visitor-1', '123456789'),
+                ).rejects.toThrow('Invitation has not started yet');
+            });
+
+            it('should reject when visit has expired (past date)', async () => {
+                const expiredVisit = {
+                    ...mockVisit,
+                    plannedStartTimeUtc: new Date(Date.now() - 86400_000 * 3),
+                    plannedEndTimeUtc: new Date(Date.now() - 86400_000 * 2),
+                    visitRequesterUser: null,
+                };
+                mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+                mockVvRepo.findOne.mockResolvedValue({ ...mockVV, visit: expiredVisit });
+
+                await expect(
+                    service.arriveByPersonId('visit-1', 'visitor-1', '123456789'),
+                ).rejects.toThrow(BadRequestException);
+
+                await expect(
+                    service.arriveByPersonId('visit-1', 'visitor-1', '123456789'),
+                ).rejects.toThrow('Invitation has expired');
+            });
+
+            it('should allow multi-day visit on a middle day within time window', async () => {
+                const now = new Date();
+                const multiDayVisit = {
+                    ...mockVisit,
+                    // Start yesterday at current hour - 1
+                    plannedStartTimeUtc: new Date(
+                        now.getFullYear(), now.getMonth(), now.getDate() - 1,
+                        now.getHours() - 1, 0, 0,
+                    ),
+                    // End tomorrow at current hour + 1
+                    plannedEndTimeUtc: new Date(
+                        now.getFullYear(), now.getMonth(), now.getDate() + 1,
+                        now.getHours() + 1, 0, 0,
+                    ),
+                    visitRequesterUser: null,
+                };
+                mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+                mockVvRepo.findOne.mockResolvedValue({ ...mockVV, visit: multiDayVisit });
+                mockStatusRepo.findOne.mockResolvedValue({
+                    visitVisitorId: 'vv-1',
+                    currentStatus: 0,
+                    arrivedAtUtc: null,
+                });
+                mockStatusRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+                const result = await service.arriveByPersonId('visit-1', 'visitor-1', '123456789');
+                expect(result.ok).toBe(true);
+            });
+        });
+
+        describe('arriveByPersonId - time-of-day validation', () => {
+            it('should reject when current time is before visit start time (same day)', async () => {
+                const now = new Date();
+                // Start time 3 hours from now, same day
+                const laterTodayVisit = {
+                    ...mockVisit,
+                    plannedStartTimeUtc: new Date(
+                        now.getFullYear(), now.getMonth(), now.getDate(),
+                        now.getHours() + 3, 0, 0,
+                    ),
+                    plannedEndTimeUtc: new Date(
+                        now.getFullYear(), now.getMonth(), now.getDate(),
+                        now.getHours() + 5, 0, 0,
+                    ),
+                    visitRequesterUser: null,
+                };
+                mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+                mockVvRepo.findOne.mockResolvedValue({ ...mockVV, visit: laterTodayVisit });
+
+                await expect(
+                    service.arriveByPersonId('visit-1', 'visitor-1', '123456789'),
+                ).rejects.toThrow('Invitation time is not valid now');
+            });
+
+            it('should reject when current time is after visit end time (same day)', async () => {
+                const now = new Date();
+                // End time 3 hours ago, start time 5 hours ago
+                const pastTodayVisit = {
+                    ...mockVisit,
+                    plannedStartTimeUtc: new Date(
+                        now.getFullYear(), now.getMonth(), now.getDate(),
+                        now.getHours() - 5, 0, 0,
+                    ),
+                    plannedEndTimeUtc: new Date(
+                        now.getFullYear(), now.getMonth(), now.getDate(),
+                        now.getHours() - 3, 0, 0,
+                    ),
+                    visitRequesterUser: null,
+                };
+                mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+                mockVvRepo.findOne.mockResolvedValue({ ...mockVV, visit: pastTodayVisit });
+
+                await expect(
+                    service.arriveByPersonId('visit-1', 'visitor-1', '123456789'),
+                ).rejects.toThrow('Invitation time is not valid now');
+            });
+
+            it('should allow when current time exactly equals start time', async () => {
+                const now = new Date();
+                const exactStartVisit = {
+                    ...mockVisit,
+                    plannedStartTimeUtc: new Date(
+                        now.getFullYear(), now.getMonth(), now.getDate(),
+                        now.getHours(), now.getMinutes(), 0,
+                    ),
+                    plannedEndTimeUtc: new Date(
+                        now.getFullYear(), now.getMonth(), now.getDate(),
+                        now.getHours() + 2, now.getMinutes(), 0,
+                    ),
+                    visitRequesterUser: null,
+                };
+                mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+                mockVvRepo.findOne.mockResolvedValue({ ...mockVV, visit: exactStartVisit });
+                mockStatusRepo.findOne.mockResolvedValue({
+                    visitVisitorId: 'vv-1',
+                    currentStatus: 0,
+                    arrivedAtUtc: null,
+                });
+                mockStatusRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+                const result = await service.arriveByPersonId('visit-1', 'visitor-1', '123456789');
+                expect(result.ok).toBe(true);
+            });
+
+            it('should allow when current time exactly equals end time', async () => {
+                const now = new Date();
+                const exactEndVisit = {
+                    ...mockVisit,
+                    plannedStartTimeUtc: new Date(
+                        now.getFullYear(), now.getMonth(), now.getDate(),
+                        now.getHours() - 2, now.getMinutes(), 0,
+                    ),
+                    plannedEndTimeUtc: new Date(
+                        now.getFullYear(), now.getMonth(), now.getDate(),
+                        now.getHours(), now.getMinutes(), 0,
+                    ),
+                    visitRequesterUser: null,
+                };
+                mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+                mockVvRepo.findOne.mockResolvedValue({ ...mockVV, visit: exactEndVisit });
+                mockStatusRepo.findOne.mockResolvedValue({
+                    visitVisitorId: 'vv-1',
+                    currentStatus: 0,
+                    arrivedAtUtc: null,
+                });
+                mockStatusRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+                const result = await service.arriveByPersonId('visit-1', 'visitor-1', '123456789');
+                expect(result.ok).toBe(true);
+            });
+
+            it('should allow when plannedEndTimeUtc is null (open-ended)', async () => {
+                const now = new Date();
+                const openEndedVisit = {
+                    ...mockVisit,
+                    plannedStartTimeUtc: new Date(
+                        now.getFullYear(), now.getMonth(), now.getDate(),
+                        now.getHours() - 1, 0, 0,
+                    ),
+                    plannedEndTimeUtc: null,
+                    visitRequesterUser: null,
+                };
+                mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+                mockVvRepo.findOne.mockResolvedValue({ ...mockVV, visit: openEndedVisit });
+                mockStatusRepo.findOne.mockResolvedValue({
+                    visitVisitorId: 'vv-1',
+                    currentStatus: 0,
+                    arrivedAtUtc: null,
+                });
+                mockStatusRepo.save.mockImplementation((e: any) => Promise.resolve(e));
+
+                const result = await service.arriveByPersonId('visit-1', 'visitor-1', '123456789');
+                expect(result.ok).toBe(true);
+            });
+        });
+
+        describe('consumeCodeAndArrive - time validation', () => {
+            it('should reject when visit time window is invalid', async () => {
+                const now = new Date();
+                const expiredVisit = {
+                    ...mockVisit,
+                    plannedStartTimeUtc: new Date(Date.now() - 86400_000 * 3),
+                    plannedEndTimeUtc: new Date(Date.now() - 86400_000 * 2),
+                };
+                const qrManagerQb = createMockQueryBuilder([{ ...mockCodeRecord }]);
+                mockDs._qrManager.createQueryBuilder = jest.fn().mockReturnValue(qrManagerQb);
+                mockDs._qrManager.findOne
+                    .mockResolvedValueOnce(null)         // BlacklistOverrideRequest — no pending override
+                    .mockResolvedValueOnce(expiredVisit); // Visit for time validation
+
+                await expect(service.consumeCodeAndArrive('012345')).rejects.toThrow(BadRequestException);
+                expect(mockDs._queryRunner.rollbackTransaction).toHaveBeenCalled();
+            });
+        });
+
+        describe('findVisitByPersonId - time validation', () => {
+            it('should return ok=false with reason when visit time is invalid', async () => {
+                const now = new Date();
+                // Visit that started yesterday and ended yesterday
+                const expiredVisit = {
+                    ...mockVisit,
+                    id: 'visit-1',
+                    plannedStartTimeUtc: new Date(Date.now() - 86400_000 * 3),
+                    plannedEndTimeUtc: new Date(Date.now() - 86400_000 * 2),
+                    isActive: true,
+                };
+                mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+
+                const vvQb = createMockQueryBuilder([{ ...mockVV, visit: expiredVisit, status: null }]);
+                mockVvRepo.createQueryBuilder = jest.fn().mockReturnValue(vvQb);
+
+                const result = await service.findVisitByPersonId('123456789');
+
+                expect(result.ok).toBe(false);
+                expect((result as any).reason).toBeDefined();
+            });
+
+            it('should return ok=true when visit time is valid', async () => {
+                const now = new Date();
+                const validVisit = {
+                    ...mockVisit,
+                    id: 'visit-1',
+                    plannedStartTimeUtc: new Date(
+                        now.getFullYear(), now.getMonth(), now.getDate(),
+                        now.getHours() - 1, 0, 0,
+                    ),
+                    plannedEndTimeUtc: new Date(
+                        now.getFullYear(), now.getMonth(), now.getDate(),
+                        now.getHours() + 1, 0, 0,
+                    ),
+                    isActive: true,
+                };
+                mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+
+                const vvQb = createMockQueryBuilder([{ ...mockVV, visit: validVisit, status: null }]);
+                mockVvRepo.createQueryBuilder = jest.fn().mockReturnValue(vvQb);
+
+                const result = await service.findVisitByPersonId('123456789');
+
+                expect(result.ok).toBe(true);
+            });
         });
     });
 });

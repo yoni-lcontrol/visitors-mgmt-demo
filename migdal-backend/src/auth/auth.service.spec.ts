@@ -6,6 +6,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { EntraIdService } from './entra-id.service';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { AdConfiguration } from '../settings/entities/ad-configuration.entity';
 import { UsersService } from '../users/users.service';
 import { createMockRepository } from '../test-utils/mock.factory';
 import { AuditService } from '../audit/audit.service';
@@ -23,6 +24,7 @@ jest.mock('jwks-rsa', () => ({
 describe('AuthService', () => {
     let service: AuthService;
     let mockRefreshTokenRepo: ReturnType<typeof createMockRepository>;
+    let mockAdConfigRepo: ReturnType<typeof createMockRepository>;
     let mockUsersService: any;
     let mockJwtService: any;
     let mockConfigService: any;
@@ -31,6 +33,7 @@ describe('AuthService', () => {
 
     beforeEach(async () => {
         mockRefreshTokenRepo = createMockRepository();
+        mockAdConfigRepo = createMockRepository();
         mockUsersService = {
             findByUsername: jest.fn(),
             findById: jest.fn(),
@@ -74,6 +77,7 @@ describe('AuthService', () => {
             providers: [
                 AuthService,
                 { provide: getRepositoryToken(RefreshToken), useValue: mockRefreshTokenRepo },
+                { provide: getRepositoryToken(AdConfiguration), useValue: mockAdConfigRepo },
                 { provide: UsersService, useValue: mockUsersService },
                 { provide: JwtService, useValue: mockJwtService },
                 { provide: ConfigService, useValue: mockConfigService },
@@ -149,6 +153,90 @@ describe('AuthService', () => {
             expect(result.user.roles).toEqual(['Role1', 'Role2']);
             expect(result.user.permissions).toEqual(expect.arrayContaining(['users.read', 'users.update', 'visits.read']));
             expect(result.user.permissions.filter((p) => p === 'users.read')).toHaveLength(1);
+        });
+    });
+
+    describe('login (AD authentication)', () => {
+        const mockAdUser = {
+            id: 'user-ad-1',
+            username: 'jdoe',
+            firstName: 'John',
+            lastName: 'Doe',
+            passwordHash: null,
+            isActive: true,
+            syncSource: 'ad',
+            adSourceId: 'ad-config-1',
+            sector: null,
+            role: { id: 'role-1', name: 'Operator', permissions: [{ key: 'visits.read' }] },
+        };
+
+        const mockAdConfig = {
+            id: 'ad-config-1',
+            domain: 'corp.example.com',
+            ldapUrl: 'dc01.corp.example.com',
+            port: 389,
+            useSsl: false,
+            baseDn: 'DC=corp,DC=example,DC=com',
+            isActive: true,
+        };
+
+        it('should throw UnauthorizedException when AD config not found', async () => {
+            mockUsersService.findByUsername.mockResolvedValue(mockAdUser);
+            mockAdConfigRepo.findOne.mockResolvedValue(null);
+
+            await expect(service.login({ username: 'jdoe', password: 'adpass' }))
+                .rejects.toThrow(UnauthorizedException);
+        });
+
+        it('should throw UnauthorizedException when LDAP bind fails', async () => {
+            mockUsersService.findByUsername.mockResolvedValue(mockAdUser);
+            mockAdConfigRepo.findOne.mockResolvedValue(mockAdConfig);
+
+            // Mock ldapts Client — bind will fail
+            const mockBind = jest.fn().mockRejectedValue(new Error('Invalid credentials'));
+            const mockUnbind = jest.fn().mockResolvedValue(undefined);
+            jest.spyOn(require('ldapts'), 'Client').mockImplementation(() => ({
+                bind: mockBind,
+                unbind: mockUnbind,
+            }));
+
+            await expect(service.login({ username: 'jdoe', password: 'wrongpass' }))
+                .rejects.toThrow(UnauthorizedException);
+        });
+
+        it('should succeed when LDAP bind succeeds for AD user', async () => {
+            mockUsersService.findByUsername.mockResolvedValue(mockAdUser);
+            mockAdConfigRepo.findOne.mockResolvedValue(mockAdConfig);
+
+            // Mock ldapts Client — bind will succeed
+            const mockBind = jest.fn().mockResolvedValue(undefined);
+            const mockUnbind = jest.fn().mockResolvedValue(undefined);
+            jest.spyOn(require('ldapts'), 'Client').mockImplementation(() => ({
+                bind: mockBind,
+                unbind: mockUnbind,
+            }));
+
+            const result = await service.login({ username: 'jdoe', password: 'adpass' });
+
+            expect(result.accessToken).toBe('mock-access-token');
+            expect(result.user.username).toBe('jdoe');
+            expect(mockBind).toHaveBeenCalledWith('jdoe@corp.example.com', 'adpass');
+            expect(mockUsersService.updateLastLogin).toHaveBeenCalledWith('user-ad-1');
+        });
+
+        it('should throw UnauthorizedException for inactive AD user even with valid LDAP bind', async () => {
+            mockUsersService.findByUsername.mockResolvedValue({ ...mockAdUser, isActive: false });
+            mockAdConfigRepo.findOne.mockResolvedValue(mockAdConfig);
+
+            const mockBind = jest.fn().mockResolvedValue(undefined);
+            const mockUnbind = jest.fn().mockResolvedValue(undefined);
+            jest.spyOn(require('ldapts'), 'Client').mockImplementation(() => ({
+                bind: mockBind,
+                unbind: mockUnbind,
+            }));
+
+            await expect(service.login({ username: 'jdoe', password: 'adpass' }))
+                .rejects.toThrow(new UnauthorizedException(ErrorMessages.USER_INACTIVE));
         });
     });
 

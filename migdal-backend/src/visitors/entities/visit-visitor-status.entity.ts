@@ -30,9 +30,6 @@ export class VisitVisitorStatus {
     @Column({ type: 'datetime2', nullable: true })
     checkedOutAtUtc!: Date | null;
 
-    @Column({ type: 'datetime2', nullable: true })
-    overstayAlertSentAtUtc!: Date | null;
-
     @Column({ type: 'datetime2', default: () => 'GETDATE()' })
     updatedAt!: Date;
 

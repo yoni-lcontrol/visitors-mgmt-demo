@@ -139,20 +139,4 @@ function buildSnsTo(rawPhone) {
   return { ok: true, to: `online:*${p.e164}`, normalized: p };
 }
 
-(async () => {
-    // try BOTH recipient formats (depends on server config) :contentReference[oaicite:3]{index=3}
-    const local = "online:*0502221634";
-
-    try {
-        const data = await sendSmsWithSNS({
-            phoneTo: local,
-            text: "Test SMS (local format)"
-        });
-
-        log.normal(`Sent OK, data: ${data}`);
-    } catch (e) {
-        log.error("Local format failed:", e.message);
-    }
-})();
-
 module.exports.sendSmsWithSNS = sendSmsWithSNS;

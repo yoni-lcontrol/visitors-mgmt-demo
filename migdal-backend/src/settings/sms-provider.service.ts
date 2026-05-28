@@ -50,15 +50,14 @@ export class SmsProviderService {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
-            const response = await fetch(`${this.baseUrl}/send`, {
+            const response = await fetch(`${this.baseUrl}/send-sms`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${this.apiKey}`,
                 },
                 body: JSON.stringify({
                     to: request.to,
-                    message: request.message,
+                    text: request.message,
                 }),
                 signal: controller.signal,
             });

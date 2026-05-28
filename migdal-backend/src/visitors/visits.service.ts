@@ -33,8 +33,6 @@ import { PermissionKey } from '../common/enums/permission-key.enum';
 import { resolveVisitRequester, buildSmsData } from './visit.utils';
 import { getDayBoundsUtc } from '../common/utils/date.util';
 import { VisitorPersistenceService } from './visitor-persistence.service';
-import { VisitorNotificationDispatcherService } from './notifications/visitor-notification-dispatcher.service';
-import { VisitorNotificationScenario } from './notifications/visitor-notification.types';
 import {
     isEscortRequiredForVisit,
     isOnBehalfOnlyRole,
@@ -65,7 +63,6 @@ export class VisitsService {
         private readonly participantService: VisitParticipantService,
         private readonly checkInCodeService: VisitCheckInCodeService,
         private readonly amadeusParkingSync: AmadeusParkingSyncService,
-        private readonly notificationDispatcher: VisitorNotificationDispatcherService,
     ) { }
 
     resolveVisitRequester(visit: Visit): { firstName: string; lastName: string; phone: string; email: string } | null {
@@ -865,72 +862,48 @@ export class VisitsService {
                 newValue: { title: dto.title, siteId: dto.siteId, sectorId: currentUser?.sectorId ?? null, visitorCount: dto.visitors.length, escortCount: escortsToCreate.length },
             }).catch(() => { });
 
-            // ── Centralized notifications via dispatcher (fire-and-forget) ──
-            const notificationContext = {
-                visit: {
-                    id: savedVisit.id,
-                    title: savedVisit.title,
-                    plannedStartTimeUtc: savedVisit.plannedStartTimeUtc,
-                    plannedEndTimeUtc: savedVisit.plannedEndTimeUtc,
-                    siteId: dto.siteId,
-                    floor: dto.floor,
-                    purposeOfVisit: dto.purposeOfVisit,
-                },
-                visitor: firstVisitor ? {
-                    id: '',
-                    firstName: firstVisitor.firstName,
-                    lastName: firstVisitor.lastName,
-                    personId: firstVisitor.personId,
-                    phone: firstVisitor.phone,
-                    email: firstVisitor.email,
-                    carNumber: firstVisitor.carNumber,
-                } : undefined,
-                creator: currentUser ? {
-                    id: currentUser.id,
-                    firstName: currentUser.firstName,
-                    lastName: currentUser.lastName,
-                    email: currentUser.email,
-                    phone: currentUser.phone,
-                } : undefined,
-                requester: dto.visitRequester ? {
-                    firstName: dto.visitRequester.firstName,
-                    lastName: dto.visitRequester.lastName,
-                    email: dto.visitRequester.email,
-                    phone: dto.visitRequester.phone,
-                } : undefined,
-                hasEscort: escortsToCreate.length > 0,
-            };
+            // Trigger SMS for visit created (fire-and-forget)
+            const firstVisitor = dto.visitors[0];
+            const smsVisitorData = firstVisitor ? {
+                firstName: firstVisitor.firstName,
+                lastName: firstVisitor.lastName,
+                personId: firstVisitor.personId,
+                phone: firstVisitor.phone ?? '',
+                carNumber: firstVisitor.carNumber ?? '',
+            } : undefined;
 
-            // 1. Notify creator
-            this.notificationDispatcher.dispatch(
-                VisitorNotificationScenario.VisitCreated, notificationContext,
-            ).catch(() => { });
-
-            // 2. Notify on-behalf requester (only if different from creator)
+            // Resolve requester name for notifications
+            let requesterName = '';
             if (dto.visitRequester) {
-                this.notificationDispatcher.dispatch(
-                    VisitorNotificationScenario.VisitCreatedOnBehalf, notificationContext,
-                ).catch(() => { });
+                requesterName = [dto.visitRequester.firstName, dto.visitRequester.lastName].filter(Boolean).join(' ');
+            } else if (currentUser) {
+                requesterName = [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ');
             }
 
-            // 3. Notify each visitor
-            for (const v of dto.visitors) {
-                const perVisitorContext = {
-                    ...notificationContext,
-                    visitor: {
-                        id: '',
-                        firstName: v.firstName,
-                        lastName: v.lastName,
-                        personId: v.personId,
-                        phone: v.phone,
-                        email: v.email,
-                        carNumber: v.carNumber,
-                    },
-                };
-                this.notificationDispatcher.dispatch(
-                    VisitorNotificationScenario.VisitCreatedVisitor, perVisitorContext,
-                ).catch(() => { });
-            }
+            this.smsNotification.triggerSms(NotificationEvent.VisitCreated, {
+                visit: {
+                    title: savedVisit.title,
+                    startTime: savedVisit.plannedStartTimeUtc?.toLocaleString('he-IL') ?? '',
+                    endTime: savedVisit.plannedEndTimeUtc?.toLocaleString('he-IL') ?? '',
+                    hostName: requesterName,
+                    siteName: dto.siteId ?? '',
+                    purposeOfVisit: dto.purposeOfVisit ?? '',
+                },
+                visitor: smsVisitorData,
+            }).catch(() => { /* SMS failure must not affect the visit flow */ });
+
+            // Trigger email for visit created (fire-and-forget)
+            this.emailNotification.triggerEmail(NotificationEvent.VisitCreated, {
+                visit: {
+                    title: savedVisit.title,
+                    startTime: savedVisit.plannedStartTimeUtc?.toLocaleString('he-IL') ?? '',
+                    endTime: savedVisit.plannedEndTimeUtc?.toLocaleString('he-IL') ?? '',
+                    hostName: requesterName,
+                    siteName: dto.siteId ?? '',
+                    purposeOfVisit: dto.purposeOfVisit ?? '',
+                },
+                visitor: smsVisitorData,
+            }).catch(() => { /* Email failure must not affect the visit flow */ });
 
             // Generate and send check-in codes (fire-and-forget)
             this.checkInCodeService.generateCodesForVisit(savedVisit.id, currentUserId)

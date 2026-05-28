@@ -28,9 +28,6 @@ import { BlacklistOverrideStatus } from './enums/blacklist-override-status.enum'
 import { AmadeusUsersService } from '../amadeus/services/amadeus-users.service';
 import { Building } from '../buildings/entities/building.entity';
 import { SyncQueueSource } from '../amadeus/entities/amadeus-sync-queue.entity';
-import { VisitorNotificationDispatcherService } from './notifications/visitor-notification-dispatcher.service';
-import { VisitorNotificationScenario, VisitorNotificationContext } from './notifications/visitor-notification.types';
-import { VisitEscort } from './entities/visit-escort.entity';
 
 @Injectable()
 export class VisitStatusService {
@@ -49,8 +46,6 @@ export class VisitStatusService {
         private readonly visitorRepo: Repository<Visitor>,
         @InjectRepository(Building)
         private readonly buildingRepo: Repository<Building>,
-        @InjectRepository(VisitEscort)
-        private readonly escortRepo: Repository<VisitEscort>,
         private readonly dataSource: DataSource,
         private readonly wsGateway: UsersGateway,
         private readonly blacklistService: BlacklistService,
@@ -58,7 +53,6 @@ export class VisitStatusService {
         private readonly emailNotification: EmailNotificationService,
         private readonly auditService: AuditService,
         private readonly amadeusUsersService: AmadeusUsersService,
-        private readonly notificationDispatcher: VisitorNotificationDispatcherService,
     ) { }
 
     // ── On Site ──
@@ -313,31 +307,17 @@ export class VisitStatusService {
             }).catch(() => { });
 
             if (dto.eventType === VisitorAccessEventType.Arrived) {
-                const visit = await this.visitRepo.findOne({
-                    where: { id: vv.visitId },
-                    relations: ['createdByUser', 'visitRequesterUser'],
-                });
+                const visit = await this.visitRepo.findOne({ where: { id: vv.visitId } });
                 const visitor = await this.visitorRepo.findOne({ where: { id: vv.visitorId } });
                 if (visit && visitor) {
                     const blResult = await this.blacklistService.checkBlacklistStatus(visitor.personId).catch(() => ({ isBlacklisted: false }));
-
-                    if (blResult.isBlacklisted) {
-                        // Blacklisted visitors still use legacy notification
-                        this.smsNotification.triggerSms(NotificationEvent.VisitorBlacklisted, buildSmsData(visit, visitor))
-                            .catch(() => { });
-                        this.emailNotification.triggerEmail(NotificationEvent.VisitorBlacklisted, buildSmsData(visit, visitor))
-                            .catch(() => { });
-                    } else {
-                        // Use centralized dispatcher for arrival
-                        const escorts = await this.escortRepo.find({ where: { visitId: visit.id, isActive: true } });
-                        const hasEscort = escorts.length > 0;
-                        const scenario = hasEscort
-                            ? VisitorNotificationScenario.VisitorArrivedWithEscort
-                            : VisitorNotificationScenario.VisitorArrivedNoEscort;
-
-                        const context = this.buildNotificationContext(visit, visitor, hasEscort);
-                        this.notificationDispatcher.dispatch(scenario, context).catch(() => { });
-                    }
+                    const event = blResult.isBlacklisted
+                        ? NotificationEvent.VisitorBlacklisted
+                        : NotificationEvent.VisitorArrived;
+                    this.smsNotification.triggerSms(event, buildSmsData(visit, visitor))
+                        .catch(() => { });
+                    this.emailNotification.triggerEmail(event, buildSmsData(visit, visitor))
+                        .catch(() => { });
                 }
             } else if (dto.eventType === VisitorAccessEventType.CheckedIn) {
                 const visit = await this.visitRepo.findOne({ where: { id: vv.visitId } });
@@ -351,14 +331,9 @@ export class VisitStatusService {
                     this.logger.warn(`[Amadeus CheckIn] Skipped — visit or visitor not found (visitId=${vv.visitId}, visitorId=${vv.visitorId})`);
                 }
             } else if (dto.eventType === VisitorAccessEventType.CheckedOut) {
-                const visit = await this.visitRepo.findOne({
-                    where: { id: vv.visitId },
-                    relations: ['createdByUser', 'visitRequesterUser'],
-                });
+                const visit = await this.visitRepo.findOne({ where: { id: vv.visitId } });
                 const visitor = await this.visitorRepo.findOne({ where: { id: vv.visitorId } });
                 if (visit && visitor) {
-                    // Scenario 11: visitor departed — currently no email/sms defined in matrix
-                    // Keeping legacy notification for backward compatibility
                     this.smsNotification.triggerSms(NotificationEvent.VisitorCheckedOut, buildSmsData(visit, visitor))
                         .catch(() => { });
                     this.emailNotification.triggerEmail(NotificationEvent.VisitorCheckedOut, buildSmsData(visit, visitor))
@@ -386,45 +361,6 @@ export class VisitStatusService {
             default:
                 return VisitorStatus.Pending;
         }
-    }
-
-    private buildNotificationContext(visit: Visit, visitor: Visitor, hasEscort: boolean): VisitorNotificationContext {
-        const requester = resolveVisitRequester(visit);
-        return {
-            visit: {
-                id: visit.id,
-                title: visit.title,
-                plannedStartTimeUtc: visit.plannedStartTimeUtc,
-                plannedEndTimeUtc: visit.plannedEndTimeUtc,
-                siteId: visit.siteId,
-                floor: visit.floor,
-                purposeOfVisit: visit.purposeOfVisit,
-            },
-            visitor: {
-                id: visitor.id,
-                firstName: visitor.firstName,
-                lastName: visitor.lastName,
-                personId: visitor.personId,
-                phone: visitor.phone,
-                email: visitor.email,
-                carNumber: visitor.carNumber,
-            },
-            creator: visit.createdByUser ? {
-                id: visit.createdByUser.id,
-                firstName: visit.createdByUser.firstName,
-                lastName: visit.createdByUser.lastName,
-                email: visit.createdByUser.email,
-                phone: visit.createdByUser.phone,
-            } : undefined,
-            requester: requester ? {
-                id: visit.visitRequesterUserId ?? undefined,
-                firstName: requester.firstName,
-                lastName: requester.lastName,
-                email: requester.email,
-                phone: requester.phone,
-            } : undefined,
-            hasEscort,
-        };
     }
 
     private async downloadVisitorToAmadeus(visitor: Visitor, visit: Visit): Promise<{ success: boolean; queued: boolean; error?: string }> {
@@ -546,54 +482,6 @@ export class VisitStatusService {
             where: { visitVisitorId },
             order: { eventTimeUtc: 'DESC' },
         });
-    }
-
-    // ── Overstay Alert ──
-
-    /**
-     * Finds visitors still on-site whose daily visiting hours ended more than
-     * `gracePeriodMinutes` ago. The TIME portion of plannedEndTimeUtc is treated
-     * as the daily cutoff for every day within the visit date range.
-     * Only returns visitors whose alert hasn't already been sent today.
-     */
-    async findOverstayVisitors(gracePeriodMinutes: number): Promise<VisitVisitorStatus[]> {
-        return this.statusRepo
-            .createQueryBuilder('s')
-            .innerJoinAndSelect('s.visitVisitor', 'vv')
-            .innerJoinAndSelect('vv.visitor', 'vis')
-            .innerJoinAndSelect('vv.visit', 'v')
-            .leftJoinAndSelect('v.visitRequesterUser', 'reqUser')
-            .leftJoinAndSelect('v.createdByUser', 'createdUser')
-            .where('s.currentStatus IN (:...statuses)', {
-                statuses: [VisitorStatus.Arrived, VisitorStatus.CheckedIn],
-            })
-            .andWhere('vv.isActive = :active', { active: true })
-            .andWhere('v.isActive = :vActive', { vActive: true })
-            .andWhere('v.plannedEndTimeUtc IS NOT NULL')
-            // Today is within the visit date range
-            .andWhere('CAST(v.plannedStartTimeUtc AS DATE) <= CAST(GETUTCDATE() AS DATE)')
-            .andWhere('CAST(v.plannedEndTimeUtc AS DATE) >= CAST(GETUTCDATE() AS DATE)')
-            // Current UTC time of day exceeds daily end time + grace period
-            .andWhere(
-                `CAST(GETUTCDATE() AS TIME) >= DATEADD(MINUTE, :gracePeriodMinutes, CAST(v.plannedEndTimeUtc AS TIME))`,
-                { gracePeriodMinutes },
-            )
-            // Alert not already sent today (allows daily re-alerting)
-            .andWhere(
-                '(s.overstayAlertSentAtUtc IS NULL OR CAST(s.overstayAlertSentAtUtc AS DATE) < CAST(GETUTCDATE() AS DATE))',
-            )
-            .getMany();
-    }
-
-    async markOverstayAlertSent(statusIds: string[]): Promise<void> {
-        if (statusIds.length === 0) return;
-        const now = new Date();
-        await this.statusRepo
-            .createQueryBuilder()
-            .update()
-            .set({ overstayAlertSentAtUtc: now, updatedAt: now })
-            .whereInIds(statusIds)
-            .execute();
     }
 
     // ── Auto Checkout ──

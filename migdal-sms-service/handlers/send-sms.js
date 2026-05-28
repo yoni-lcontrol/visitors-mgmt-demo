@@ -26,7 +26,7 @@ async function newSms(data) {
                 await sendSMSWithShamir(fixPhoneNumber, data.text);
 
             if (+process.env.USE_SNS_SYS)
-                await sendSmsWithSNS(fixPhoneNumber, data.text);
+                await sendSmsWithSNS({ phoneTo: fixPhoneNumber, text: data.text });
         }
     }
 }

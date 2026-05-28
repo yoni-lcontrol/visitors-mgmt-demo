@@ -664,17 +664,14 @@ public class CardholderCommandService : ICardholderCommandService
         };
 
         if (dto.CardholderIdNumber is not null) payload["cardholderIdNumber"] = dto.CardholderIdNumber;
-        if (dto.SecurityGroupApiKey is not null)
-        {
-            payload["securityGroupApiKey"] = dto.SecurityGroupApiKey;
-        }
-        else if (!string.IsNullOrWhiteSpace(_options.VisitorDefaultSecurityGroupApiKey))
-        {
-            payload["securityGroupApiKey"] = _options.VisitorDefaultSecurityGroupApiKey;
-        }
+        if (dto.SecurityGroupApiKey is not null) payload["securityGroupApiKey"] = dto.SecurityGroupApiKey;
         if (dto.AccessGroupApiKeys is not null && dto.AccessGroupApiKeys.Count > 0)
         {
             payload["accessGroupApiKeys"] = string.Join(",", dto.AccessGroupApiKeys);
+        }
+        else if (!string.IsNullOrWhiteSpace(_options.VisitorDefaultAccessGroupApiKey))
+        {
+            payload["accessGroupApiKeys"] = _options.VisitorDefaultAccessGroupApiKey;
         }
         if (dto.DepartmentUid is not null) payload["departmentUID"] = dto.DepartmentUid;
         if (dto.Notes is not null) payload["description"] = dto.Notes;

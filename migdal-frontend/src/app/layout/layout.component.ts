@@ -39,7 +39,7 @@ import { TranslateModule } from '@ngx-translate/core';
               } @else if (importProgress.phase === 'completed') {
                 <span class="ad-sync-bar-msg">{{ 'ACCESS_CONTROL.CREATED' | translate }}: {{ importProgress.created }}, {{ 'ACCESS_CONTROL.UPDATED' | translate }}: {{ importProgress.updated }}, {{ 'ACCESS_CONTROL.SKIPPED' | translate }}: {{ importProgress.skipped }}</span>
               } @else if (importProgress.phase === 'failed') {
-                <span class="ad-sync-bar-msg">{{ importProgress.message }}</span>
+                <span class="ad-sync-bar-msg">{{ importProgress.serviceDown ? ('AC_IMPORT.SERVICE_DOWN' | translate) : importProgress.message }}</span>
               }
             </div>
             <button class="ad-sync-bar-close" (click)="acImport.dismiss()" [title]="'COMMON.CLOSE' | translate">

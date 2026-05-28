@@ -129,6 +129,7 @@ export class ImportService {
         } catch (err: any) {
             this.usersGateway.broadcastToAll(WsEvent.AccessControlControllersImportFailed, {
                 message: err.message ?? 'Import failed',
+                serviceDown: this.isServiceDownError(err),
             });
             throw err;
         }
@@ -391,6 +392,7 @@ export class ImportService {
         } catch (err: any) {
             this.usersGateway.broadcastToAll(WsEvent.AccessControlAccessLevelsImportFailed, {
                 message: err.message ?? 'Import failed',
+                serviceDown: this.isServiceDownError(err),
             });
             throw err;
         }
@@ -601,5 +603,10 @@ export class ImportService {
         const hash = createHash('sha1').update(`${entityType}|${fingerprint}`).digest('hex');
 
         return `gen:${entityType}:${hash}`;
+    }
+
+    private isServiceDownError(err: any): boolean {
+        const msg: string = err?.message ?? '';
+        return msg.includes('Cannot reach Amadeus service');
     }
 }

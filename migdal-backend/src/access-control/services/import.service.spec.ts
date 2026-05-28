@@ -90,7 +90,17 @@ describe('ImportService', () => {
             await expect(service.triggerRemoteImport()).rejects.toThrow('AC server down');
             expect(mockUsersGateway.broadcastToAll).toHaveBeenCalledWith(
                 'access-control:controllers:import-failed',
-                expect.objectContaining({ message: 'AC server down' }),
+                expect.objectContaining({ message: 'AC server down', serviceDown: false }),
+            );
+        });
+
+        it('should broadcast failure event with serviceDown true for connectivity error', async () => {
+            mockAcApiService.triggerFullImport.mockRejectedValue(new Error('Cannot reach Amadeus service (ECONNREFUSED)'));
+
+            await expect(service.triggerRemoteImport()).rejects.toThrow();
+            expect(mockUsersGateway.broadcastToAll).toHaveBeenCalledWith(
+                'access-control:controllers:import-failed',
+                expect.objectContaining({ serviceDown: true }),
             );
         });
 
@@ -444,7 +454,17 @@ describe('ImportService', () => {
             await expect(service.triggerAccessLevelImport()).rejects.toThrow('AC server down');
             expect(mockUsersGateway.broadcastToAll).toHaveBeenCalledWith(
                 'access-control:access-levels:import-failed',
-                expect.objectContaining({ message: 'AC server down' }),
+                expect.objectContaining({ message: 'AC server down', serviceDown: false }),
+            );
+        });
+
+        it('should broadcast failure event with serviceDown true for connectivity error', async () => {
+            mockAcApiService.triggerAccessLevelImport.mockRejectedValue(new Error('Cannot reach Amadeus service (ECONNREFUSED)'));
+
+            await expect(service.triggerAccessLevelImport()).rejects.toThrow();
+            expect(mockUsersGateway.broadcastToAll).toHaveBeenCalledWith(
+                'access-control:access-levels:import-failed',
+                expect.objectContaining({ serviceDown: true }),
             );
         });
 

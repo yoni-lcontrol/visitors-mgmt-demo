@@ -12,6 +12,7 @@ export interface AcImportProgress {
   created: number;
   updated: number;
   skipped: number;
+  serviceDown: boolean;
 }
 
 const IDLE_STATE: AcImportProgress = {
@@ -23,6 +24,7 @@ const IDLE_STATE: AcImportProgress = {
   created: 0,
   updated: 0,
   skipped: 0,
+  serviceDown: false,
 };
 
 @Injectable({ providedIn: 'root' })
@@ -54,6 +56,7 @@ export class AcImportProgressService implements OnDestroy {
           created: this.progress$.value.created,
           updated: this.progress$.value.updated,
           skipped: this.progress$.value.skipped,
+          serviceDown: false,
         });
       }),
 
@@ -69,6 +72,7 @@ export class AcImportProgressService implements OnDestroy {
           created: data.created,
           updated: data.updated,
           skipped: data.skipped,
+          serviceDown: false,
         });
 
         // Auto-dismiss after 5s
@@ -79,7 +83,7 @@ export class AcImportProgressService implements OnDestroy {
         }, 5000);
       }),
 
-      this.ws.on<{ message: string }>(WsEvent.AccessControlControllersImportFailed).subscribe((data) => {
+      this.ws.on<{ message: string; serviceDown?: boolean }>(WsEvent.AccessControlControllersImportFailed).subscribe((data) => {
         this.progress$.next({
           phase: 'failed',
           message: data.message,
@@ -89,6 +93,7 @@ export class AcImportProgressService implements OnDestroy {
           created: 0,
           updated: 0,
           skipped: 0,
+          serviceDown: data.serviceDown ?? false,
         });
 
         setTimeout(() => {

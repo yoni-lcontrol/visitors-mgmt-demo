@@ -14,7 +14,7 @@
     margin: 0;
     padding: 0;
 
-    background-image: url("/assets/kiosk/Kiosk-Main_Greetings.png");
+    background-image: url("../../../assets/kiosk/Kiosk-Main_Greetings.png");
     background-size: cover;
     background-position: center center;
     background-repeat: no-repeat;

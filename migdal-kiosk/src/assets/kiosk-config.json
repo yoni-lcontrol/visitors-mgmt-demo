@@ -1,6 +1,4 @@
 {
-    "KIOSK_ID": "--NOTSYM",
-    "WORKSTATION_CODE": "--NOTSYM",
     "APP_VERSION": "1.0.1",
     "HOME_URL": "/home",
     "ERROR_URL": "/error",
@@ -9,6 +7,6 @@
     "RELOAD_AFTER_IDLE_MS": 1800000,
     "API_BASE_URL": "http://10.0.0.37:3000",
     "WS_URL": "http://10.0.0.37:3000",
-    "WS_API_KEY": "kiosk-dev-key",
+    "WS_API_KEY": "f0910c859a9bd9eccbd492a9c44c65152ec0af958682bc1fc4ca0c2790ce6acf",
     "HEARTBEAT_INTERVAL_MS": 30000
 }

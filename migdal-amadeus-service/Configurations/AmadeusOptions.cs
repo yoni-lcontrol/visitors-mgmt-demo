@@ -50,4 +50,10 @@ public class AmadeusOptions
     /// Maps to the "securityGroupApiKey" field in the Amadeus OData payload.
     /// </summary>
     public string? VisitorDefaultSecurityGroupApiKey { get; set; }
+
+    /// <summary>
+    /// Default Access Group API key assigned to visitors when no access groups are specified.
+    /// Maps to the "accessGroupApiKeys" field in the Amadeus OData payload.
+    /// </summary>
+    public string? VisitorDefaultAccessGroupApiKey { get; set; }
 }

@@ -624,7 +624,10 @@
                 "update": "Update Visits",
                 "delete": "Delete Visits",
                 "delete-own-only": "Delete Only Own Visits",
+                "on-behalf": "Create Visits On Behalf",
                 "on-behalf-only": "Create Visits Only On Behalf Of Others",
+                "walk-in": "Register Walk-In Guest",
+                "approve-entry": "Approve Guest Entry",
                 "escort": {
                     "required": {
                         "label": "Require Escort For Visits",
@@ -747,7 +750,10 @@
                 "update": "Update visit details and visitor status",
                 "delete": "Delete visits and visitors",
                 "delete-own-only": "Restricts visit deletion to visits created by the current user",
+                "on-behalf": "Allows creating a visit on behalf of another requester",
                 "on-behalf-only": "Allows creating visits only for another requester and not as self-requested visits",
+                "walk-in": "Allows registering a walk-in guest without a prior invitation",
+                "approve-entry": "Allows approving guest entry in the system",
                 "escort": {
                     "required": {
                         "label": "Requires at least one escort for every created visit",

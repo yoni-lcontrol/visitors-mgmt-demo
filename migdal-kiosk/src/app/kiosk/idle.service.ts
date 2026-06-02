@@ -9,8 +9,21 @@ export class IdleService implements OnDestroy {
 
   private sub?: Subscription;
   private timeoutMs = 60_000;
+  private _paused = false;
 
   constructor(private zone: NgZone) { }
+
+  /** Temporarily suppress idle detection (e.g. during async submissions) */
+  pause(): void {
+    this._paused = true;
+    this.isIdleSubject.next(false);
+  }
+
+  /** Resume idle detection and reset the timer */
+  resume(): void {
+    this._paused = false;
+    this.reset();
+  }
 
   start(timeoutMs: number): void {
     this.timeoutMs = timeoutMs;
@@ -51,8 +64,10 @@ export class IdleService implements OnDestroy {
           })
         )
         .subscribe((idle) => {
-          // Timer fired => idle=true
-          this.zone.run(() => this.isIdleSubject.next(idle));
+          // Timer fired => idle=true (only if not paused)
+          if (!this._paused) {
+            this.zone.run(() => this.isIdleSubject.next(idle));
+          }
         });
 
       // ✅ IMPORTANT: kick it off once so timer starts immediately

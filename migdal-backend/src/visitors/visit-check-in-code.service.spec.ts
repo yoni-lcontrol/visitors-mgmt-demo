@@ -17,6 +17,9 @@ import { NotificationEvent } from '../settings/enums/notification-event.enum';
 import { AmadeusUsersService } from '../amadeus/services/amadeus-users.service';
 import { PrintingService } from '../printing/services/printing.service';
 import { Building } from '../buildings/entities/building.entity';
+import { BlacklistService } from './blacklist.service';
+import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
+import { BlacklistOverrideStatus } from './enums/blacklist-override-status.enum';
 import {
     createMockRepository,
     createMockQueryBuilder,
@@ -40,6 +43,8 @@ describe('VisitCheckInCodeService', () => {
     let mockEmail: { triggerEmail: jest.Mock };
     let mockAmadeusUsers: { addUserToAmadeus: jest.Mock; deleteUserFromAmadeus: jest.Mock };
     let mockPrinting: { requestKioskPrintCard: jest.Mock };
+    let mockBlacklistService: { checkBlacklistStatus: jest.Mock };
+    let mockOverrideRepo: ReturnType<typeof createMockRepository>;
 
     const now = new Date();
     const mockVisit: Partial<Visit> = {
@@ -112,6 +117,10 @@ describe('VisitCheckInCodeService', () => {
         mockPrinting = {
             requestKioskPrintCard: jest.fn().mockResolvedValue({ ok: true, correlationId: 'corr-1', status: 'queued' }),
         };
+        mockBlacklistService = {
+            checkBlacklistStatus: jest.fn().mockResolvedValue({ isBlacklisted: false }),
+        };
+        mockOverrideRepo = createMockRepository();
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -129,6 +138,8 @@ describe('VisitCheckInCodeService', () => {
                 { provide: AuditService, useValue: mockAudit },
                 { provide: AmadeusUsersService, useValue: mockAmadeusUsers },
                 { provide: PrintingService, useValue: mockPrinting },
+                { provide: BlacklistService, useValue: mockBlacklistService },
+                { provide: getRepositoryToken(BlacklistOverrideRequest), useValue: mockOverrideRepo },
             ],
         }).compile();
 
@@ -840,6 +851,83 @@ describe('VisitCheckInCodeService', () => {
 
                 const result = await service.findVisitByPersonId('123456789');
 
+                expect(result.ok).toBe(true);
+            });
+        });
+
+        describe('findVisitByPersonId - blacklist check', () => {
+            const validVisit = {
+                ...mockVisit,
+                id: 'visit-1',
+                plannedStartTimeUtc: new Date(
+                    now.getFullYear(), now.getMonth(), now.getDate(),
+                    now.getHours() - 1, 0, 0,
+                ),
+                plannedEndTimeUtc: new Date(
+                    now.getFullYear(), now.getMonth(), now.getDate(),
+                    now.getHours() + 1, 0, 0,
+                ),
+                isActive: true,
+            };
+
+            beforeEach(() => {
+                mockVisitorRepo.findOne.mockResolvedValue(mockVisitor);
+                const vvQb = createMockQueryBuilder([{ ...mockVV, visit: validVisit, status: null }]);
+                mockVvRepo.createQueryBuilder = jest.fn().mockReturnValue(vvQb);
+            });
+
+            it('should allow non-blacklisted visitor through', async () => {
+                mockBlacklistService.checkBlacklistStatus.mockResolvedValue({ isBlacklisted: false });
+
+                const result = await service.findVisitByPersonId('123456789');
+                expect(result.ok).toBe(true);
+            });
+
+            it('should block blacklisted visitor with no override', async () => {
+                mockBlacklistService.checkBlacklistStatus.mockResolvedValue({ isBlacklisted: true });
+                mockOverrideRepo.findOne.mockResolvedValue(null);
+
+                const result = await service.findVisitByPersonId('123456789');
+                expect(result.ok).toBe(false);
+            });
+
+            it('should block blacklisted visitor with pending override', async () => {
+                mockBlacklistService.checkBlacklistStatus.mockResolvedValue({ isBlacklisted: true });
+                mockOverrideRepo.findOne.mockResolvedValue({ status: BlacklistOverrideStatus.Pending, isActive: true });
+
+                const result = await service.findVisitByPersonId('123456789');
+                expect(result.ok).toBe(false);
+            });
+
+            it('should block blacklisted visitor with security escort override', async () => {
+                mockBlacklistService.checkBlacklistStatus.mockResolvedValue({ isBlacklisted: true });
+                mockOverrideRepo.findOne.mockResolvedValue({ status: BlacklistOverrideStatus.ApprovedSecurity, isActive: true });
+
+                const result = await service.findVisitByPersonId('123456789');
+                expect(result.ok).toBe(false);
+            });
+
+            it('should block blacklisted visitor with denied override', async () => {
+                mockBlacklistService.checkBlacklistStatus.mockResolvedValue({ isBlacklisted: true });
+                mockOverrideRepo.findOne.mockResolvedValue({ status: BlacklistOverrideStatus.Denied, isActive: true });
+
+                const result = await service.findVisitByPersonId('123456789');
+                expect(result.ok).toBe(false);
+            });
+
+            it('should allow blacklisted visitor with approved override', async () => {
+                mockBlacklistService.checkBlacklistStatus.mockResolvedValue({ isBlacklisted: true });
+                mockOverrideRepo.findOne.mockResolvedValue({ status: BlacklistOverrideStatus.Approved, isActive: true });
+
+                const result = await service.findVisitByPersonId('123456789');
+                expect(result.ok).toBe(true);
+            });
+
+            it('should allow blacklisted visitor with regular escort override', async () => {
+                mockBlacklistService.checkBlacklistStatus.mockResolvedValue({ isBlacklisted: true });
+                mockOverrideRepo.findOne.mockResolvedValue({ status: BlacklistOverrideStatus.ApprovedEscort, isActive: true });
+
+                const result = await service.findVisitByPersonId('123456789');
                 expect(result.ok).toBe(true);
             });
         });

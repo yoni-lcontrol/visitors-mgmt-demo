@@ -24,6 +24,7 @@ import { NotificationEvent } from '../settings/enums/notification-event.enum';
 import { AuditService } from '../audit/audit.service';
 import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
 import { BlacklistOverrideStatus } from './enums/blacklist-override-status.enum';
+import { BlacklistService } from './blacklist.service';
 import { AmadeusUsersService } from '../amadeus/services/amadeus-users.service';
 import { SyncQueueSource } from '../amadeus/entities/amadeus-sync-queue.entity';
 import { PrintingService } from '../printing/services/printing.service';
@@ -58,6 +59,9 @@ export class VisitCheckInCodeService {
         private readonly auditService: AuditService,
         private readonly amadeusUsersService: AmadeusUsersService,
         private readonly printingService: PrintingService,
+        private readonly blacklistService: BlacklistService,
+        @InjectRepository(BlacklistOverrideRequest)
+        private readonly overrideRepo: Repository<BlacklistOverrideRequest>,
     ) { }
 
     // ── Code Generation ──
@@ -366,6 +370,30 @@ export class VisitCheckInCodeService {
             return { ok: false, reason: (err as BadRequestException).message };
         }
 
+        // ── Blacklist + escort-status check ──
+        // If the visitor is blacklisted, only allow through if the override is
+        // approved with regular escort (Approved / ApprovedEscort).
+        // Security escort or non-approved → redirect to front desk.
+        const blacklistCheck = await this.blacklistService.checkBlacklistStatus(visitor.personId);
+        if (blacklistCheck.isBlacklisted) {
+            const override = await this.overrideRepo.findOne({
+                where: { visitVisitorId: visitVisitor.id, isActive: true },
+                order: { createdAt: 'DESC' },
+            });
+
+            const allowedStatuses: BlacklistOverrideStatus[] = [
+                BlacklistOverrideStatus.Approved,
+                BlacklistOverrideStatus.ApprovedEscort,
+            ];
+
+            if (!override || !allowedStatuses.includes(override.status)) {
+                this.logger.warn(
+                    `Blacklisted visitor blocked at kiosk: personId=${visitor.personId}, overrideStatus=${override?.status ?? 'none'}`,
+                );
+                return { ok: false };
+            }
+        }
+
         return {
             ok: true,
             visit: {
@@ -413,8 +441,9 @@ export class VisitCheckInCodeService {
         });
         if (!visitVisitor) throw new BadRequestException('Visitor is not part of this visit');
 
-        // Validate visit time window (date + time-of-day)
-        this.validateVisitTimeWindow(visitVisitor.visit);
+        // Validate visit time window with grace period — visitor already passed
+        // strict validation at scan time and is physically present at the kiosk
+        this.validateVisitTimeWindow(visitVisitor.visit, 15);
 
         // Save consent PDF if provided
         if (file) {
@@ -724,7 +753,7 @@ export class VisitCheckInCodeService {
      * Time check: current HH:mm must be between start HH:mm and end HH:mm (inclusive),
      *             extracted from plannedStartTimeUtc and plannedEndTimeUtc.
      */
-    private validateVisitTimeWindow(visit: Visit): void {
+    private validateVisitTimeWindow(visit: Visit, graceMinutes = 0): void {
         const now = new Date();
         const plannedStart = visit.plannedStartTimeUtc;
         const plannedEnd = visit.plannedEndTimeUtc;
@@ -760,7 +789,7 @@ export class VisitCheckInCodeService {
         const currentMinutes = now.getHours() * 60 + now.getMinutes();
         const startMinutes = plannedStart.getHours() * 60 + plannedStart.getMinutes();
 
-        if (currentMinutes < startMinutes) {
+        if (currentMinutes < startMinutes - graceMinutes) {
             this.logger.warn(
                 `Visit ${visit.id} time not yet valid. Current=${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}, ` +
                 `start=${plannedStart.getHours()}:${String(plannedStart.getMinutes()).padStart(2, '0')}`,
@@ -770,7 +799,7 @@ export class VisitCheckInCodeService {
 
         if (plannedEnd) {
             const endMinutes = plannedEnd.getHours() * 60 + plannedEnd.getMinutes();
-            if (currentMinutes > endMinutes) {
+            if (currentMinutes > endMinutes + graceMinutes) {
                 this.logger.warn(
                     `Visit ${visit.id} time has passed. Current=${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}, ` +
                     `end=${plannedEnd.getHours()}:${String(plannedEnd.getMinutes()).padStart(2, '0')}`,

@@ -16,9 +16,6 @@ const adminExcludedPermissions: PermissionKey[] = [
     PermissionKey.VisitsScopeTrainingCenter,
     PermissionKey.VisitsDeleteOwnOnly,
     PermissionKey.VisitorsScopeOwn,
-    PermissionKey.VisitsEscortRequiredSelfRequester,
-    PermissionKey.VisitsEscortRequired,
-    PermissionKey.VisitsOnBehalfOnly
 ];
 
 export const rolesSeed: RoleSeedData[] = [

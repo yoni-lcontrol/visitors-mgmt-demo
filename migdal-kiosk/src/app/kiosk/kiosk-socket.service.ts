@@ -71,6 +71,11 @@ export class KioskSocketService {
       return;
     }
 
+    if (!cfg.WORKSTATION_CODE) {
+      console.warn('[WS] No WORKSTATION_CODE set — skipping WebSocket connection. Use ?workstation=CODE in the URL.');
+      return;
+    }
+
     this.socket = io(`${wsUrl}/ws/kiosk`, {
       transports: ['websocket'],
       auth: {

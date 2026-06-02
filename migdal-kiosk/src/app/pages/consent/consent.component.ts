@@ -6,9 +6,9 @@ import { PDFDocument, rgb } from 'pdf-lib';
 import { KioskApiService } from '../../kiosk/kiosk-api.service';
 import { KioskFlowService } from '../../kiosk/kiosk-flow-state.service';
 import { KioskConfigService } from '../../config/kiosk-config.service';
+import { IdleService } from '../../kiosk/idle.service';
 import { firstValueFrom } from 'rxjs';
 import { ToasterService } from '../../kiosk/toaster.service';
-import { PrintVisitorCard } from '../../models/print-visitor-card';
 import { NgxSpinnerService } from 'ngx-spinner';
 
 @Component({
@@ -43,6 +43,7 @@ export class ConsentComponent implements OnInit {
     private kioskApiService: KioskApiService,
     private kioskFlowService: KioskFlowService,
     private kioskCfg: KioskConfigService,
+    private idle: IdleService,
   ) { }
 
   ngOnInit() {
@@ -111,6 +112,7 @@ export class ConsentComponent implements OnInit {
       return;
     }
 
+    this.idle.pause();
     this.spinner.show();
 
     try {
@@ -148,6 +150,7 @@ export class ConsentComponent implements OnInit {
       await this.router.navigateByUrl('/error');
     } finally {
       this.spinner.hide();
+      this.idle.resume();
     }
   }
 
@@ -159,21 +162,6 @@ export class ConsentComponent implements OnInit {
     return new File([copy.buffer], filename, { type: 'application/pdf' });
   }
 
-  private buildPrintVisitorCardPayload(templateJson: string): PrintVisitorCard {
-    const firstName = this.currentVisit?.visitor?.firstName || '';
-    const lastName = this.currentVisit?.visitor?.lastName || '';
-    const personId = this.currentVisit?.visitor?.personId || '';
-
-    return {
-      Template: { TemplateJson: templateJson },
-      FullName: `${firstName} ${lastName}`.trim(),
-      Department: '',
-      CardNumber: personId,
-      Title: this.currentVisit?.visit?.visitName || '',
-      QrValue: personId,
-      Image: this.currentVisit?.visitor?.image || ''
-    };
-  }
 
   private async addSignatureToPdf(pdfBytes: Uint8Array, signatureDataUrl: string): Promise<Uint8Array> {
     const pdfDoc = await PDFDocument.load(pdfBytes);
@@ -329,6 +317,9 @@ export class ConsentComponent implements OnInit {
 
   private async loadPdfFromAssets(path: string): Promise<Uint8Array> {
     const res = await fetch(path);
+    if (!res.ok) {
+      throw new Error(`Failed to load PDF: ${res.status} ${res.statusText}`);
+    }
     const buf = await res.arrayBuffer();
     return new Uint8Array(buf);
   }

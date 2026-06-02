@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BlacklistEntry } from './entities/blacklist.entity';
@@ -20,6 +20,8 @@ import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class BlacklistService {
+    private readonly logger = new Logger(BlacklistService.name);
+
     constructor(
         @InjectRepository(BlacklistEntry)
         private readonly repo: Repository<BlacklistEntry>,
@@ -146,7 +148,9 @@ export class BlacklistService {
         }).catch(() => { });
 
         // Block existing active visit-visitors matching this person
-        this.blockExistingVisitVisitors(saved, currentUserId).catch(() => { });
+        this.blockExistingVisitVisitors(saved, currentUserId).catch((err) => {
+            this.logger.error(`Failed to block existing visit-visitors for blacklist entry ${saved.id}: ${err.message}`, err.stack);
+        });
 
         return saved;
     }
@@ -187,6 +191,9 @@ export class BlacklistService {
 
         const displayName = `${entry.firstName} ${entry.lastName}`;
 
+        // Cancel any pending override requests linked to this blacklist entry
+        await this.cancelPendingOverrideRequests(id, currentUserId);
+
         this.auditService.log({
             userId: currentUserId,
             module: 'visitors',
@@ -194,6 +201,37 @@ export class BlacklistService {
             entity: 'BlacklistEntry',
             entityId: id,
             description: `Deleted blacklist entry for "${displayName}"`,
+        }).catch(() => { });
+    }
+
+    private async cancelPendingOverrideRequests(blacklistId: string, currentUserId?: string): Promise<void> {
+        const pendingRequests = await this.overrideRepo.find({
+            where: {
+                blacklistId,
+                status: BlacklistOverrideStatus.Pending,
+                isActive: true,
+            },
+        });
+
+        if (!pendingRequests.length) return;
+
+        for (const req of pendingRequests) {
+            req.status = BlacklistOverrideStatus.Cancelled;
+            req.reviewedByUserId = currentUserId ?? null;
+            req.reviewedAt = new Date();
+            req.reviewNote = 'Auto-cancelled: blacklist entry removed';
+            req.updatedBy = currentUserId ?? null;
+        }
+
+        await this.overrideRepo.save(pendingRequests);
+
+        this.auditService.log({
+            userId: currentUserId,
+            module: 'visitors',
+            action: 'CANCEL_OVERRIDE_REQUESTS',
+            entity: 'BlacklistOverrideRequest',
+            entityId: blacklistId,
+            description: `Auto-cancelled ${pendingRequests.length} pending override request(s) for removed blacklist entry`,
         }).catch(() => { });
     }
 
@@ -222,7 +260,9 @@ export class BlacklistService {
         }).catch(() => { });
 
         // Re-block existing active visit-visitors matching this person
-        this.blockExistingVisitVisitors(saved, currentUserId).catch(() => { });
+        this.blockExistingVisitVisitors(saved, currentUserId).catch((err) => {
+            this.logger.error(`Failed to block existing visit-visitors for restored blacklist entry ${saved.id}: ${err.message}`, err.stack);
+        });
 
         return saved;
     }
@@ -363,7 +403,7 @@ export class BlacklistService {
             .where('visitor.personId = :personId', { personId: blacklistEntry.idNumber })
             .andWhere('vv.isActive = :active', { active: true })
             .andWhere('visit.isActive = :active', { active: true })
-            .andWhere('visit.plannedEndTimeUtc >= :now', { now })
+            .andWhere('(visit.plannedEndTimeUtc >= :now OR visit.plannedEndTimeUtc IS NULL)', { now })
             .andWhere('existing.id IS NULL')
             .getMany();
 

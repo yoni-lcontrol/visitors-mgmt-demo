@@ -96,24 +96,26 @@ import { DateFormatPipe } from '@shared/pipes/date-format.pipe';
             <td>{{ item.reviewNote || '-' }}</td>
             <td *hasPermission="'blacklist.approve'">
               <div class="actions">
-                @if (item.status === 'pending') {
                   <button class="btn-icon success" (click)="openReviewDialog(item, 'approved')"
-                    [pTooltip]="'BLACKLIST_OVERRIDE.APPROVE' | translate" tooltipPosition="top">
+                    [pTooltip]="'BLACKLIST_OVERRIDE.APPROVE' | translate" tooltipPosition="top"
+                    [disabled]="item.status === 'approved' || item.status === 'cancelled'">
                     <i class="pi pi-check"></i>
                   </button>
                   <button class="btn-icon warning" (click)="openReviewDialog(item, 'approved_escort')"
-                    [pTooltip]="'BLACKLIST_OVERRIDE.APPROVE_ESCORT' | translate" tooltipPosition="top">
+                    [pTooltip]="'BLACKLIST_OVERRIDE.APPROVE_ESCORT' | translate" tooltipPosition="top"
+                    [disabled]="item.status === 'approved_escort' || item.status === 'cancelled'">
                     <i class="pi pi-users"></i>
                   </button>
                   <button class="btn-icon info" (click)="openReviewDialog(item, 'approved_security')"
-                    [pTooltip]="'BLACKLIST_OVERRIDE.APPROVE_SECURITY' | translate" tooltipPosition="top">
+                    [pTooltip]="'BLACKLIST_OVERRIDE.APPROVE_SECURITY' | translate" tooltipPosition="top"
+                    [disabled]="item.status === 'approved_security' || item.status === 'cancelled'">
                     <i class="pi pi-shield"></i>
                   </button>
                   <button class="btn-icon danger" (click)="openReviewDialog(item, 'denied')"
-                    [pTooltip]="'BLACKLIST_OVERRIDE.DENY' | translate" tooltipPosition="top">
+                    [pTooltip]="'BLACKLIST_OVERRIDE.DENY' | translate" tooltipPosition="top"
+                    [disabled]="item.status === 'denied' || item.status === 'cancelled'">
                     <i class="pi pi-times"></i>
                   </button>
-                }
               </div>
             </td>
           </tr>
@@ -195,6 +197,7 @@ export class BlacklistOverridesComponent implements OnInit {
       { label: this.translate.instant('BLACKLIST_OVERRIDE.STATUS_APPROVED_ESCORT'), value: 'approved_escort' },
       { label: this.translate.instant('BLACKLIST_OVERRIDE.STATUS_APPROVED_SECURITY'), value: 'approved_security' },
       { label: this.translate.instant('BLACKLIST_OVERRIDE.STATUS_DENIED'), value: 'denied' },
+      { label: this.translate.instant('BLACKLIST_OVERRIDE.STATUS_CANCELLED'), value: 'cancelled' },
     ];
   }
 
@@ -205,6 +208,7 @@ export class BlacklistOverridesComponent implements OnInit {
       approved_escort: 'status-badge approved',
       approved_security: 'status-badge approved',
       denied: 'status-badge denied',
+      cancelled: 'status-badge denied',
     };
     return map[status] ?? 'status-badge unknown';
   }
@@ -264,7 +268,7 @@ export class BlacklistOverridesComponent implements OnInit {
   openReviewDialog(item: any, action: 'approved' | 'denied' | 'approved_escort' | 'approved_security'): void {
     this.reviewingItem = item;
     this.reviewAction = action;
-    this.reviewNote = '';
+    this.reviewNote = item.reviewNote ?? '';
     this.showReviewDialog = true;
   }
 

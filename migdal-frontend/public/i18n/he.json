@@ -473,6 +473,7 @@
         "STATUS_DENIED": "נדחה",
         "STATUS_APPROVED_ESCORT": "אושר בליווי בלבד",
         "STATUS_APPROVED_SECURITY": "אושר בליווי אבטחה",
+        "STATUS_CANCELLED": "בוטל",
         "PENDING_BADGE": "ממתינים לאישור"
     },
     "SETTINGS": {
@@ -971,7 +972,7 @@
     },
     "AC_IMPORT": {
         "TITLE": "ייבוא בקרים",
-        "FETCHING": "מביא בקרים משרת הייבוא...",
+        "FETCHING": "מביא בקרים משרת אמדאוס...",
         "SERVICE_DOWN": "שירות Amadeus אינו זמין. אנא ודא שהשירות פעיל ונסה שוב."
     },
     "AD_SYNC": {

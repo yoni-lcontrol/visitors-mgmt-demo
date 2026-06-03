@@ -118,20 +118,6 @@ export class SeedService implements OnModuleInit {
                 }
             }
 
-            // Always ensure the Admin role has ALL permissions
-            const adminRole = await roleRepo.findOne({
-                where: { name: 'Admin' },
-                relations: ['permissions'],
-            });
-            if (adminRole) {
-                const allPerms = await permRepo.find();
-                if (adminRole.permissions.length !== allPerms.length) {
-                    adminRole.permissions = allPerms;
-                    await roleRepo.save(adminRole);
-                    this.logger.log(`Updated Admin role: ${adminRole.permissions.length} → ${allPerms.length} permissions`);
-                }
-            }
-
             // 3. Seed AD group-role mappings (upsert by groupName in global scope)
             const adGroupRoleMappingRepo = queryRunner.manager.getRepository(AdGroupRoleMapping);
             const mappingTargetRoleNames = Array.from(

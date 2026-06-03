@@ -24,11 +24,13 @@ import { NotificationEvent } from '../settings/enums/notification-event.enum';
 import { AuditService } from '../audit/audit.service';
 import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
 import { BlacklistOverrideStatus } from './enums/blacklist-override-status.enum';
+import { BlacklistService } from './blacklist.service';
 import { AmadeusUsersService } from '../amadeus/services/amadeus-users.service';
 import { SyncQueueSource } from '../amadeus/entities/amadeus-sync-queue.entity';
 import { PrintingService } from '../printing/services/printing.service';
 import { Building } from '../buildings/entities/building.entity';
 import { buildSmsData } from './visit.utils';
+import { ErrorMessages } from '../common/constants/error-messages.constants';
 
 const MAX_CODE_GENERATION_ATTEMPTS = 20;
 const EARLY_ARRIVAL_BUFFER_MINUTES = 60;
@@ -57,6 +59,9 @@ export class VisitCheckInCodeService {
         private readonly auditService: AuditService,
         private readonly amadeusUsersService: AmadeusUsersService,
         private readonly printingService: PrintingService,
+        private readonly blacklistService: BlacklistService,
+        @InjectRepository(BlacklistOverrideRequest)
+        private readonly overrideRepo: Repository<BlacklistOverrideRequest>,
     ) { }
 
     // ── Code Generation ──
@@ -357,6 +362,38 @@ export class VisitCheckInCodeService {
 
         const visit = visitVisitor.visit;
 
+        // Validate visit time window (date + time-of-day)
+        try {
+            this.validateVisitTimeWindow(visit);
+        } catch (err) {
+            this.logger.warn(`Visit time validation failed for visitor personId=${trimmed}: ${(err as Error).message}`);
+            return { ok: false, reason: (err as BadRequestException).message };
+        }
+
+        // ── Blacklist + escort-status check ──
+        // If the visitor is blacklisted, only allow through if the override is
+        // approved with regular escort (Approved / ApprovedEscort).
+        // Security escort or non-approved → redirect to front desk.
+        const blacklistCheck = await this.blacklistService.checkBlacklistStatus(visitor.personId);
+        if (blacklistCheck.isBlacklisted) {
+            const override = await this.overrideRepo.findOne({
+                where: { visitVisitorId: visitVisitor.id, isActive: true },
+                order: { createdAt: 'DESC' },
+            });
+
+            const allowedStatuses: BlacklistOverrideStatus[] = [
+                BlacklistOverrideStatus.Approved,
+                BlacklistOverrideStatus.ApprovedEscort,
+            ];
+
+            if (!override || !allowedStatuses.includes(override.status)) {
+                this.logger.warn(
+                    `Blacklisted visitor blocked at kiosk: personId=${visitor.personId}, overrideStatus=${override?.status ?? 'none'}`,
+                );
+                return { ok: false };
+            }
+        }
+
         return {
             ok: true,
             visit: {
@@ -403,6 +440,10 @@ export class VisitCheckInCodeService {
             relations: ['visit', 'visit.visitRequesterUser'],
         });
         if (!visitVisitor) throw new BadRequestException('Visitor is not part of this visit');
+
+        // Validate visit time window with grace period — visitor already passed
+        // strict validation at scan time and is physically present at the kiosk
+        this.validateVisitTimeWindow(visitVisitor.visit, 15);
 
         // Save consent PDF if provided
         if (file) {
@@ -511,6 +552,12 @@ export class VisitCheckInCodeService {
                     ? 'Please proceed to the front desk for security escort'
                     : 'Cannot check in — visitor has a pending blacklist override approval';
                 throw new ForbiddenException(message);
+            }
+
+            // Validate visit time window (date + time-of-day)
+            const visitForValidation = await qr.manager.findOne(Visit, { where: { id: codeRecord.visitId } });
+            if (visitForValidation) {
+                this.validateVisitTimeWindow(visitForValidation);
             }
 
             // Mark code as used
@@ -695,6 +742,73 @@ export class VisitCheckInCodeService {
         });
 
         return newCode;
+    }
+
+    // ── Visit Time Validation ──
+
+    /**
+     * Validates that the current date and time-of-day fall within the visit's planned window.
+     *
+     * Date check: today must be between start date and end date (inclusive).
+     * Time check: current HH:mm must be between start HH:mm and end HH:mm (inclusive),
+     *             extracted from plannedStartTimeUtc and plannedEndTimeUtc.
+     */
+    private validateVisitTimeWindow(visit: Visit, graceMinutes = 0): void {
+        const now = new Date();
+        const plannedStart = visit.plannedStartTimeUtc;
+        const plannedEnd = visit.plannedEndTimeUtc;
+
+        this.logger.debug(
+            `Validating visit time window: visitId=${visit.id}, now=${now.toISOString()}, ` +
+            `start=${plannedStart?.toISOString() ?? 'null'}, end=${plannedEnd?.toISOString() ?? 'null'}`,
+        );
+
+        if (!plannedStart) {
+            this.logger.warn(`Visit ${visit.id} has no plannedStartTimeUtc — skipping time validation`);
+            return;
+        }
+
+        // ── 1. Date validation: today must be within the invitation date range ──
+        const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startDate = new Date(plannedStart.getFullYear(), plannedStart.getMonth(), plannedStart.getDate());
+
+        if (todayDate < startDate) {
+            this.logger.warn(`Visit ${visit.id} has not started yet. Today=${todayDate.toISOString()}, startDate=${startDate.toISOString()}`);
+            throw new BadRequestException(ErrorMessages.VISIT_NOT_STARTED);
+        }
+
+        if (plannedEnd) {
+            const endDate = new Date(plannedEnd.getFullYear(), plannedEnd.getMonth(), plannedEnd.getDate());
+            if (todayDate > endDate) {
+                this.logger.warn(`Visit ${visit.id} has expired. Today=${todayDate.toISOString()}, endDate=${endDate.toISOString()}`);
+                throw new BadRequestException(ErrorMessages.VISIT_EXPIRED);
+            }
+        }
+
+        // ── 2. Time-of-day validation: current HH:mm must be between start HH:mm and end HH:mm ──
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+        const startMinutes = plannedStart.getHours() * 60 + plannedStart.getMinutes();
+
+        if (currentMinutes < startMinutes - graceMinutes) {
+            this.logger.warn(
+                `Visit ${visit.id} time not yet valid. Current=${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}, ` +
+                `start=${plannedStart.getHours()}:${String(plannedStart.getMinutes()).padStart(2, '0')}`,
+            );
+            throw new BadRequestException(ErrorMessages.VISIT_TIME_NOT_VALID);
+        }
+
+        if (plannedEnd) {
+            const endMinutes = plannedEnd.getHours() * 60 + plannedEnd.getMinutes();
+            if (currentMinutes > endMinutes + graceMinutes) {
+                this.logger.warn(
+                    `Visit ${visit.id} time has passed. Current=${now.getHours()}:${String(now.getMinutes()).padStart(2, '0')}, ` +
+                    `end=${plannedEnd.getHours()}:${String(plannedEnd.getMinutes()).padStart(2, '0')}`,
+                );
+                throw new BadRequestException(ErrorMessages.VISIT_TIME_NOT_VALID);
+            }
+        }
+
+        this.logger.debug(`Visit ${visit.id} time validation passed`);
     }
 
     // ── Query helpers ──

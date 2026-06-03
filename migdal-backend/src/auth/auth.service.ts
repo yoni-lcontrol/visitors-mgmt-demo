@@ -3,7 +3,9 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Client as LdapClient } from 'ldapts';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { AdConfiguration } from '../settings/entities/ad-configuration.entity';
 import { EntraIdService } from './entra-id.service';
 import { UsersService } from '../users/users.service';
 import { AuditService } from '../audit/audit.service';
@@ -51,6 +53,8 @@ export class AuthService {
         private readonly entraIdService: EntraIdService,
         @InjectRepository(RefreshToken)
         private readonly refreshTokenRepo: Repository<RefreshToken>,
+        @InjectRepository(AdConfiguration)
+        private readonly adConfigRepo: Repository<AdConfiguration>,
     ) { }
 
     async login(
@@ -59,13 +63,23 @@ export class AuthService {
         ipAddress?: string,
     ): Promise<LoginResponseDto> {
         const user = await this.usersService.findByUsername(dto.username);
-        if (!user || !user.passwordHash) {
+        if (!user) {
             throw new UnauthorizedException('Invalid credentials');
         }
 
-        const passwordValid = await comparePassword(dto.password, user.passwordHash);
-        if (!passwordValid) {
-            throw new UnauthorizedException('Invalid credentials');
+        // Determine authentication method based on user's sync source
+        if (user.syncSource === 'ad' && user.adSourceId) {
+            // AD user: authenticate via LDAP bind
+            await this.authenticateViaLdap(user.adSourceId, dto.username, dto.password);
+        } else {
+            // Local user: authenticate via stored password hash
+            if (!user.passwordHash) {
+                throw new UnauthorizedException('Invalid credentials');
+            }
+            const passwordValid = await comparePassword(dto.password, user.passwordHash);
+            if (!passwordValid) {
+                throw new UnauthorizedException('Invalid credentials');
+            }
         }
 
         if (!user.isActive) {
@@ -88,7 +102,7 @@ export class AuthService {
             action: 'LOGIN',
             entity: 'User',
             entityId: user.id,
-            description: `User ${user.username} logged in`,
+            description: `User ${user.username} logged in${user.syncSource === 'ad' ? ' (AD)' : ''}`,
             performedByEmail: user.email ?? null,
             ipAddress,
             userAgent,
@@ -99,6 +113,49 @@ export class AuthService {
             refreshToken,
             user: this.mapUserResponse(user),
         };
+    }
+
+    private async authenticateViaLdap(adSourceId: string, username: string, password: string): Promise<void> {
+        const adConfig = await this.adConfigRepo.findOne({ where: { id: adSourceId, isActive: true } });
+        if (!adConfig) {
+            this.logger.warn(`AD configuration not found or inactive for adSourceId=${adSourceId}`);
+            throw new UnauthorizedException('Invalid credentials');
+        }
+
+        const port = adConfig.port || 389;
+        let url: string;
+        if (adConfig.useSsl) {
+            const rawUrl = adConfig.ldapUrl.startsWith('ldap') ? adConfig.ldapUrl : `ldap://${adConfig.ldapUrl}`;
+            url = `ldaps://${new URL(rawUrl).hostname}:${port}`;
+        } else if (adConfig.ldapUrl.includes('://')) {
+            try {
+                const parsed = new URL(adConfig.ldapUrl);
+                url = `${parsed.protocol}//${parsed.hostname}:${port}`;
+            } catch {
+                url = `ldap://${adConfig.ldapUrl}:${port}`;
+            }
+        } else {
+            url = `ldap://${adConfig.ldapUrl}:${port}`;
+        }
+
+        const client = new LdapClient({
+            url,
+            tlsOptions: adConfig.useSsl ? { rejectUnauthorized: false } : undefined,
+        });
+
+        // Bind with the user's own credentials
+        const userBindDn = username.includes('@') || username.includes('\\')
+            ? username
+            : `${username}@${adConfig.domain}`;
+
+        try {
+            await client.bind(userBindDn, password);
+        } catch (err) {
+            this.logger.debug(`LDAP bind failed for user ${username}: ${(err as Error).message}`);
+            throw new UnauthorizedException('Invalid credentials');
+        } finally {
+            try { await client.unbind(); } catch { /* ignore unbind errors */ }
+        }
     }
 
     async logout(userId: string, refreshTokenValue?: string): Promise<void> {

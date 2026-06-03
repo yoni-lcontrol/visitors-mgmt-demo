@@ -336,7 +336,8 @@ export class AgentsGateway
 
         // Scanner results: broadcast to all users bound to this workstation
         // (covers both auto-scan from tray and user-initiated scans)
-        if (workstationId && (!userInfo || userInfo.providerType === 'scanner')) {
+        const isKioskPrint = payload.correlationId?.startsWith('kiosk-print-');
+        if (workstationId && !isKioskPrint && (!userInfo || userInfo.providerType === 'scanner')) {
             // Forward scan results to kiosk FIRST (highest priority for kiosk flow)
             // Strip image to keep WebSocket message small (kiosk only needs personId for API call)
             const kioskResult = payload.result ? { ...payload.result } : undefined;

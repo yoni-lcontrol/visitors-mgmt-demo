@@ -4,4 +4,5 @@ export enum BlacklistOverrideStatus {
     Denied = 'denied',
     ApprovedEscort = 'approved_escort',
     ApprovedSecurity = 'approved_security',
+    Cancelled = 'cancelled',
 }

@@ -83,9 +83,6 @@ import { Subscription } from 'rxjs';
               <button class="btn-icon" (click)="router.navigate(['/access-control/controllers', ctrl.id])" [title]="'ACCESS_CONTROL.VIEW_CONTROLLER' | translate">
                 <i class="pi pi-eye"></i>
               </button>
-              <button class="btn-icon danger" *hasPermission="'access-control.delete'" (click)="onDelete(ctrl)" [title]="'COMMON.DELETE' | translate">
-                <i class="pi pi-trash"></i>
-              </button>
             </td>
           </tr>
         </ng-template>

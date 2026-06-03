@@ -1,9 +1,10 @@
 let serialportgsm;
 try {
-    serialportgsm = require('serialport-gsm');
-} catch (err) {
-    // serialport native module may not be available if GSM is disabled
-}
+     serialportgsm = require('serialport-gsm'); 
+
+} catch(e) {
+     console.warn('serialport-gsm unavailable:', e.message);
+     }
 const log = require('../global-functions/console');
 const axios = require("axios");
 

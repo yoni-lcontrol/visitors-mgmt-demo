@@ -139,6 +139,7 @@ describe('BlacklistService', () => {
         it('should soft-delete blacklist entry', async () => {
             const entry = { id: '1', isActive: true, notifyUsers: [] };
             mockRepo.findOne.mockResolvedValue(entry);
+            mockOverrideRepo.find.mockResolvedValue([]);
 
             await service.remove('1', 'admin-id');
             expect(mockRepo.save).toHaveBeenCalledWith(expect.objectContaining({ isActive: false }));
@@ -147,10 +148,45 @@ describe('BlacklistService', () => {
         it('should audit log on delete', async () => {
             mockRepo.findOne.mockResolvedValue({ id: 'bl-1', firstName: 'Bad', lastName: 'Actor', isActive: true, notifyUsers: [] });
             mockRepo.save.mockResolvedValue({});
+            mockOverrideRepo.find.mockResolvedValue([]);
             await service.remove('bl-1', 'user-1');
             expect(mockAuditService.log).toHaveBeenCalledWith(expect.objectContaining({
                 module: 'visitors', action: 'DELETE', entity: 'BlacklistEntry', entityId: 'bl-1',
             }));
+        });
+
+        it('should cancel pending override requests when removing blacklist entry', async () => {
+            const entry = { id: 'bl-1', firstName: 'Bad', lastName: 'Actor', isActive: true, notifyUsers: [] };
+            mockRepo.findOne.mockResolvedValue(entry);
+            mockRepo.save.mockResolvedValue({});
+            const pendingReqs = [
+                { id: 'or-1', blacklistId: 'bl-1', status: 'pending', isActive: true },
+                { id: 'or-2', blacklistId: 'bl-1', status: 'pending', isActive: true },
+            ];
+            mockOverrideRepo.find.mockResolvedValue(pendingReqs);
+            mockOverrideRepo.save.mockResolvedValue(pendingReqs);
+
+            await service.remove('bl-1', 'user-1');
+
+            expect(mockOverrideRepo.find).toHaveBeenCalledWith(expect.objectContaining({
+                where: { blacklistId: 'bl-1', status: 'pending', isActive: true },
+            }));
+            expect(mockOverrideRepo.save).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({ status: 'cancelled', reviewNote: 'Auto-cancelled: blacklist entry removed' }),
+                ]),
+            );
+        });
+
+        it('should not update overrides when none are pending', async () => {
+            const entry = { id: 'bl-1', firstName: 'Bad', lastName: 'Actor', isActive: true, notifyUsers: [] };
+            mockRepo.findOne.mockResolvedValue(entry);
+            mockRepo.save.mockResolvedValue({});
+            mockOverrideRepo.find.mockResolvedValue([]);
+
+            await service.remove('bl-1', 'user-1');
+
+            expect(mockOverrideRepo.save).not.toHaveBeenCalled();
         });
     });
 
@@ -322,17 +358,18 @@ describe('BlacklistService', () => {
         });
     });
 
-    describe('findAllRemoved', () => {
-        it('should return paginated removed blacklist entries', async () => {
-            const qb = createMockQueryBuilder([{ id: '1', firstName: 'John', lastName: 'Doe', isActive: false }], 1);
-            mockRepo.createQueryBuilder.mockReturnValue(qb);
+    // TODO: findAllRemoved was removed from the service — re-add test if method is restored
+    // describe('findAllRemoved', () => {
+    //     it('should return paginated removed blacklist entries', async () => {
+    //         const qb = createMockQueryBuilder([{ id: '1', firstName: 'John', lastName: 'Doe', isActive: false }], 1);
+    //         mockRepo.createQueryBuilder.mockReturnValue(qb);
 
-            const result = await service.findAllRemoved({ page: 1, limit: 10 } as any);
-            expect(result.items).toHaveLength(1);
-            expect(result.total).toBe(1);
-            expect(qb.where).toHaveBeenCalledWith('b.isActive = :active', { active: false });
-        });
-    });
+    //         const result = await service.findAllRemoved({ page: 1, limit: 10 } as any);
+    //         expect(result.items).toHaveLength(1);
+    //         expect(result.total).toBe(1);
+    //         expect(qb.where).toHaveBeenCalledWith('b.isActive = :active', { active: false });
+    //     });
+    // });
 
     describe('restore', () => {
         it('should reactivate a removed blacklist entry', async () => {

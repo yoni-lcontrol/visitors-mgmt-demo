@@ -1,298 +1,298 @@
 <div class="scan-container">
 
-  <!-- Header -->
-  <div class="header">
-    <div class="header-title"
-         *ngIf="!scanError">
-      {{ 'SCAN.SCAN_TITLE' | translate }}
-    </div>
-    <div class="header-title error"
-         *ngIf="scanError">
-      {{ 'SCAN.ERROR_TITLE' | translate }}
-    </div>
-    <div class="header-subtitle"
-         *ngIf="scanError">
-      {{ 'SCAN.ERROR_SUBTITLE' | translate }}
-    </div>
-  </div>
-
-  <!-- Body -->
-  <div class="body">
-
-    <!-- Steps -->
-    <app-steps [active]="1"
-               [error]="scanError"></app-steps>
-
-    <!-- Subtitle -->
-    <div class="subtitle"
-         *ngIf="!scanError">
-      {{ 'SCAN.WAITING_FOR_SCAN' | translate }}
-    </div>
-    <div class="subtitle"
-         *ngIf="scanError">
-      {{ 'SCAN.ERROR_HINT' | translate }}
-    </div>
-
-    <!-- Scan card -->
-    <div class="scan-card"
-         [class.error]="scanError"
-         aria-live="polite">
-
-      <div class="scan-card-top"></div>
-
-      <div class="scan-card-content">
-
-        <!-- ID icon -->
-        <svg class="scan-id-icon"
-             viewBox="0 0 24 24"
-             aria-hidden="true">
-          <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2Zm0 14H4V8h16v10Zm-9-1h7v-2h-7v2Zm-5-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2Zm-2 3h6v-1c0-1.1-2-2-3-2s-3 .9-3 2v1Z"
-                fill="currentColor" />
-        </svg>
-
-        <div class="scan-card-text"
-             *ngIf="!scanError"
-             [innerHTML]="'SCAN.SCAN_INSTRUCTION' | translate">
-        </div>
-        <div class="scan-card-text"
-             *ngIf="scanError">
-          {{ 'SCAN.ERROR_RETRY' | translate }}
-        </div>
-
-        <!-- Animated hand inserting ID card into scanner -->
-        <div class="scan-animation"
-             aria-hidden="true">
-          <svg viewBox="0 0 240 200"
-               xmlns="http://www.w3.org/2000/svg">
-
-            <!-- Shadow under scanner -->
-            <ellipse cx="120"
-                     cy="185"
-                     rx="65"
-                     ry="8"
-                     fill="rgba(0,0,0,0.15)" />
-
-            <!-- Scanner base body (dark box) -->
-            <rect x="55"
-                  y="120"
-                  width="130"
-                  height="60"
-                  rx="6"
-                  fill="#3a3a42" />
-            <!-- Body highlight -->
-            <rect x="55"
-                  y="120"
-                  width="130"
-                  height="3"
-                  rx="1.5"
-                  fill="#5a5a64" />
-            <!-- Body bottom edge -->
-            <rect x="55"
-                  y="177"
-                  width="130"
-                  height="3"
-                  rx="1.5"
-                  fill="#2a2a32" />
-
-            <!-- Scanner angled top lid/cover -->
-            <polygon points="55,120 185,120 175,80 65,80"
-                     fill="#4a4a54" />
-            <!-- Lid top surface -->
-            <polygon points="65,80 175,80 172,77 68,77"
-                     fill="#5c5c66" />
-            <!-- Lid left edge shadow -->
-            <polygon points="55,120 65,80 68,77 55,117"
-                     fill="#3a3a42" />
-            <!-- Lid right edge highlight -->
-            <polygon points="185,120 175,80 172,77 185,117"
-                     fill="#555560" />
-
-            <!-- Document feed slot (dark opening at top of lid) -->
-            <rect x="75"
-                  y="76"
-                  width="90"
-                  height="7"
-                  rx="2"
-                  fill="#0a0a12" />
-            <!-- Slot inner shadow -->
-            <rect x="78"
-                  y="78"
-                  width="84"
-                  height="3"
-                  rx="1"
-                  fill="#000"
-                  opacity="0.5" />
-
-            <!-- Scanner front branding area -->
-            <rect x="85"
-                  y="140"
-                  width="70"
-                  height="18"
-                  rx="3"
-                  fill="#32323a" />
-            <!-- Brand text placeholder -->
-            <rect x="95"
-                  y="147"
-                  width="50"
-                  height="4"
-                  rx="2"
-                  fill="#5a5a64" />
-
-            <!-- LED indicator (green, pulsing) -->
-            <circle cx="170"
-                    cy="135"
-                    r="4"
-                    fill="#9FE794">
-              <animate attributeName="opacity"
-                       values="1;0.3;1"
-                       dur="1.2s"
-                       repeatCount="indefinite" />
-            </circle>
-            <!-- LED glow -->
-            <circle cx="170"
-                    cy="135"
-                    r="7"
-                    fill="#9FE794"
-                    opacity="0.2">
-              <animate attributeName="opacity"
-                       values="0.2;0.05;0.2"
-                       dur="1.2s"
-                       repeatCount="indefinite" />
-            </circle>
-
-            <!-- Scanning line inside slot (visible when card enters) -->
-            <rect x="80"
-                  y="79"
-                  width="80"
-                  height="2"
-                  rx="1"
-                  fill="#9FE794"
-                  opacity="0">
-              <animate attributeName="opacity"
-                       values="0;0;0.8;0.8;0"
-                       dur="3s"
-                       repeatCount="indefinite" />
-            </rect>
-
-            <!-- Hand + Card group (animated insertion) -->
-            <g class="hand-card-group">
-              <!-- ID Card (landscape, tilted slightly to match slot angle) -->
-              <g transform="rotate(-2, 120, 50)">
-                <rect x="88"
-                      y="25"
-                      width="64"
-                      height="42"
-                      rx="4"
-                      fill="#fff"
-                      stroke="#2B2870"
-                      stroke-width="1.5" />
-                <!-- Card photo -->
-                <rect x="94"
-                      y="31"
-                      width="16"
-                      height="20"
-                      rx="2"
-                      fill="#d0cef0" />
-                <!-- Card text lines -->
-                <rect x="114"
-                      y="33"
-                      width="30"
-                      height="3"
-                      rx="1.5"
-                      fill="#b8b6e0" />
-                <rect x="114"
-                      y="39"
-                      width="24"
-                      height="2.5"
-                      rx="1.25"
-                      fill="#d0cef0" />
-                <rect x="114"
-                      y="44"
-                      width="28"
-                      height="2.5"
-                      rx="1.25"
-                      fill="#e8e7f5" />
-                <rect x="114"
-                      y="49"
-                      width="20"
-                      height="2.5"
-                      rx="1.25"
-                      fill="#e8e7f5" />
-                <!-- Card chip -->
-                <rect x="95"
-                      y="55"
-                      width="11"
-                      height="8"
-                      rx="2"
-                      fill="#e8c44a"
-                      stroke="#d4a830"
-                      stroke-width="0.5" />
-                <!-- Chip lines -->
-                <line x1="98"
-                      y1="57"
-                      x2="98"
-                      y2="61"
-                      stroke="#d4a830"
-                      stroke-width="0.3" />
-                <line x1="100"
-                      y1="57"
-                      x2="100"
-                      y2="61"
-                      stroke="#d4a830"
-                      stroke-width="0.3" />
-                <line x1="102"
-                      y1="57"
-                      x2="102"
-                      y2="61"
-                      stroke="#d4a830"
-                      stroke-width="0.3" />
-              </g>
-
-              <!-- Animation: smooth insertion into slot -->
-              <animateTransform attributeName="transform"
-                                type="translate"
-                                values="0,-20; 0,8; 0,8; 0,-20"
-                                dur="3.2s"
-                                repeatCount="indefinite"
-                                calcMode="spline"
-                                keySplines="0.4 0 0.2 1; 0.0 0 1.0 1; 0.4 0 0.2 1"
-                                keyTimes="0; 0.4; 0.6; 1" />
-            </g>
-
-            <!-- Pulsing arrow hint pointing into slot -->
-            <g opacity="0.9">
-              <path d="M120 96 L120 108 M115 104 L120 109 L125 104"
-                    fill="none"
-                    stroke="#9FE794"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round">
-                <animate attributeName="opacity"
-                         values="0;0.9;0.9;0"
-                         dur="3.2s"
-                         repeatCount="indefinite" />
-              </path>
-            </g>
-
-          </svg>
-        </div>
-
+      <!-- Header -->
+      <div class="header">
+            <div class="header-title"
+                 *ngIf="!scanError">
+                  {{ 'SCAN.SCAN_TITLE' | translate }}
+            </div>
+            <div class="header-title error"
+                 *ngIf="scanError">
+                  {{ 'SCAN.ERROR_TITLE' | translate }}
+            </div>
+            <div class="header-subtitle"
+                 *ngIf="scanError">
+                  {{ 'SCAN.ERROR_SUBTITLE' | translate }}
+            </div>
       </div>
-    </div>
 
-    <!-- Bottom buttons -->
-    <div class="bottom">
+      <!-- Body -->
+      <div class="body">
 
-      <button type="button"
-              class="btn-cancel"
-              (click)="cancel()">
-        <span class="btn-cancel-bg"></span>
-        <span class="btn-cancel-text">
-          {{ 'COMMON.HOME_SCREEN' | translate }}
-        </span>
-      </button>
+            <!-- Steps -->
+            <app-steps [active]="1"
+                       [error]="scanError"></app-steps>
 
-      <!-- <button type="button"
+            <!-- Subtitle -->
+            <div class="subtitle"
+                 *ngIf="!scanError">
+                  {{ 'SCAN.WAITING_FOR_SCAN' | translate }}
+            </div>
+            <div class="subtitle"
+                 *ngIf="scanError">
+                  {{ 'SCAN.ERROR_HINT' | translate }}
+            </div>
+
+            <!-- Scan card -->
+            <div class="scan-card"
+                 [class.error]="scanError"
+                 aria-live="polite">
+
+                  <div class="scan-card-top"></div>
+
+                  <div class="scan-card-content">
+
+                        <!-- ID icon -->
+                        <svg class="scan-id-icon"
+                             viewBox="0 0 24 24"
+                             aria-hidden="true">
+                              <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2Zm0 14H4V8h16v10Zm-9-1h7v-2h-7v2Zm-5-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2Zm-2 3h6v-1c0-1.1-2-2-3-2s-3 .9-3 2v1Z"
+                                    fill="currentColor" />
+                        </svg>
+
+                        <div class="scan-card-text"
+                             *ngIf="!scanError"
+                             [innerHTML]="'SCAN.SCAN_INSTRUCTION' | translate">
+                        </div>
+                        <div class="scan-card-text"
+                             *ngIf="scanError">
+                              {{ 'SCAN.ERROR_RETRY' | translate }}
+                        </div>
+
+                        <!-- Animated hand inserting ID card into scanner -->
+                        <div class="scan-animation"
+                             aria-hidden="true">
+                              <svg viewBox="0 0 240 200"
+                                   xmlns="http://www.w3.org/2000/svg">
+
+                                    <!-- Shadow under scanner -->
+                                    <ellipse cx="120"
+                                             cy="185"
+                                             rx="65"
+                                             ry="8"
+                                             fill="rgba(0,0,0,0.15)" />
+
+                                    <!-- Scanner base body (dark box) -->
+                                    <rect x="55"
+                                          y="120"
+                                          width="130"
+                                          height="60"
+                                          rx="6"
+                                          fill="#3a3a42" />
+                                    <!-- Body highlight -->
+                                    <rect x="55"
+                                          y="120"
+                                          width="130"
+                                          height="3"
+                                          rx="1.5"
+                                          fill="#5a5a64" />
+                                    <!-- Body bottom edge -->
+                                    <rect x="55"
+                                          y="177"
+                                          width="130"
+                                          height="3"
+                                          rx="1.5"
+                                          fill="#2a2a32" />
+
+                                    <!-- Scanner angled top lid/cover -->
+                                    <polygon points="55,120 185,120 175,80 65,80"
+                                             fill="#4a4a54" />
+                                    <!-- Lid top surface -->
+                                    <polygon points="65,80 175,80 172,77 68,77"
+                                             fill="#5c5c66" />
+                                    <!-- Lid left edge shadow -->
+                                    <polygon points="55,120 65,80 68,77 55,117"
+                                             fill="#3a3a42" />
+                                    <!-- Lid right edge highlight -->
+                                    <polygon points="185,120 175,80 172,77 185,117"
+                                             fill="#555560" />
+
+                                    <!-- Document feed slot (dark opening at top of lid) -->
+                                    <rect x="75"
+                                          y="76"
+                                          width="90"
+                                          height="7"
+                                          rx="2"
+                                          fill="#0a0a12" />
+                                    <!-- Slot inner shadow -->
+                                    <rect x="78"
+                                          y="78"
+                                          width="84"
+                                          height="3"
+                                          rx="1"
+                                          fill="#000"
+                                          opacity="0.5" />
+
+                                    <!-- Scanner front branding area -->
+                                    <rect x="85"
+                                          y="140"
+                                          width="70"
+                                          height="18"
+                                          rx="3"
+                                          fill="#32323a" />
+                                    <!-- Brand text placeholder -->
+                                    <rect x="95"
+                                          y="147"
+                                          width="50"
+                                          height="4"
+                                          rx="2"
+                                          fill="#5a5a64" />
+
+                                    <!-- LED indicator (green, pulsing) -->
+                                    <circle cx="170"
+                                            cy="135"
+                                            r="4"
+                                            fill="#9FE794">
+                                          <animate attributeName="opacity"
+                                                   values="1;0.3;1"
+                                                   dur="1.2s"
+                                                   repeatCount="indefinite" />
+                                    </circle>
+                                    <!-- LED glow -->
+                                    <circle cx="170"
+                                            cy="135"
+                                            r="7"
+                                            fill="#9FE794"
+                                            opacity="0.2">
+                                          <animate attributeName="opacity"
+                                                   values="0.2;0.05;0.2"
+                                                   dur="1.2s"
+                                                   repeatCount="indefinite" />
+                                    </circle>
+
+                                    <!-- Scanning line inside slot (visible when card enters) -->
+                                    <rect x="80"
+                                          y="79"
+                                          width="80"
+                                          height="2"
+                                          rx="1"
+                                          fill="#9FE794"
+                                          opacity="0">
+                                          <animate attributeName="opacity"
+                                                   values="0;0;0.8;0.8;0"
+                                                   dur="3s"
+                                                   repeatCount="indefinite" />
+                                    </rect>
+
+                                    <!-- Hand + Card group (animated insertion) -->
+                                    <g class="hand-card-group">
+                                          <!-- ID Card (landscape, tilted slightly to match slot angle) -->
+                                          <g transform="rotate(-2, 120, 50)">
+                                                <rect x="88"
+                                                      y="25"
+                                                      width="64"
+                                                      height="42"
+                                                      rx="4"
+                                                      fill="#fff"
+                                                      stroke="#2B2870"
+                                                      stroke-width="1.5" />
+                                                <!-- Card photo -->
+                                                <rect x="94"
+                                                      y="31"
+                                                      width="16"
+                                                      height="20"
+                                                      rx="2"
+                                                      fill="#d0cef0" />
+                                                <!-- Card text lines -->
+                                                <rect x="114"
+                                                      y="33"
+                                                      width="30"
+                                                      height="3"
+                                                      rx="1.5"
+                                                      fill="#b8b6e0" />
+                                                <rect x="114"
+                                                      y="39"
+                                                      width="24"
+                                                      height="2.5"
+                                                      rx="1.25"
+                                                      fill="#d0cef0" />
+                                                <rect x="114"
+                                                      y="44"
+                                                      width="28"
+                                                      height="2.5"
+                                                      rx="1.25"
+                                                      fill="#e8e7f5" />
+                                                <rect x="114"
+                                                      y="49"
+                                                      width="20"
+                                                      height="2.5"
+                                                      rx="1.25"
+                                                      fill="#e8e7f5" />
+                                                <!-- Card chip -->
+                                                <rect x="95"
+                                                      y="55"
+                                                      width="11"
+                                                      height="8"
+                                                      rx="2"
+                                                      fill="#e8c44a"
+                                                      stroke="#d4a830"
+                                                      stroke-width="0.5" />
+                                                <!-- Chip lines -->
+                                                <line x1="98"
+                                                      y1="57"
+                                                      x2="98"
+                                                      y2="61"
+                                                      stroke="#d4a830"
+                                                      stroke-width="0.3" />
+                                                <line x1="100"
+                                                      y1="57"
+                                                      x2="100"
+                                                      y2="61"
+                                                      stroke="#d4a830"
+                                                      stroke-width="0.3" />
+                                                <line x1="102"
+                                                      y1="57"
+                                                      x2="102"
+                                                      y2="61"
+                                                      stroke="#d4a830"
+                                                      stroke-width="0.3" />
+                                          </g>
+
+                                          <!-- Animation: smooth insertion into slot -->
+                                          <animateTransform attributeName="transform"
+                                                            type="translate"
+                                                            values="0,-20; 0,8; 0,8; 0,-20"
+                                                            dur="3.2s"
+                                                            repeatCount="indefinite"
+                                                            calcMode="spline"
+                                                            keySplines="0.4 0 0.2 1; 0.0 0 1.0 1; 0.4 0 0.2 1"
+                                                            keyTimes="0; 0.4; 0.6; 1" />
+                                    </g>
+
+                                    <!-- Pulsing arrow hint pointing into slot -->
+                                    <g opacity="0.9">
+                                          <path d="M120 96 L120 108 M115 104 L120 109 L125 104"
+                                                fill="none"
+                                                stroke="#9FE794"
+                                                stroke-width="2.5"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round">
+                                                <animate attributeName="opacity"
+                                                         values="0;0.9;0.9;0"
+                                                         dur="3.2s"
+                                                         repeatCount="indefinite" />
+                                          </path>
+                                    </g>
+
+                              </svg>
+                        </div>
+
+                  </div>
+            </div>
+
+            <!-- Bottom buttons -->
+            <div class="bottom">
+
+                  <button type="button"
+                          class="btn-cancel"
+                          (click)="cancel()">
+                        <span class="btn-cancel-bg"></span>
+                        <span class="btn-cancel-text">
+                              {{ 'COMMON.HOME_SCREEN' | translate }}
+                        </span>
+                  </button>
+
+                  <!-- <button type="button"
               class="continue"
               (click)="continue()">
         <span class="continue-bg"></span>
@@ -301,12 +301,12 @@
         </span>
       </button> -->
 
-    </div>
+            </div>
 
-    <!-- Battlement -->
-    <div class="battlement"
-         aria-hidden="true"></div>
+      </div>
 
-  </div>
+      <!-- Battlement -->
+      <div class="battlement"
+           aria-hidden="true"></div>
 
 </div>

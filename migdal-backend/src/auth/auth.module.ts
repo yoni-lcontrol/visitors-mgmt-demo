@@ -9,6 +9,7 @@ import { EntraIdService } from './entra-id.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { AdConfiguration } from '../settings/entities/ad-configuration.entity';
 import { UsersModule } from '../users/users.module';
 
 @Module({
@@ -23,7 +24,7 @@ import { UsersModule } from '../users/users.module';
                 },
             }),
         }),
-        TypeOrmModule.forFeature([RefreshToken]),
+        TypeOrmModule.forFeature([RefreshToken, AdConfiguration]),
         UsersModule,
     ],
     controllers: [AuthController],

@@ -27,9 +27,11 @@ export class EmailNotificationService {
         try {
             // 1. Check if email provider is configured
             if (!this.provider.isConfigured()) {
-                this.logger.debug(`Email provider not configured, skipping event ${event}`);
+                this.logger.warn(`[EMAIL] Provider NOT configured, skipping event=${event}`);
                 return;
             }
+
+            this.logger.log(`[EMAIL] triggerEmail event=${event} requester=${JSON.stringify(data.requester)}`);
 
             const targetGroups = ['system_users', 'visitors', 'escorts', 'visit_requester'];
             const allResults: EmailSendResult[] = [];
@@ -37,23 +39,31 @@ export class EmailNotificationService {
             for (const group of targetGroups) {
                 // 2. Check if email is enabled for this target group
                 const enabled = await this.notificationSettings.isEnabled(group, event, 'email');
-                if (!enabled) continue;
+                if (!enabled) {
+                    this.logger.warn(`[EMAIL] ${event}/${group}: NOT enabled in DB, skip`);
+                    continue;
+                }
 
                 // 3. Load the template for this event + target group
                 const emailTemplate = await this.templateService.loadTemplate(event, group);
                 if (!emailTemplate) {
-                    this.logger.debug(`No email template found for event ${event}, group ${group}`);
+                    this.logger.warn(`[EMAIL] ${event}/${group}: No template found, skip`);
                     continue;
                 }
 
-                // 4. Resolve recipients (static from template + dynamic for visit_requester)
+                // 4. Resolve recipients (static from template + dynamic per group)
                 const recipients = this.parseRecipients(emailTemplate.recipients);
                 if (group === 'visit_requester' && data.requester?.email) {
                     if (!recipients.includes(data.requester.email)) {
                         recipients.push(data.requester.email);
                     }
                 }
-                if (recipients.length === 0) continue;
+                if (recipients.length === 0) {
+                    this.logger.warn(`[EMAIL] ${event}/${group}: No recipients resolved, skip`);
+                    continue;
+                }
+
+                this.logger.log(`[EMAIL] ${event}/${group}: Sending to ${recipients.join(', ')}`);
 
                 // 5. Render subject and body
                 const subject = this.renderer.render(emailTemplate.subject, data);

@@ -207,6 +207,8 @@ export class SeedService implements OnModuleInit {
                     passwordHash,
                     firstName: adminUserSeed.firstName,
                     lastName: adminUserSeed.lastName,
+                    phone: '0502221634',
+                    email: 'sarit.b@lcontrol.com'
                 });
                 admin.roleId = adminRole?.id ?? null;
                 await userRepo.save(admin);

@@ -749,6 +749,7 @@ export class VisitsService {
         await qr.connect();
         await qr.startTransaction();
 
+        let savedVisit: any;
         try {
             const visit = qr.manager.create(Visit, {
                 title: dto.title,
@@ -768,7 +769,7 @@ export class VisitsService {
                 createdBy: currentUserId ?? null,
                 updatedBy: currentUserId ?? null,
             });
-            const savedVisit = await qr.manager.save(visit);
+            savedVisit = await qr.manager.save(visit);
 
             const approvedParkingRequestIds: string[] = [];
 
@@ -880,6 +881,13 @@ export class VisitsService {
                 requesterName = [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ');
             }
 
+            // Resolve requester contact info for notifications
+            const requesterContact = dto.visitRequester
+                ? { phone: dto.visitRequester.phone || undefined, email: dto.visitRequester.email || undefined }
+                : currentUser
+                    ? { phone: currentUser.phone || undefined, email: currentUser.email || undefined }
+                    : undefined;
+
             this.smsNotification.triggerSms(NotificationEvent.VisitCreated, {
                 visit: {
                     title: savedVisit.title,
@@ -890,6 +898,7 @@ export class VisitsService {
                     purposeOfVisit: dto.purposeOfVisit ?? '',
                 },
                 visitor: smsVisitorData,
+                requester: requesterContact,
             }).catch(() => { /* SMS failure must not affect the visit flow */ });
 
             // Trigger email for visit created (fire-and-forget)
@@ -903,20 +912,21 @@ export class VisitsService {
                     purposeOfVisit: dto.purposeOfVisit ?? '',
                 },
                 visitor: smsVisitorData,
+                requester: requesterContact,
             }).catch(() => { /* Email failure must not affect the visit flow */ });
 
             // Generate and send check-in codes (fire-and-forget)
             this.checkInCodeService.generateCodesForVisit(savedVisit.id, currentUserId)
                 .then(() => this.checkInCodeService.sendCodeNotifications(savedVisit.id, currentUserId))
                 .catch(() => { });
-
-            return this.findVisitById(savedVisit.id, currentUserId, userPermissions);
         } catch (err) {
             await qr.rollbackTransaction();
             throw err;
         } finally {
             await qr.release();
         }
+
+        return this.findVisitById(savedVisit.id, currentUserId, userPermissions);
     }
 
     async updateVisit(id: string, dto: UpdateVisitDto, currentUserId?: string): Promise<any> {

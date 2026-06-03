@@ -30,9 +30,11 @@ export class SmsNotificationService {
         try {
             // 1. Check if SMS provider is configured at all
             if (!this.provider.isConfigured()) {
-                this.logger.debug(`SMS provider not configured, skipping event ${event}`);
+                this.logger.warn(`[SMS] Provider NOT configured, skipping event=${event}`);
                 return;
             }
+
+            this.logger.log(`[SMS] triggerSms event=${event} requester=${JSON.stringify(data.requester)} visitorPhone=${data.visitor?.phone}`);
 
             const targetGroups = ['system_users', 'visitors', 'escorts', 'visit_requester'];
             const allResults: SmsSendResult[] = [];
@@ -40,25 +42,38 @@ export class SmsNotificationService {
             for (const group of targetGroups) {
                 // 2. Check if SMS is enabled for this target group
                 const enabled = await this.notificationSettings.isEnabled(group, event, 'sms');
-                if (!enabled) continue;
+                if (!enabled) {
+                    this.logger.warn(`[SMS] ${event}/${group}: NOT enabled in DB, skip`);
+                    continue;
+                }
 
                 // 3. Load the template for this event + target group
                 const smsTemplate = await this.templateRepo.findOne({
                     where: { event, targetGroup: group, isActive: true },
                 });
                 if (!smsTemplate) {
-                    this.logger.debug(`No SMS template found for event ${event}, group ${group}`);
+                    this.logger.warn(`[SMS] ${event}/${group}: No template found, skip`);
                     continue;
                 }
 
-                // 4. Resolve recipients (static from template + dynamic for visit_requester)
+                // 4. Resolve recipients (static from template + dynamic per group)
                 const recipients = this.parseRecipients(smsTemplate.recipients);
                 if (group === 'visit_requester' && data.requester?.phone) {
                     if (!recipients.includes(data.requester.phone)) {
                         recipients.push(data.requester.phone);
                     }
                 }
-                if (recipients.length === 0) continue;
+                if (group === 'visitors' && data.visitor?.phone) {
+                    if (!recipients.includes(data.visitor.phone)) {
+                        recipients.push(data.visitor.phone);
+                    }
+                }
+                if (recipients.length === 0) {
+                    this.logger.warn(`[SMS] ${event}/${group}: No recipients resolved, skip`);
+                    continue;
+                }
+
+                this.logger.log(`[SMS] ${event}/${group}: Sending to ${recipients.join(', ')}`);
 
                 // 5. Render the message
                 const message = this.renderer.render(smsTemplate.template, data);

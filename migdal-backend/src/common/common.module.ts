@@ -2,7 +2,6 @@ import { Global, Module } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { AllExceptionsFilter } from './filters/all-exceptions.filter';
 import { TransformResponseInterceptor } from './interceptors/transform-response.interceptor';
-import { LoggingInterceptor } from './interceptors/logging.interceptor';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 import { KioskApiKeyGuard } from './guards/kiosk-api-key.guard';
@@ -29,10 +28,6 @@ import { KioskApiKeyGuard } from './guards/kiosk-api-key.guard';
         {
             provide: APP_INTERCEPTOR,
             useClass: TransformResponseInterceptor,
-        },
-        {
-            provide: APP_INTERCEPTOR,
-            useClass: LoggingInterceptor,
         },
     ],
     exports: [],

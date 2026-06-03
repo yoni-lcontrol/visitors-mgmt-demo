@@ -30,8 +30,8 @@ export class EmailProviderService {
 
         if (host) {
             const options: nodemailer.TransportOptions & {
-                host: string; port: number; secure: boolean; auth?: { user: string; pass: string };
-            } = { host, port, secure };
+                host: string; port: number; secure: boolean; auth?: { user: string; pass: string }; tls?: { rejectUnauthorized: boolean };
+            } = { host, port, secure, tls: { rejectUnauthorized: false } };
 
             if (user && pass) {
                 options.auth = { user, pass };

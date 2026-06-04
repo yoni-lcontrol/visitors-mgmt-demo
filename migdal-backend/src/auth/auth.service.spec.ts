@@ -170,6 +170,19 @@ describe('AuthService', () => {
             role: { id: 'role-1', name: 'Operator', permissions: [{ key: 'visits.read' }] },
         };
 
+        const mockLocalNonAdminUser = {
+            id: 'user-local-1',
+            username: 'operator1',
+            firstName: 'Op',
+            lastName: 'User',
+            passwordHash: 'hashed',
+            isActive: true,
+            syncSource: null,
+            adSourceId: null,
+            sector: null,
+            role: { id: 'role-1', name: 'Operator', permissions: [{ key: 'visits.read' }] },
+        };
+
         const mockAdConfig = {
             id: 'ad-config-1',
             domain: 'corp.example.com',
@@ -237,6 +250,32 @@ describe('AuthService', () => {
 
             await expect(service.login({ username: 'jdoe', password: 'adpass' }))
                 .rejects.toThrow(new UnauthorizedException(ErrorMessages.USER_INACTIVE));
+        });
+
+        it('should use default AD config for non-admin user without adSourceId', async () => {
+            mockUsersService.findByUsername.mockResolvedValue(mockLocalNonAdminUser);
+            mockAdConfigRepo.findOne.mockResolvedValue(mockAdConfig);
+
+            const mockBind = jest.fn().mockResolvedValue(undefined);
+            const mockUnbind = jest.fn().mockResolvedValue(undefined);
+            jest.spyOn(require('ldapts'), 'Client').mockImplementation(() => ({
+                bind: mockBind,
+                unbind: mockUnbind,
+            }));
+
+            const result = await service.login({ username: 'operator1', password: 'adpass' });
+
+            expect(result.accessToken).toBe('mock-access-token');
+            expect(result.user.username).toBe('operator1');
+            expect(mockBind).toHaveBeenCalledWith('operator1@corp.example.com', 'adpass');
+        });
+
+        it('should throw UnauthorizedException for non-admin user when no AD config exists', async () => {
+            mockUsersService.findByUsername.mockResolvedValue(mockLocalNonAdminUser);
+            mockAdConfigRepo.findOne.mockResolvedValue(null);
+
+            await expect(service.login({ username: 'operator1', password: 'pass' }))
+                .rejects.toThrow(UnauthorizedException);
         });
     });
 
@@ -372,9 +411,16 @@ describe('AuthService', () => {
                 lastName: 'User',
                 passwordHash: 'hashed',
                 isActive: true,
+                adSourceId: 'ad-config-1',
                 role: { id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }] },
             });
-            jest.spyOn(hashUtil, 'comparePassword').mockResolvedValue(true);
+            mockAdConfigRepo.findOne.mockResolvedValue({
+                id: 'ad-config-1', domain: 'corp.example.com', ldapUrl: 'dc01.corp.example.com',
+                port: 389, useSsl: false, baseDn: 'DC=corp,DC=example,DC=com', isActive: true,
+            });
+            const mockBind = jest.fn().mockResolvedValue(undefined);
+            const mockUnbind = jest.fn().mockResolvedValue(undefined);
+            jest.spyOn(require('ldapts'), 'Client').mockImplementation(() => ({ bind: mockBind, unbind: mockUnbind }));
 
             const loginResult = await service.login({ username: 'testuser', password: 'correct' });
             expect(loginResult.user.permissions).toContain('users.read');
@@ -424,9 +470,16 @@ describe('AuthService', () => {
                 lastName: 'User',
                 passwordHash: 'hashed',
                 isActive: true,
+                adSourceId: 'ad-config-1',
                 role: { id: 'role-admin', name: 'Admin', permissions: [{ key: 'users.read' }, { key: 'users.create' }, { key: 'users.update' }] },
             });
-            jest.spyOn(hashUtil, 'comparePassword').mockResolvedValue(true);
+            mockAdConfigRepo.findOne.mockResolvedValue({
+                id: 'ad-config-1', domain: 'corp.example.com', ldapUrl: 'dc01.corp.example.com',
+                port: 389, useSsl: false, baseDn: 'DC=corp,DC=example,DC=com', isActive: true,
+            });
+            const mockBind = jest.fn().mockResolvedValue(undefined);
+            const mockUnbind = jest.fn().mockResolvedValue(undefined);
+            jest.spyOn(require('ldapts'), 'Client').mockImplementation(() => ({ bind: mockBind, unbind: mockUnbind }));
 
             const loginResult = await service.login({ username: 'testuser', password: 'correct' });
             expect(loginResult.user.permissions).toContain('users.read');

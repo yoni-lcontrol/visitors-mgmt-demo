@@ -67,12 +67,8 @@ export class AuthService {
             throw new UnauthorizedException('Invalid credentials');
         }
 
-        // Determine authentication method based on user's sync source
-        if (user.syncSource === 'ad' && user.adSourceId) {
-            // AD user: authenticate via LDAP bind
-            await this.authenticateViaLdap(user.adSourceId, dto.username, dto.password);
-        } else {
-            // Local user: authenticate via stored password hash
+        // Admin user: authenticate via stored password hash (local fallback)
+        if (user.username === 'admin') {
             if (!user.passwordHash) {
                 throw new UnauthorizedException('Invalid credentials');
             }
@@ -80,6 +76,14 @@ export class AuthService {
             if (!passwordValid) {
                 throw new UnauthorizedException('Invalid credentials');
             }
+        } else {
+            // All other users: authenticate via AD (LDAP bind)
+            const adSourceId = user.adSourceId || await this.getDefaultAdSourceId();
+            if (!adSourceId) {
+                this.logger.warn(`No AD configuration available for user ${user.username}`);
+                throw new UnauthorizedException('Invalid credentials');
+            }
+            await this.authenticateViaLdap(adSourceId, dto.username, dto.password);
         }
 
         if (!user.isActive) {
@@ -113,6 +117,11 @@ export class AuthService {
             refreshToken,
             user: this.mapUserResponse(user),
         };
+    }
+
+    private async getDefaultAdSourceId(): Promise<string | null> {
+        const defaultConfig = await this.adConfigRepo.findOne({ where: { isActive: true }, order: { createdAt: 'ASC' } });
+        return defaultConfig?.id ?? null;
     }
 
     private async authenticateViaLdap(adSourceId: string, username: string, password: string): Promise<void> {

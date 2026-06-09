@@ -6,6 +6,7 @@ export interface User {
     email: string | null;
     phone: string | null;
     idNumber: string | null;
+    employeeId: string | null;
     isActive: boolean;
     lastLoginAt: string | null;
     sector?: { id: string; name: string } | null;

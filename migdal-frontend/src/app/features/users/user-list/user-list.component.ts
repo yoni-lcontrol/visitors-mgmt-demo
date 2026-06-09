@@ -67,6 +67,7 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
             <th pSortableColumn="phone">{{ 'USERS.PHONE' | translate }} <p-sortIcon field="phone" /> <p-columnFilter field="phone" type="text" display="menu"></p-columnFilter></th>
             <th pSortableColumn="sectorName">{{ 'USERS.SECTOR' | translate }} <p-sortIcon field="sectorName" /> <p-columnFilter field="sectorName" type="text" display="menu"></p-columnFilter></th>
             <th>{{ 'USERS.ID_NUMBER' | translate }} </th>
+            <th>{{ 'USERS.EMPLOYEE_ID' | translate }} </th>
             <th>{{ 'USERS.ROLE' | translate }} </th>
             <th>{{ 'COMMON.ACTIVE' | translate }} <p-columnFilter field="isActive" type="text" display="menu"></p-columnFilter></th>
             <th>{{ 'COMMON.ACTIONS' | translate }}</th>
@@ -81,6 +82,7 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
             <td>{{ user.phone ?? '-' }}</td>
             <td>{{ user.sector?.name ?? '-' }}</td>
             <td>{{ user.idNumber ?? '-' }}</td>
+            <td>{{ user.employeeId ?? '-' }}</td>
             <td>
               @for (role of getUserRoles(user); track role.id) {
                 <span class="role-chip">{{ role.name }}</span>
@@ -105,7 +107,7 @@ import { EMAIL_PATTERN, DIGITS_ONLY_PATTERN } from '@shared/constants/regex.cons
           </tr>
         </ng-template>
         <ng-template pTemplate="emptymessage">
-          <tr><td colspan="10" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
+          <tr><td colspan="11" class="empty">{{ 'COMMON.NO_DATA' | translate }}</td></tr>
         </ng-template>
       </p-table>
     </div>

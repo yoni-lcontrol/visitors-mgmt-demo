@@ -916,7 +916,7 @@ describe('VisitsService', () => {
             expect(mockEscortRepo.save).not.toHaveBeenCalled();
         });
 
-        it('should validate auto-assigned escort data on update when no escort exists', async () => {
+        it('should skip auto-escort silently on update when no escort exists and user profile is incomplete', async () => {
             const existing = {
                 id: 'v1',
                 title: 'Visit',
@@ -933,9 +933,13 @@ describe('VisitsService', () => {
             mockVisitRepo.findOne.mockResolvedValue(existing);
             mockVisitRepo.save.mockImplementation((e: any) => Promise.resolve(e));
             mockEscortRepo.count.mockResolvedValue(0);
+            const statusQb = createMockQueryBuilder([]);
+            mockStatusRepo.createQueryBuilder.mockReturnValue(statusQb);
 
-            await expect(service.updateVisit('v1', { title: 'Updated' } as any, 'user-1'))
-                .rejects.toThrow(new BadRequestException('Cannot auto-assign escort from visit requester: firstName, lastName, phone and email are required'));
+            await service.updateVisit('v1', { title: 'Updated' } as any, 'user-1');
+
+            expect(mockEscortRepo.create).not.toHaveBeenCalled();
+            expect(mockEscortRepo.save).not.toHaveBeenCalled();
         });
     });
 

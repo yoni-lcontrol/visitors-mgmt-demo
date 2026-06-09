@@ -408,7 +408,7 @@ export class AdSyncService {
         if (adUser.phone && localUser.phone !== adUser.phone) { localUser.phone = adUser.phone; changed = true; }
         if (adUser.department !== undefined && localUser.department !== adUser.department) { localUser.department = adUser.department; changed = true; }
         if (adUser.title !== undefined && localUser.title !== adUser.title) { localUser.title = adUser.title; changed = true; }
-        if (adUser.idNumber !== undefined && localUser.idNumber !== adUser.idNumber) { localUser.idNumber = adUser.idNumber; changed = true; }
+        if (adUser.employeeId !== undefined && localUser.employeeId !== adUser.employeeId) { localUser.employeeId = adUser.employeeId; changed = true; }
 
         // Sync sector (company → תחום)
         if (localUser.sectorId !== sectorId) { localUser.sectorId = sectorId; changed = true; }
@@ -499,7 +499,7 @@ export class AdSyncService {
             phone: adUser.phone,
             department: adUser.department,
             title: adUser.title,
-            idNumber: adUser.idNumber,
+            employeeId: adUser.employeeId,
             sectorId,
             roleId: matchedRoles[0]?.id ?? null,
             roles: matchedRoles,

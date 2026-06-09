@@ -48,6 +48,9 @@ export class User extends BaseEntity {
     idNumber!: string | null;
 
     @Column({ type: 'nvarchar', length: 50, nullable: true })
+    employeeId!: string | null;
+
+    @Column({ type: 'nvarchar', length: 50, nullable: true })
     externalAuthProvider!: string | null;
 
     @Column({ type: 'nvarchar', length: 255, nullable: true })

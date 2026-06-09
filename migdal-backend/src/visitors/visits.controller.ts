@@ -147,8 +147,9 @@ export class VisitsController {
         @Param('visitId', ParseUUIDPipe) visitId: string,
         @Body() dto: UpdateVisitDto,
         @CurrentUser('sub') currentUserId: string,
+        @CurrentUser('permissions') permissions: string[],
     ) {
-        return this.visitsService.updateVisit(visitId, dto, currentUserId);
+        return this.visitsService.updateVisit(visitId, dto, currentUserId, permissions);
     }
 
     @Delete(':visitId')

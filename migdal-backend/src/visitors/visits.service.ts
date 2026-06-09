@@ -211,6 +211,7 @@ export class VisitsService {
         visit: Visit,
         dto: UpdateVisitDto,
         currentUserId?: string,
+        escortRequired?: boolean,
     ): Promise<void> {
         const escortCount = await this.escortRepo.count({
             where: {
@@ -223,7 +224,13 @@ export class VisitsService {
             return;
         }
 
-        const autoEscort = await this.resolveAutoEscortForUpdate(visit, dto, currentUserId);
+        let autoEscort: { firstName: string; lastName: string; phone: string; email: string; sector: string | null };
+        try {
+            autoEscort = await this.resolveAutoEscortForUpdate(visit, dto, currentUserId);
+        } catch (e) {
+            if (escortRequired) throw e;
+            return;
+        }
         const escort = this.escortRepo.create({
             visitId: visit.id,
             ...autoEscort,
@@ -929,7 +936,7 @@ export class VisitsService {
         return this.findVisitById(savedVisit.id, currentUserId, userPermissions);
     }
 
-    async updateVisit(id: string, dto: UpdateVisitDto, currentUserId?: string): Promise<any> {
+    async updateVisit(id: string, dto: UpdateVisitDto, currentUserId?: string, userPermissions?: string[]): Promise<any> {
         const visit = await this.visitRepo.findOne({ where: { id, isActive: true } });
         if (!visit) throw new NotFoundException('Visit not found');
 
@@ -973,7 +980,10 @@ export class VisitsService {
             updatedBy: currentUserId ?? null,
         });
         await this.visitRepo.save(visit);
-        await this.ensureAutoEscortForUpdate(visit, dto, currentUserId);
+
+        const isSelfRequesterOnUpdate = isSwitchToSelf || (!isSwitchToManual && visit.visitRequesterUserId === currentUserId);
+        const escortRequired = isEscortRequiredForVisit(userPermissions, isSelfRequesterOnUpdate);
+        await this.ensureAutoEscortForUpdate(visit, dto, currentUserId, escortRequired);
 
         // Reload with visitRequesterUser for SMS/email hostName resolution
         if (visit.visitRequesterUserId && !visit.visitRequesterUser) {

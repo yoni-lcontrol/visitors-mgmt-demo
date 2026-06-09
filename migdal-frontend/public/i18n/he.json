@@ -274,6 +274,7 @@
         "PHONE": "טלפון",
         "SECTOR": "תחום",
         "ID_NUMBER": "תעודת זהות",
+        "EMPLOYEE_ID": "מספר עובד",
         "SYNC_AD": "סנכרון מ-AD",
         "SYNC_STARTED": "סנכרון AD הופעל ברקע",
         "SYNC_SUCCESS": "סנכרון AD הושלם: {{totalCreated}} נוצרו, {{totalUpdated}} עודכנו, {{totalDeactivated}} הושבתו, {{totalSkipped}} דולגו",

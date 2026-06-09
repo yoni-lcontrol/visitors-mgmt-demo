@@ -207,7 +207,6 @@ export const rolesSeed: RoleSeedData[] = [
             PermissionKey.VisitorsUpdate,
             PermissionKey.VisitorsDelete,
             PermissionKey.VisitorsExport,
-            PermissionKey.VisitorsScopeOwn,
             PermissionKey.VisitsDeleteOwnOnly,
         ],
     },

@@ -28,6 +28,10 @@ public interface IAmadeusApiClient
     Task UpdateCardholderAsync(string uid, object payload, CancellationToken cancellationToken);
     Task DeleteCardholderAsync(string uid, CancellationToken cancellationToken);
 
+    // Cards / badges
+    Task<(List<AmadeusCard> Items, int? TotalCount)> GetCardsPagedAsync(int skip, int top, CancellationToken cancellationToken);
+    Task<List<AmadeusCard>> GetCardsByCardholderUidAsync(string cardholderUid, CancellationToken cancellationToken);
+
     // Cardholder personal details (license plate)
     Task<AmadeusCardholderPersonalDetails?> GetCardholderPersonalDetailsAsync(string cardholderUid, CancellationToken cancellationToken);
     Task<AmadeusCardholderPersonalDetails> UpsertLicensePlateAsync(string cardholderUid, string licensePlate, CancellationToken cancellationToken);

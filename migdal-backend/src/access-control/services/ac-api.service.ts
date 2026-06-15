@@ -360,4 +360,38 @@ export class AccessControlApiService {
         this.logger.log(`Batch deleting ${cardholderIds.length} cardholders on remote AC server`);
         return this.post('/api/cardholders/batch-delete', { ids: cardholderIds });
     }
+
+    // ───────────────────── Cards / badges ──────────────────────
+
+    async triggerCardholderSync(): Promise<unknown> {
+        this.logger.log('Triggering cardholder sync on remote AC server');
+        return this.post('/api/sync/cardholders', {});
+    }
+
+    async triggerCardSync(): Promise<unknown> {
+        this.logger.log('Triggering card sync on remote AC server');
+        return this.post('/api/sync/cards', {});
+    }
+
+    async fetchAllCards(cardholderIdNumber?: string): Promise<RemoteCardDto[]> {
+        const params = cardholderIdNumber ? { cardholderIdNumber } : undefined;
+        const response = await this.get<{ value: RemoteCardDto[]; Count: number } | RemoteCardDto[]>('/api/cardholders/cards', params);
+        // The C# service wraps results in { value: [...], Count: N }
+        if (Array.isArray(response)) {
+            return response;
+        }
+        return response.value ?? [];
+    }
+}
+
+export interface RemoteCardDto {
+    amadeusUid: string;
+    cardNumber: string | null;
+    cardholderUid: string | null;
+    cardholderIdNumber: string | null;
+    status: string | null;
+    fromDateValidUtc: string | null;
+    toDateValidUtc: string | null;
+    isFromDateActive: boolean;
+    isToDateActive: boolean;
 }

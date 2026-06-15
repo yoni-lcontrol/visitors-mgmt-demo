@@ -65,6 +65,9 @@ export class User extends BaseEntity {
     @Column({ type: 'nvarchar', length: 20, nullable: true })
     licensePlate!: string | null;
 
+    @Column({ type: 'nvarchar', length: 50, nullable: true })
+    badge!: string | null;
+
     @Column({ type: 'datetime2', nullable: true })
     lastExternalLoginAt!: Date | null;
 

@@ -1,6 +1,8 @@
 using Amadeus8.DTOs;
+using Amadeus8.Data;
 using Amadeus8.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace Amadeus8.Controllers;
 
@@ -9,13 +11,16 @@ namespace Amadeus8.Controllers;
 public class CardholdersController : ControllerBase
 {
     private readonly ICardholderCommandService _commandService;
+    private readonly AmadeusDbContext _dbContext;
     private readonly ILogger<CardholdersController> _logger;
 
     public CardholdersController(
         ICardholderCommandService commandService,
+        AmadeusDbContext dbContext,
         ILogger<CardholdersController> logger)
     {
         _commandService = commandService;
+        _dbContext = dbContext;
         _logger = logger;
     }
 
@@ -128,4 +133,110 @@ public class CardholdersController : ControllerBase
 
         return Ok(result);
     }
+
+    [HttpGet("{amadeusUid}/cards")]
+    public async Task<IActionResult> GetCardsByCardholder(string amadeusUid, CancellationToken cancellationToken)
+    {
+        var cards = await _dbContext.Cards
+            .AsNoTracking()
+            .Where(c => c.CardholderUid == amadeusUid && !c.IsDeleted)
+            .Select(c => new
+            {
+                c.AmadeusUid,
+                c.CardNumber,
+                c.CardholderUid,
+                c.CardholderIdNumber,
+                c.Status,
+                c.FromDateValidUtc,
+                c.ToDateValidUtc,
+                c.IsFromDateActive,
+                c.IsToDateActive,
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(cards);
+    }
+
+    [HttpGet("cards")]
+    public async Task<IActionResult> GetAllCards([FromQuery] string? cardholderIdNumber, CancellationToken cancellationToken)
+    {
+        var query = _dbContext.Cards.AsNoTracking().Where(c => !c.IsDeleted);
+
+        if (!string.IsNullOrWhiteSpace(cardholderIdNumber))
+        {
+            query = query.Where(c => c.CardholderIdNumber == cardholderIdNumber);
+        }
+
+        var cards = await query
+            .Select(c => new
+            {
+                c.AmadeusUid,
+                c.CardNumber,
+                c.CardholderUid,
+                c.CardholderIdNumber,
+                c.Status,
+                c.FromDateValidUtc,
+                c.ToDateValidUtc,
+                c.IsFromDateActive,
+                c.IsToDateActive,
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(cards);
+    }
+
+    /// <summary>
+    /// Returns cardholders with their linked badge (card) info.
+    /// </summary>
+    [HttpGet("with-badges")]
+    public async Task<IActionResult> GetCardholdersWithBadges(CancellationToken cancellationToken)
+    {
+        var cardholders = await _dbContext.Cardholders
+            .AsNoTracking()
+            .Where(c => !c.IsDeleted && !c.IsArchived)
+            .ToListAsync(cancellationToken);
+
+        var cards = await _dbContext.Cards
+            .AsNoTracking()
+            .Where(c => !c.IsDeleted)
+            .ToListAsync(cancellationToken);
+
+        var cardsByCardholder = cards
+            .Where(c => c.CardholderUid != null)
+            .GroupBy(c => c.CardholderUid!)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var result = cardholders.Select(ch =>
+        {
+            var badge = cardsByCardholder.GetValueOrDefault(ch.AmadeusUid)?.FirstOrDefault();
+            return new
+            {
+                ch.AmadeusUid,
+                ch.CardholderIdNumber,
+                ch.FirstName,
+                ch.LastName,
+                ch.Status,
+                BadgeCode = badge?.CardNumber,
+                BadgeStatus = badge?.Status,
+                BadgeAmadeusUid = badge?.AmadeusUid,
+            };
+        }).ToList();
+
+        return Ok(result);
+    }
+
+    [HttpPatch("cards/{amadeusUid}/badge-code")]
+    public async Task<IActionResult> SetBadgeCode(string amadeusUid, [FromBody] SetBadgeCodeDto dto, CancellationToken cancellationToken)
+    {
+        var card = await _dbContext.Cards.FirstOrDefaultAsync(c => c.AmadeusUid == amadeusUid, cancellationToken);
+        if (card is null) return NotFound();
+
+        card.CardNumber = dto.BadgeCode;
+        card.UpdatedUtc = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new { card.AmadeusUid, card.CardNumber, card.CardholderIdNumber });
+    }
 }
+
+public record SetBadgeCodeDto(string BadgeCode);

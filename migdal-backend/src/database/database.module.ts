@@ -45,6 +45,7 @@ import { AdGroupRoleMapping } from '../ad-group-role-mappings/entities/ad-group-
 import { VehicleManufacturer } from '../settings/entities/vehicle-manufacturer.entity';
 import { VehicleModel } from '../settings/entities/vehicle-model.entity';
 import { AmadeusSyncQueue } from '../amadeus/entities/amadeus-sync-queue.entity';
+import { UserBadge } from '../users/entities/user-badge.entity';
 
 const entities = [
     User, Role, Permission, RefreshToken,
@@ -59,6 +60,7 @@ const entities = [
     Sector,
     AdGroupRoleMapping,
     AmadeusSyncQueue,
+    UserBadge,
 ];
 
 @Module({

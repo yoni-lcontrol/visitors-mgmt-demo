@@ -65,6 +65,7 @@ builder.Services.AddScoped<ISecurityGroupImportService, SecurityGroupImportServi
 builder.Services.AddScoped<IAccessLevelImportService, AccessLevelImportService>();
 builder.Services.AddScoped<IAccessImportRoutingService, AccessImportRoutingService>();
 builder.Services.AddScoped<ICardholderSyncService, CardholderSyncService>();
+builder.Services.AddScoped<ICardSyncService, CardSyncService>();
 builder.Services.AddScoped<ICardholderCommandService, CardholderCommandService>();
 builder.Services.AddScoped<IEventProcessingService, EventProcessingService>();
 builder.Services.AddScoped<IEquipmentResolverService, EquipmentResolverService>();

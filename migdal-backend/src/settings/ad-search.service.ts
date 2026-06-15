@@ -10,6 +10,7 @@ export interface AdPersonResult {
     displayName: string;
     email: string | null;
     phone: string | null;
+    idNumber: string | null;
 }
 
 export class AdSearchException extends Error {
@@ -68,7 +69,7 @@ export class AdSearchService {
             const { searchEntries } = await client.search(config.baseDn || `DC=${config.domain.split('.').join(',DC=')}`, {
                 scope: 'sub',
                 filter,
-                attributes: ['givenName', 'sn', 'displayName', 'mail', 'telephoneNumber', 'mobile'],
+                attributes: ['givenName', 'sn', 'displayName', 'mail', 'telephoneNumber', 'mobile', 'employeeID'],
                 sizeLimit: 15,
                 timeLimit: 10,
             });
@@ -79,6 +80,7 @@ export class AdSearchService {
                 displayName: this.getStringAttr(entry, 'displayName'),
                 email: this.getStringAttr(entry, 'mail') || null,
                 phone: this.getStringAttr(entry, 'telephoneNumber') || this.getStringAttr(entry, 'mobile') || null,
+                idNumber: this.getStringAttr(entry, 'employeeID') || null,
             }));
         } catch (err) {
             if (err instanceof AdSearchException) throw err;

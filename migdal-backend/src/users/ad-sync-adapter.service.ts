@@ -12,6 +12,7 @@ export interface AdUserEntry {
     department: string | null;
     title: string | null;
     employeeId: string | null;
+    idNumber: string | null;
     company: string | null;
     groupNames: string[];
     groupExternalIds: string[];
@@ -115,6 +116,7 @@ export class AdSyncAdapterService {
             'department',
             'title',
             'employeeID',
+            'idcard',
             'company',
             'memberOf',
             'userAccountControl',
@@ -275,6 +277,7 @@ export class AdSyncAdapterService {
             department: this.getAttr(entry, 'department') || null,
             title: this.getAttr(entry, 'title') || null,
             employeeId: this.getAttr(entry, 'employeeID') || null,
+            idNumber: this.getAttr(entry, 'idcard') || null,
             company: this.getAttr(entry, 'company') || null,
             groupNames: this.extractGroupNames(entry),
             groupExternalIds: this.extractGroupExternalIds(entry),

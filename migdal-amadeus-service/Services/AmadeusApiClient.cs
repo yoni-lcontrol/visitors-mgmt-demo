@@ -242,6 +242,48 @@ public class AmadeusApiClient : IAmadeusApiClient
         _logger.LogInformation("Cardholder {Uid} deleted successfully", uid);
     }
 
+    public async Task<(List<AmadeusCard> Items, int? TotalCount)> GetCardsPagedAsync(int skip, int top, CancellationToken cancellationToken)
+    {
+        var relativePath = AmadeusApiDefinitions.OData.CardsPaged(skip, top);
+        _logger.LogInformation("Fetching cards page skip={Skip} top={Top}", skip, top);
+
+        var client = await CreateAuthenticatedClientAsync(cancellationToken);
+        var url = AmadeusApiDefinitions.ODataUrl(_options, relativePath, nameof(AmadeusApiDefinitions.OData.CardsPaged));
+        using var response = await client.GetAsync(url, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogError("Cards paged fetch failed. Status: {StatusCode}, Response: {ErrorBody}", response.StatusCode, errorBody);
+            throw new HttpRequestException($"Cards paged fetch failed with status {response.StatusCode}");
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<ODataCountResponse<AmadeusCard>>(cancellationToken);
+        var items = result?.Value ?? [];
+        _logger.LogInformation("Fetched {Count} cards (total: {Total})", items.Count, result?.Count);
+        return (items, result?.Count);
+    }
+
+    public async Task<List<AmadeusCard>> GetCardsByCardholderUidAsync(string cardholderUid, CancellationToken cancellationToken)
+    {
+        var relativePath = AmadeusApiDefinitions.OData.CardsByCardholderUid(cardholderUid);
+        _logger.LogInformation("Fetching cards for cardholder {Uid}", cardholderUid);
+
+        var client = await CreateAuthenticatedClientAsync(cancellationToken);
+        var url = AmadeusApiDefinitions.ODataUrl(_options, relativePath, nameof(AmadeusApiDefinitions.OData.Cards));
+        using var response = await client.GetAsync(url, cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+            _logger.LogError("Cards fetch by cardholder UID failed. Status: {StatusCode}, Response: {ErrorBody}", response.StatusCode, errorBody);
+            return [];
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<ODataResponse<AmadeusCard>>(cancellationToken);
+        return result?.Value ?? [];
+    }
+
     public async Task<AmadeusCardholderPersonalDetails?> GetCardholderPersonalDetailsAsync(string cardholderUid, CancellationToken cancellationToken)
     {
         var relativePath = AmadeusApiDefinitions.OData.CardholderPersonalDetailsByCardholderUid(cardholderUid);

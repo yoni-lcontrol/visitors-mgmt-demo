@@ -12,6 +12,7 @@ public class SyncController : ControllerBase
     private readonly ISecurityGroupImportService _securityGroupImportService;
     private readonly IAccessLevelImportService _accessLevelImportService;
     private readonly ICardholderSyncService _cardholderSyncService;
+    private readonly ICardSyncService _cardSyncService;
     private readonly ILogger<SyncController> _logger;
 
     public SyncController(
@@ -20,6 +21,7 @@ public class SyncController : ControllerBase
         ISecurityGroupImportService securityGroupImportService,
         IAccessLevelImportService accessLevelImportService,
         ICardholderSyncService cardholderSyncService,
+        ICardSyncService cardSyncService,
         ILogger<SyncController> logger)
     {
         _importService = importService;
@@ -27,6 +29,7 @@ public class SyncController : ControllerBase
         _securityGroupImportService = securityGroupImportService;
         _accessLevelImportService = accessLevelImportService;
         _cardholderSyncService = cardholderSyncService;
+        _cardSyncService = cardSyncService;
         _logger = logger;
     }
 
@@ -154,6 +157,22 @@ public class SyncController : ControllerBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Manual cardholder sync failed");
+            return StatusCode(500, new { error = "Sync operation failed" });
+        }
+    }
+
+    [HttpPost("cards")]
+    public async Task<IActionResult> Cards(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Manual card sync triggered via API");
+        try
+        {
+            var result = await _cardSyncService.SyncAllCardsAsync(cancellationToken);
+            return Ok(result);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Manual card sync failed");
             return StatusCode(500, new { error = "Sync operation failed" });
         }
     }

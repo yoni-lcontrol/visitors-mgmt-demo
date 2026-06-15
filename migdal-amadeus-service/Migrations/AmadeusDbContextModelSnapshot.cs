@@ -114,6 +114,68 @@ namespace Amadeus8.Migrations
                     b.ToTable("AccessLevels", (string)null);
                 });
 
+            modelBuilder.Entity("Amadeus8.Entities.CardEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AmadeusUid")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CardNumber")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CardholderIdNumber")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CardholderUid")
+                        .HasMaxLength(256)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("FromDateValidUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsFromDateActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsToDateActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ToDateValidUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AmadeusUid")
+                        .IsUnique();
+
+                    b.HasIndex("CardNumber");
+
+                    b.HasIndex("CardholderIdNumber");
+
+                    b.HasIndex("CardholderUid");
+
+                    b.ToTable("Cards", (string)null);
+                });
+
             modelBuilder.Entity("Amadeus8.Entities.CardholderEntity", b =>
                 {
                     b.Property<int>("Id")

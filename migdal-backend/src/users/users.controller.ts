@@ -21,6 +21,7 @@ import { Queue } from 'bullmq';
 import { sendExcelResponse } from '../common/utils/excel.util';
 import { UsersService } from './users.service';
 import { AdSyncService } from './ad-sync.service';
+import { AmadeusBadgeImportService } from './amadeus-badge-import.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { AssignUserRolesDto } from './dto/assign-user-roles.dto';
@@ -43,6 +44,7 @@ export class UsersController {
     constructor(
         private readonly usersService: UsersService,
         private readonly adSyncService: AdSyncService,
+        private readonly badgeImportService: AmadeusBadgeImportService,
         @Optional() @Inject(getQueueToken(AD_SYNC_QUEUE)) private readonly adSyncQueue?: Queue<AdSyncJobData>,
     ) { }
 
@@ -232,5 +234,15 @@ export class UsersController {
         @CurrentUser('sub') currentUserId: string,
     ) {
         return this.usersService.assignRoles(id, dto.roleIds, currentUserId);
+    }
+
+    @Post('sync-badges')
+    @RequirePermissions(PermissionKey.UsersSync)
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Import badge/card data from Amadeus and link to users by idNumber' })
+    async syncBadges(@CurrentUser('sub') currentUserId: string) {
+        this.logger.log(`Badge import triggered by user ${currentUserId}`);
+        const result = await this.badgeImportService.importBadgesFromAmadeus(currentUserId);
+        return result;
     }
 }

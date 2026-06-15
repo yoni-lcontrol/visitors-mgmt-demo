@@ -13,6 +13,7 @@ public static class AmadeusApiDefinitions
         public const string SecurityGroups = "/odata/API_SecurityGroups";
         public const string AccessGroups = "/odata/API_AccessGroups";
         public const string Cardholders = "/odata/API_Cardholders";
+        public const string Cards = "/odata/API_Cards";
         public const string CardholderPersonalDetails = "/odata/API_CardholderPersonalDetails";
 
         public static string CardholderPersonalDetailsByCardholderUid(string cardholderUid)
@@ -68,6 +69,16 @@ public static class AmadeusApiDefinitions
         public static string CardholdersByIdNumber(string cardholderIdNumber)
         {
             return $"{Cardholders}?$filter=cardholderIdNumber eq '{cardholderIdNumber}'";
+        }
+
+        public static string CardsPaged(int skip, int top)
+        {
+            return BuildPagedPath(Cards, skip, top);
+        }
+
+        public static string CardsByCardholderUid(string cardholderUid)
+        {
+            return $"{Cards}?$filter=cardholderUID eq {cardholderUid}";
         }
 
         private static string BuildPagedPath(string entitySetPath, int skip, int top)

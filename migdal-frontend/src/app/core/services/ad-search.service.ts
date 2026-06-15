@@ -8,6 +8,7 @@ export interface AdPersonSuggestion {
     displayName: string;
     email: string | null;
     phone: string | null;
+    idNumber: string | null;
 }
 
 @Injectable({ providedIn: 'root' })

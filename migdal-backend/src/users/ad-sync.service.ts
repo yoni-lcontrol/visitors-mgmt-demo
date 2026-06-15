@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, In, IsNull, QueryRunner } from 'typeorm';
@@ -12,6 +12,7 @@ import { WsEvent } from '../websocket/enums/ws-events.enum';
 import { hashPassword } from '../common/utils/hash.util';
 import { AdGroupRoleMapping } from '../ad-group-role-mappings/entities/ad-group-role-mapping.entity';
 import { Role } from '../roles/entities/role.entity';
+import { AmadeusBadgeImportService } from './amadeus-badge-import.service';
 
 const DEFAULT_BATCH_SIZE = 50;
 const DB_WRITE_BATCH_SIZE = 100;
@@ -64,6 +65,8 @@ export class AdSyncService {
         private readonly usersGateway: UsersGateway,
         private readonly configService: ConfigService,
         private readonly dataSource: DataSource,
+        @Inject(forwardRef(() => AmadeusBadgeImportService))
+        private readonly badgeImportService: AmadeusBadgeImportService,
     ) {
         const envBatch = this.configService.get<number>('AD_SYNC_BATCH_SIZE');
         this.batchSize = envBatch && envBatch > 0 ? envBatch : DEFAULT_BATCH_SIZE;
@@ -126,6 +129,17 @@ export class AdSyncService {
             },
         }).catch(() => { });
 
+        // Chain Amadeus badge sync (runs regardless of AD outcome)
+        let badgeSyncResult: { badgesCreated: number; badgesUpdated: number; badgesDeactivated: number } | null = null;
+        try {
+            this.emitProgress({ phase: 'processing', message: 'Syncing badges from Amadeus...', current: 0, total: 0, created: result.totalCreated, updated: result.totalUpdated, deactivated: result.totalDeactivated, skipped: result.totalSkipped });
+            const bResult = await this.badgeImportService.importBadgesFromAmadeus(triggeredBy);
+            badgeSyncResult = { badgesCreated: bResult.badgesCreated, badgesUpdated: bResult.badgesUpdated, badgesDeactivated: bResult.badgesDeactivated };
+            this.logger.log(`Post-AD badge sync: ${bResult.badgesCreated} created, ${bResult.badgesUpdated} updated, ${bResult.badgesDeactivated} deactivated`);
+        } catch (err) {
+            this.logger.error('Post-AD badge sync failed (non-blocking)', (err as Error).stack);
+        }
+
         if (allFailed) {
             const errorMessages = details.map(d => `${d.configName}: ${d.error}`).join('; ');
             this.usersGateway.broadcastToAll(WsEvent.AdSyncFailed, {
@@ -141,6 +155,7 @@ export class AdSyncService {
                 totalSkipped: result.totalSkipped,
                 durationMs: result.durationMs,
                 details: result.details,
+                badgeSync: badgeSyncResult,
             });
         }
 
@@ -409,6 +424,7 @@ export class AdSyncService {
         if (adUser.department !== undefined && localUser.department !== adUser.department) { localUser.department = adUser.department; changed = true; }
         if (adUser.title !== undefined && localUser.title !== adUser.title) { localUser.title = adUser.title; changed = true; }
         if (adUser.employeeId !== undefined && localUser.employeeId !== adUser.employeeId) { localUser.employeeId = adUser.employeeId; changed = true; }
+        if (adUser.idNumber && localUser.idNumber !== adUser.idNumber) { localUser.idNumber = adUser.idNumber; changed = true; }
 
         // Sync sector (company → תחום)
         if (localUser.sectorId !== sectorId) { localUser.sectorId = sectorId; changed = true; }
@@ -500,6 +516,7 @@ export class AdSyncService {
             department: adUser.department,
             title: adUser.title,
             employeeId: adUser.employeeId,
+            idNumber: adUser.idNumber || null,
             sectorId,
             roleId: matchedRoles[0]?.id ?? null,
             roles: matchedRoles,

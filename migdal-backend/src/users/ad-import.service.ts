@@ -21,6 +21,7 @@ interface AdUserEntry {
     email: string | null;
     phone: string | null;
     idNumber: string | null;
+    employeeId: string | null;
     company: string | null;
     isDisabled: boolean;
 }
@@ -121,6 +122,7 @@ export class AdImportService {
                     email: this.getAttr(entry, 'mail') || null,
                     phone: this.getAttr(entry, 'telephoneNumber') || this.getAttr(entry, 'mobile') || null,
                     idNumber: this.getAttr(entry, 'employeeID') || null,
+                    employeeId: this.getAttr(entry, 'employeeID') || null,
                     company: this.getAttr(entry, 'company') || null,
                     isDisabled: this.isAccountDisabled(entry),
                 }));
@@ -169,6 +171,7 @@ export class AdImportService {
                 if (adUser.email && existing.email !== adUser.email) { existing.email = adUser.email; changed = true; }
                 if (adUser.phone && existing.phone !== adUser.phone) { existing.phone = adUser.phone; changed = true; }
                 if (adUser.idNumber && existing.idNumber !== adUser.idNumber) { existing.idNumber = adUser.idNumber; changed = true; }
+                if (adUser.employeeId !== null && existing.employeeId !== adUser.employeeId) { existing.employeeId = adUser.employeeId; changed = true; }
 
                 // Sync sector (company → תחום)
                 if (existing.sectorId !== sectorId) { existing.sectorId = sectorId; changed = true; }
@@ -196,6 +199,7 @@ export class AdImportService {
                     email: adUser.email,
                     phone: adUser.phone,
                     idNumber: adUser.idNumber,
+                    employeeId: adUser.employeeId,
                     sectorId,
                     isActive: !adUser.isDisabled,
                     createdBy: currentUserId ?? null,
@@ -259,7 +263,8 @@ export class AdImportService {
     }
 
     private getAttr(entry: Record<string, unknown>, attr: string): string {
-        const val = entry[attr];
+        const key = Object.keys(entry).find(k => k.toLowerCase() === attr.toLowerCase());
+        const val = key ? entry[key] : undefined;
         if (!val) return '';
         if (Array.isArray(val)) return String(val[0] ?? '');
         return String(val);

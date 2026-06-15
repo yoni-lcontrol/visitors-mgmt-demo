@@ -19,6 +19,7 @@ public class AmadeusDbContext : DbContext
     public DbSet<AccessGroupEntity> AccessGroups => Set<AccessGroupEntity>();
     public DbSet<AccessLevelEntity> AccessLevels => Set<AccessLevelEntity>();
     public DbSet<CardholderEntity> Cardholders => Set<CardholderEntity>();
+    public DbSet<CardEntity> Cards => Set<CardEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -34,6 +35,7 @@ public class AmadeusDbContext : DbContext
         ConfigureAccessGroup(modelBuilder);
         ConfigureAccessLevel(modelBuilder);
         ConfigureCardholder(modelBuilder);
+        ConfigureCard(modelBuilder);
     }
 
     private static void ConfigureController(ModelBuilder modelBuilder)
@@ -247,6 +249,25 @@ public class AmadeusDbContext : DbContext
             entity.HasIndex(e => e.CardholderIdNumber);
             entity.HasIndex(e => e.SecurityGroupUid);
             entity.HasIndex(e => e.Status);
+        });
+    }
+
+    private static void ConfigureCard(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<CardEntity>(entity =>
+        {
+            entity.ToTable("Cards");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.AmadeusUid).HasMaxLength(256).IsRequired();
+            entity.Property(e => e.CardholderUid).HasMaxLength(256);
+            entity.Property(e => e.CardholderIdNumber).HasMaxLength(256);
+            entity.Property(e => e.CardNumber).HasMaxLength(256);
+            entity.Property(e => e.Status).HasMaxLength(128);
+
+            entity.HasIndex(e => e.AmadeusUid).IsUnique();
+            entity.HasIndex(e => e.CardholderUid);
+            entity.HasIndex(e => e.CardholderIdNumber);
+            entity.HasIndex(e => e.CardNumber);
         });
     }
 }

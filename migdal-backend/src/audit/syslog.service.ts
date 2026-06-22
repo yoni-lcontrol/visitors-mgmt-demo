@@ -1,7 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as https from 'https';
-import * as http from 'http';
+import * as net from 'net';
+import * as dgram from 'dgram';
 
 export interface SyslogMessage {
     category: string;
@@ -16,34 +16,32 @@ export interface SyslogMessage {
 }
 
 @Injectable()
-export class SyslogService {
+export class SyslogService implements OnModuleDestroy {
     private readonly logger = new Logger(SyslogService.name);
     private readonly host: string;
     private readonly port: number;
-    private readonly protocol: string;
+    private readonly protocol: 'tcp' | 'udp';
     private readonly token: string;
     private readonly enabled: boolean;
-    private readonly hecUrl: string;
-    private readonly agent: https.Agent | http.Agent;
+    private tcpSocket: net.Socket | null = null;
+    private reconnecting = false;
 
     constructor(private readonly config: ConfigService) {
         this.host = this.config.get<string>('SIEM_SYSLOG_HOST', '');
-        this.port = this.config.get<number>('SIEM_SYSLOG_PORT', 8088);
-        this.protocol = this.config.get<string>('SIEM_SYSLOG_PROTOCOL', 'https');
+        this.port = this.config.get<number>('SIEM_SYSLOG_PORT', 514);
+        this.protocol = this.config.get<string>('SIEM_SYSLOG_PROTOCOL', 'tcp') as 'tcp' | 'udp';
         this.token = this.config.get<string>('SIEM_SYSLOG_TOKEN', '');
-        this.enabled = !!this.host && !!this.token;
+        this.enabled = !!this.host;
 
-        const scheme = this.protocol === 'http' ? 'http' : 'https';
-        this.hecUrl = `${scheme}://${this.host}:${this.port}/services/collector/event`;
-
-        if (scheme === 'https') {
-            this.agent = new https.Agent({ rejectUnauthorized: false, keepAlive: true });
-        } else {
-            this.agent = new http.Agent({ keepAlive: true });
+        if (this.enabled && this.protocol === 'tcp') {
+            this.connectTcp();
         }
+    }
 
-        if (this.enabled) {
-            this.logger.log(`Splunk HEC configured: ${this.hecUrl}`);
+    onModuleDestroy(): void {
+        if (this.tcpSocket) {
+            this.tcpSocket.destroy();
+            this.tcpSocket = null;
         }
     }
 
@@ -56,59 +54,91 @@ export class SyslogService {
             return true;
         }
 
-        const payload = JSON.stringify({
-            event: message,
-            sourcetype: 'migdal-backend',
-            source: message.module || 'migdal-backend',
-            time: message.timestamp
-                ? new Date(message.timestamp).getTime() / 1000
-                : Date.now() / 1000,
-        });
+        const syslogLine = this.formatRfc5424(message);
 
         try {
-            await this.sendHec(payload);
+            if (this.protocol === 'udp') {
+                await this.sendUdp(syslogLine);
+            } else {
+                await this.sendTcp(syslogLine);
+            }
             return true;
         } catch (err) {
-            this.logger.warn(`Failed to send HEC event: ${(err as Error).message}`);
+            this.logger.warn(`Failed to send syslog message: ${(err as Error).message}`);
             return false;
         }
     }
 
-    private sendHec(payload: string): Promise<void> {
+    private formatRfc5424(message: SyslogMessage): string {
+        const facility = 16; // local0
+        const severity = 6; // informational
+        const priority = facility * 8 + severity;
+        const timestamp = message.timestamp ?? new Date().toISOString();
+        const appname = this.token || 'migdal-backend';
+        const hostname = '-';
+        const msgId = message.action;
+        const structuredData = '-';
+        const payload = JSON.stringify(message);
+
+        return `<${priority}>1 ${timestamp} ${hostname} ${appname} - ${msgId} ${structuredData} ${payload}\n`;
+    }
+
+    private sendUdp(line: string): Promise<void> {
         return new Promise((resolve, reject) => {
-            const url = new URL(this.hecUrl);
-            const isHttps = url.protocol === 'https:';
-            const lib = isHttps ? https : http;
+            const client = dgram.createSocket('udp4');
+            const buffer = Buffer.from(line);
+            client.send(buffer, 0, buffer.length, this.port, this.host, (err) => {
+                client.close();
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+    }
 
-            const req = lib.request(
-                {
-                    hostname: url.hostname,
-                    port: url.port,
-                    path: url.pathname,
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Splunk ${this.token}`,
-                        'Content-Type': 'application/json',
-                        'Content-Length': Buffer.byteLength(payload),
-                    },
-                    agent: this.agent,
-                },
-                (res) => {
-                    let body = '';
-                    res.on('data', (chunk) => (body += chunk));
-                    res.on('end', () => {
-                        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-                            resolve();
-                        } else {
-                            reject(new Error(`HEC responded ${res.statusCode}: ${body}`));
-                        }
-                    });
-                },
-            );
+    private sendTcp(line: string): Promise<void> {
+        return new Promise((resolve, reject) => {
+            if (!this.tcpSocket || this.tcpSocket.destroyed) {
+                this.connectTcp();
+            }
 
-            req.on('error', (err) => reject(err));
-            req.write(payload);
-            req.end();
+            if (!this.tcpSocket || this.tcpSocket.destroyed) {
+                reject(new Error('TCP socket not available'));
+                return;
+            }
+
+            const success = this.tcpSocket.write(line, 'utf8', (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+
+            if (!success) {
+                // Backpressure — wait for drain
+                this.tcpSocket.once('drain', () => resolve());
+            }
+        });
+    }
+
+    private connectTcp(): void {
+        if (this.reconnecting) return;
+        this.reconnecting = true;
+
+        this.tcpSocket = net.createConnection({ host: this.host, port: this.port }, () => {
+            this.logger.log(`Syslog TCP connected to ${this.host}:${this.port}`);
+            this.reconnecting = false;
+        });
+
+        this.tcpSocket.on('error', (err) => {
+            this.logger.warn(`Syslog TCP error: ${err.message}`);
+        });
+
+        this.tcpSocket.on('close', () => {
+            this.reconnecting = false;
+            // Auto-reconnect after 5 seconds
+            setTimeout(() => {
+                if (this.enabled && (!this.tcpSocket || this.tcpSocket.destroyed)) {
+                    this.connectTcp();
+                }
+            }, 5000);
         });
     }
 }

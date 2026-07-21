@@ -16,6 +16,7 @@ import { NotificationService } from '@core/notifications/notification.service';
 import { ConfirmService } from '@core/services/confirm.service';
 import { downloadBlob } from '@core/utils/download.util';
 import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.model';
+import { PHONE_PATTERN } from '@shared/constants/regex.constants';
 
 @Component({
   selector: 'app-blacklist-list',
@@ -132,16 +133,26 @@ import { BlacklistEntry, User, PaginatedResult } from '@core/models/entities.mod
 
         <div class="form-row">
           <div class="field"><label>{{ 'BLACKLIST.ID_NUMBER' | translate }} <span class="required">*</span></label>
-            <input type="text" [(ngModel)]="form.idNumber" required pattern="[0-9]*" #idNumberField="ngModel" [placeholder]="'PLACEHOLDER.ENTER_ID_NUMBER' | translate" />
+            <input type="text" [(ngModel)]="form.idNumber" required pattern="[0-9]*" #idNumberField="ngModel"
+              (ngModelChange)="onIdNumberChange($event)"
+              [placeholder]="'PLACEHOLDER.ENTER_ID_NUMBER' | translate" />
             @if (idNumberField.errors?.['required'] && idNumberField.touched) {
               <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
             }
             @if (idNumberField.errors?.['pattern'] && idNumberField.touched) {
               <small class="field-error">{{ 'VALIDATION.DIGITS_ONLY' | translate }}</small>
             }
+            @if (!idNumberField.errors && idNumberField.touched && isIdNumberInvalid) {
+              <small class="field-error">{{ 'VALIDATION.INVALID_PERSON_ID' | translate }}</small>
+            }
           </div>
           <div class="field"><label>{{ 'BLACKLIST.PHONE_NUMBER' | translate }}</label>
-            <input type="text" [(ngModel)]="form.phoneNumber" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" />
+            <input type="text" [(ngModel)]="form.phoneNumber" [pattern]="phonePattern" #phoneField="ngModel"
+              (ngModelChange)="onPhoneChange($event)"
+              [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" />
+            @if (phoneField.errors?.['pattern'] && phoneField.touched) {
+              <small class="field-error">{{ 'VALIDATION.INVALID_PHONE' | translate }}</small>
+            }
           </div>
         </div>
 
@@ -297,6 +308,8 @@ export class BlacklistListComponent implements OnInit {
   allUsers: any[] = [];
   minBlockedUntilDate = new Date();
 
+  phonePattern = PHONE_PATTERN.source;
+
   private translate = inject(TranslateService);
   private destroyRef = inject(DestroyRef);
   private confirmService = inject(ConfirmService);
@@ -419,7 +432,44 @@ export class BlacklistListComponent implements OnInit {
 
   isFormValid(): boolean {
     if (!this.form.firstName || !this.form.lastName || !this.form.idNumber || !this.form.reason) return false;
+    if (!/^\d+$/.test(this.form.idNumber) || !this.isValidIsraeliId(this.form.idNumber)) return false;
+    if (this.form.phoneNumber && !PHONE_PATTERN.test(this.form.phoneNumber)) return false;
     return true;
+  }
+
+  get isIdNumberInvalid(): boolean {
+    const id = this.form.idNumber?.trim();
+    if (!id || !/^\d+$/.test(id)) return false;
+    return !this.isValidIsraeliId(id);
+  }
+
+  onIdNumberChange(value: string): void {
+    const sanitized = value.replace(/\D/g, '');
+    if (sanitized !== value) {
+      this.form.idNumber = sanitized;
+    }
+  }
+
+  onPhoneChange(value: string): void {
+    const hasPlus = value.startsWith('+');
+    const sanitized = (hasPlus ? '+' : '') + value.replace(/\D/g, '');
+    if (sanitized !== value) {
+      this.form.phoneNumber = sanitized;
+    }
+  }
+
+  isValidIsraeliId(id: string): boolean {
+    const cleaned = id.replace(/\D/g, '');
+    if (cleaned.length < 5 || cleaned.length > 9) return false;
+    const padded = cleaned.padStart(9, '0');
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      let digit = parseInt(padded[i], 10);
+      if (i % 2 === 1) digit *= 2;
+      if (digit > 9) digit -= 9;
+      sum += digit;
+    }
+    return sum % 10 === 0;
   }
 
   save(): void {

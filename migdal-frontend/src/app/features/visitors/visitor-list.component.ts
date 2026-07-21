@@ -1,8 +1,7 @@
-import { Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { TranslateModule } from '@ngx-translate/core';
 import { TableModule } from 'primeng/table';
 import { InputTextModule } from 'primeng/inputtext';
 import { DialogModule } from 'primeng/dialog';
@@ -11,9 +10,9 @@ import { PermissionService } from '@core/permissions/permission.service';
 import { NotificationService } from '@core/notifications/notification.service';
 import { ConfirmService } from '@core/services/confirm.service';
 import { downloadBlob } from '@core/utils/download.util';
-import { buildVehicleTypeOptions, getVehicleTypeLabel } from '@core/utils/vehicle-type.util';
 import { Visitor } from '@core/models/entities.model';
 import { VisitorsApiService, VisitorPayload } from './services/visitors-api.service';
+import { VehicleModelsApiService } from '../settings/services/vehicle-models-api.service';
 
 interface VisitorFormModel {
     personId: string;
@@ -225,8 +224,7 @@ export class VisitorListComponent implements OnInit {
     private readonly permissionService = inject(PermissionService);
     private readonly notify = inject(NotificationService);
     private readonly confirmService = inject(ConfirmService);
-    private readonly translate = inject(TranslateService);
-    private readonly destroyRef = inject(DestroyRef);
+    private readonly vehicleModelsApi = inject(VehicleModelsApiService);
 
     visitors: Visitor[] = [];
     totalRecords = 0;
@@ -237,7 +235,7 @@ export class VisitorListComponent implements OnInit {
     saving = false;
     showDialog = false;
     editingVisitor: Visitor | null = null;
-    vehicleTypeOptions = buildVehicleTypeOptions(this.translate);
+    vehicleTypeOptions: { label: string; value: string }[] = [];
 
     private lastLazyEvent: any = { first: 0, rows: 20, sortField: 'updatedAt', sortOrder: -1, filters: {} };
 
@@ -245,11 +243,16 @@ export class VisitorListComponent implements OnInit {
 
     ngOnInit(): void {
         this.loadData();
-        this.translate.onLangChange
-            .pipe(takeUntilDestroyed(this.destroyRef))
-            .subscribe(() => {
-                this.vehicleTypeOptions = buildVehicleTypeOptions(this.translate);
-            });
+        this.loadVehicleTypeOptions();
+    }
+
+    private loadVehicleTypeOptions(): void {
+        this.vehicleModelsApi.getManufacturers().subscribe({
+            next: (manufacturers) => {
+                this.vehicleTypeOptions = manufacturers.map(m => ({ label: m, value: m }));
+            },
+            error: () => { this.vehicleTypeOptions = []; },
+        });
     }
 
     loadData(event: any = this.lastLazyEvent): void {
@@ -395,7 +398,7 @@ export class VisitorListComponent implements OnInit {
     }
 
     getVehicleTypeLabel(vehicleType: string | null): string {
-        return getVehicleTypeLabel(vehicleType, this.translate);
+        return vehicleType || '-';
     }
 
     getVisitorName(visitor: Visitor): string {

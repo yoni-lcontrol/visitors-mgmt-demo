@@ -56,17 +56,6 @@ export class Visit extends BaseEntity {
     @JoinColumn({ name: 'visitRequesterUserId' })
     visitRequesterUser!: User | null;
 
-    @Column({ type: 'nvarchar', length: 200, nullable: true })
-    visitRequesterFirstName!: string | null;
-
-    @Column({ type: 'nvarchar', length: 200, nullable: true })
-    visitRequesterLastName!: string | null;
-
-    @Column({ type: 'nvarchar', length: 50, nullable: true })
-    visitRequesterPhone!: string | null;
-
-    @Column({ type: 'nvarchar', length: 320, nullable: true })
-    visitRequesterEmail!: string | null;
 
     @OneToMany(() => VisitVisitor, (vv) => vv.visit)
     visitVisitors!: VisitVisitor[];

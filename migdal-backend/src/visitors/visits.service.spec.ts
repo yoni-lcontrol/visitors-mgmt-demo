@@ -91,28 +91,15 @@ describe('VisitsService', () => {
             const visit = {
                 visitRequesterUserId: 'u1',
                 visitRequesterUser: { firstName: 'Alice', lastName: 'Admin', phone: '+972501111111', email: 'alice@example.com' },
-                visitRequesterFirstName: null,
-                visitRequesterLastName: null,
             } as any;
             const result = service.resolveVisitRequester(visit);
             expect(result).toEqual({ firstName: 'Alice', lastName: 'Admin', phone: '+972501111111', email: 'alice@example.com' });
         });
 
-        it('should return stored fields when visitRequesterUserId is null', () => {
+        it('should return null when no requester user is loaded', () => {
             const visit = {
                 visitRequesterUserId: null,
                 visitRequesterUser: null,
-                visitRequesterFirstName: 'Manual', visitRequesterLastName: 'Person',
-                visitRequesterPhone: '555', visitRequesterEmail: 'm@p.com',
-            } as any;
-            const result = service.resolveVisitRequester(visit);
-            expect(result).toEqual({ firstName: 'Manual', lastName: 'Person', phone: '555', email: 'm@p.com' });
-        });
-
-        it('should return null when no requester data exists', () => {
-            const visit = {
-                visitRequesterUserId: null, visitRequesterUser: null,
-                visitRequesterFirstName: null, visitRequesterLastName: null,
             } as any;
             expect(service.resolveVisitRequester(visit)).toBeNull();
         });
@@ -122,7 +109,7 @@ describe('VisitsService', () => {
 
     describe('findAllVisits', () => {
         it('should return paginated visits with status summaries', async () => {
-            const visits = [{ id: 'v1', title: 'Meeting', visitRequesterFirstName: 'John', visitRequesterLastName: 'Doe', visitRequesterPhone: '123', visitRequesterEmail: 'j@d.com' }];
+            const visits = [{ id: 'v1', title: 'Meeting', visitRequesterUserId: 'u1', visitRequesterUser: { firstName: 'John', lastName: 'Doe', phone: '123', email: 'j@d.com' } }];
             const visitQb = createMockQueryBuilder(visits, 1);
             mockVisitRepo.createQueryBuilder.mockReturnValue(visitQb);
 
@@ -241,9 +228,8 @@ describe('VisitsService', () => {
                 plannedStartTimeUtc: new Date('2025-06-01T09:00:00Z'),
                 plannedEndTimeUtc: new Date('2025-06-01T17:00:00Z'),
                 building: { name: 'HQ' },
-                visitRequesterFirstName: 'John', visitRequesterLastName: 'Doe',
-                visitRequesterPhone: '123', visitRequesterEmail: 'j@d.com',
-                visitRequesterUserId: null, visitRequesterUser: null,
+                visitRequesterUserId: 'u1',
+                visitRequesterUser: { firstName: 'John', lastName: 'Doe', phone: '123', email: 'j@d.com' },
                 visitVisitors: [{
                     visitor: { firstName: 'Alice', lastName: 'Smith', phone: '555', email: 'a@s.com', personId: 'ID1', carNumber: 'ABC' },
                     status: { currentStatus: 2 },
@@ -265,8 +251,6 @@ describe('VisitsService', () => {
                 plannedStartTimeUtc: new Date('2025-06-01T09:00:00Z'),
                 plannedEndTimeUtc: null,
                 building: null,
-                visitRequesterFirstName: null, visitRequesterLastName: null,
-                visitRequesterPhone: null, visitRequesterEmail: null,
                 visitRequesterUserId: null, visitRequesterUser: null,
                 visitVisitors: [
                     { visitor: { firstName: 'V1', lastName: 'L1', phone: '1', email: '1@e.com', personId: 'P1', carNumber: null }, status: { currentStatus: 0 } },
@@ -312,8 +296,6 @@ describe('VisitsService', () => {
                 plannedStartTimeUtc: new Date('2025-06-01T09:00:00Z'),
                 plannedEndTimeUtc: null,
                 building: null,
-                visitRequesterFirstName: null, visitRequesterLastName: null,
-                visitRequesterPhone: null, visitRequesterEmail: null,
                 visitRequesterUserId: null, visitRequesterUser: null,
                 visitVisitors: [],
                 visitEscorts: [],
@@ -329,7 +311,7 @@ describe('VisitsService', () => {
 
     describe('findVisitsByDateRange', () => {
         it('should return visits within date range with status summaries', async () => {
-            const visits = [{ id: 'v1', title: 'Meeting', visitRequesterFirstName: 'John', visitRequesterLastName: 'Doe', visitRequesterPhone: '123', visitRequesterEmail: 'j@d.com' }];
+            const visits = [{ id: 'v1', title: 'Meeting', visitRequesterUserId: 'u1', visitRequesterUser: { firstName: 'John', lastName: 'Doe', phone: '123', email: 'j@d.com' } }];
             const visitQb = createMockQueryBuilder(visits);
             mockVisitRepo.createQueryBuilder.mockReturnValue(visitQb);
 
@@ -352,7 +334,7 @@ describe('VisitsService', () => {
             await service.findVisitsByDateRange('2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z', 'test', 'user-1');
 
             expect(visitQb.andWhere).toHaveBeenCalledWith(
-                '(v.title LIKE :s OR v.purposeOfVisit LIKE :s OR v.visitRequesterFirstName LIKE :s OR v.visitRequesterLastName LIKE :s OR reqUser.firstName LIKE :s OR reqUser.lastName LIKE :s)',
+                '(v.title LIKE :s OR v.purposeOfVisit LIKE :s OR reqUser.firstName LIKE :s OR reqUser.lastName LIKE :s)',
                 { s: '%test%' },
             );
         });
@@ -370,7 +352,7 @@ describe('VisitsService', () => {
 
     describe('findMyCalendarVisits', () => {
         it('should filter visits to created by or requested for the logged user', async () => {
-            const visits = [{ id: 'v1', title: 'My Visit', visitRequesterFirstName: 'John', visitRequesterLastName: 'Doe', visitRequesterPhone: '123', visitRequesterEmail: 'j@d.com' }];
+            const visits = [{ id: 'v1', title: 'My Visit', visitRequesterUserId: 'u1', visitRequesterUser: { firstName: 'John', lastName: 'Doe', phone: '123', email: 'j@d.com' } }];
             const visitQb = createMockQueryBuilder(visits);
             mockVisitRepo.createQueryBuilder.mockReturnValue(visitQb);
 
@@ -403,7 +385,7 @@ describe('VisitsService', () => {
             await service.findMyCalendarVisits('2025-01-01T00:00:00Z', '2025-02-01T00:00:00Z', 'test', 'user-1');
 
             expect(visitQb.andWhere).toHaveBeenCalledWith(
-                '(v.title LIKE :s OR v.purposeOfVisit LIKE :s OR v.visitRequesterFirstName LIKE :s OR v.visitRequesterLastName LIKE :s OR reqUser.firstName LIKE :s OR reqUser.lastName LIKE :s)',
+                '(v.title LIKE :s OR v.purposeOfVisit LIKE :s OR reqUser.firstName LIKE :s OR reqUser.lastName LIKE :s)',
                 { s: '%test%' },
             );
         });
@@ -411,7 +393,7 @@ describe('VisitsService', () => {
 
     describe('findVisitById', () => {
         it('should return visit with status summary', async () => {
-            const visit = { id: 'v1', title: 'Meeting', visitRequesterFirstName: 'John', visitRequesterLastName: 'Doe', visitRequesterPhone: '123', visitRequesterEmail: 'j@d.com' };
+            const visit = { id: 'v1', title: 'Meeting', visitRequesterUserId: 'u1', visitRequesterUser: { firstName: 'John', lastName: 'Doe', phone: '123', email: 'j@d.com' } };
             mockVisitRepo.findOne.mockResolvedValue(visit);
 
             const statusQb = createMockQueryBuilder([]);
@@ -434,10 +416,8 @@ describe('VisitsService', () => {
                 id: 'v1',
                 title: 'Meeting',
                 createdByUserId: 'another-user',
-                visitRequesterFirstName: 'John',
-                visitRequesterLastName: 'Doe',
-                visitRequesterPhone: '123',
-                visitRequesterEmail: 'j@d.com',
+                visitRequesterUserId: 'u1',
+                visitRequesterUser: { firstName: 'John', lastName: 'Doe', phone: '123', email: 'j@d.com' },
             };
             mockVisitRepo.findOne.mockResolvedValue(visit);
 
@@ -449,10 +429,8 @@ describe('VisitsService', () => {
                 id: 'v1',
                 title: 'Meeting',
                 createdByUserId: 'outside-user',
-                visitRequesterFirstName: 'John',
-                visitRequesterLastName: 'Doe',
-                visitRequesterPhone: '123',
-                visitRequesterEmail: 'j@d.com',
+                visitRequesterUserId: 'u1',
+                visitRequesterUser: { firstName: 'John', lastName: 'Doe', phone: '123', email: 'j@d.com' },
             };
             const usersQb = createMockQueryBuilder([{ id: 'center-user' }]);
             mockVisitRepo.findOne.mockResolvedValue(visit);
@@ -467,29 +445,42 @@ describe('VisitsService', () => {
             title: 'Meeting',
             plannedStartTimeUtc: '2025-01-15T09:00:00.000Z',
             plannedEndTimeUtc: '2025-01-15T17:00:00.000Z',
-            visitRequester: { firstName: 'John', lastName: 'Doe', phone: '123', email: 'j@d.com' },
+            visitRequester: { userId: 'req-user-1' },
             visitors: [{
                 firstName: 'Jane', lastName: 'Smith', personId: '123456789',
             }],
             escorts: [{ firstName: 'Bob', lastName: 'Guard', phone: '555', email: 'b@g.com' }],
         };
 
+        const currentUserMock = {
+            id: 'user-1',
+            firstName: 'Current',
+            lastName: 'User',
+            phone: '+972501112233',
+            email: 'current.user@example.com',
+            sectorId: 'sector-1',
+            sector: { id: 'sector-1', name: 'Operations' },
+        };
+        const requesterUserMock = {
+            id: 'req-user-1',
+            firstName: 'John',
+            lastName: 'Doe',
+            phone: '123',
+            email: 'j@d.com',
+            sector: { id: 'sector-2', name: 'Sales' },
+        };
+
         beforeEach(() => {
-            mockUserRepo.findOne.mockResolvedValue({
-                id: 'user-1',
-                firstName: 'Current',
-                lastName: 'User',
-                phone: '+972501112233',
-                email: 'current.user@example.com',
-                sectorId: 'sector-1',
-                sector: { id: 'sector-1', name: 'Operations' },
+            mockUserRepo.findOne.mockImplementation(({ where }: any) => {
+                if (where?.id === 'req-user-1') return Promise.resolve(requesterUserMock);
+                return Promise.resolve(currentUserMock);
             });
             // Mock findVisitById for return after creation
             mockVisitRepo.findOne.mockResolvedValue({
                 id: 'new-visit', title: 'Meeting',
                 sector: { id: 'sector-1', name: 'Operations' },
-                visitRequesterFirstName: 'John', visitRequesterLastName: 'Doe',
-                visitRequesterPhone: '123', visitRequesterEmail: 'j@d.com',
+                visitRequesterUserId: 'req-user-1',
+                visitRequesterUser: { firstName: 'John', lastName: 'Doe', phone: '123', email: 'j@d.com' },
             });
             const statusQb = createMockQueryBuilder([]);
             mockStatusRepo.createQueryBuilder.mockReturnValue(statusQb);
@@ -525,14 +516,12 @@ describe('VisitsService', () => {
             expect(mockDs._queryRunner.commitTransaction).toHaveBeenCalled();
             expect(mockDs._queryRunner.release).toHaveBeenCalled();
             expect(mockWs.broadcastToAll).toHaveBeenCalledWith('visits:created', expect.any(Object));
-            // When visitRequester is provided, store manual fields with no userId
+            // When visitRequester is provided, store the userId
             expect(mockDs._qrManager.create).toHaveBeenCalledWith(
                 Visit,
                 expect.objectContaining({
                     sectorId: 'sector-1',
-                    visitRequesterUserId: null,
-                    visitRequesterFirstName: 'John',
-                    visitRequesterLastName: 'Doe',
+                    visitRequesterUserId: 'req-user-1',
                 }),
             );
         });
@@ -555,10 +544,6 @@ describe('VisitsService', () => {
                 expect.objectContaining({
                     sectorId: 'sector-1',
                     visitRequesterUserId: 'user-1',
-                    visitRequesterFirstName: null,
-                    visitRequesterLastName: null,
-                    visitRequesterPhone: null,
-                    visitRequesterEmail: null,
                 }),
             );
         });
@@ -746,7 +731,7 @@ describe('VisitsService', () => {
             const existing = {
                 id: 'v1', title: 'Old', plannedStartTimeUtc: new Date('2025-01-15T09:00:00Z'),
                 plannedEndTimeUtc: new Date('2025-01-15T17:00:00Z'), isActive: true,
-                visitRequesterFirstName: 'J', visitRequesterLastName: 'D', visitRequesterPhone: '1', visitRequesterEmail: 'j@d.com',
+                visitRequesterUserId: 'u1', visitRequesterUser: { firstName: 'J', lastName: 'D', phone: '1', email: 'j@d.com' },
             };
             mockVisitRepo.findOne.mockResolvedValue(existing);
             mockVisitRepo.save.mockImplementation((e: any) => Promise.resolve(e));
@@ -779,13 +764,11 @@ describe('VisitsService', () => {
             } as any)).rejects.toThrow(BadRequestException);
         });
 
-        it('should set visitRequesterUserId and clear fields when visitRequester is null', async () => {
+        it('should set visitRequesterUserId to current user when visitRequester is null', async () => {
             const existing = {
                 id: 'v1', title: 'Test', isActive: true,
                 plannedStartTimeUtc: new Date('2025-01-15T09:00:00Z'),
                 plannedEndTimeUtc: new Date('2025-01-15T17:00:00Z'),
-                visitRequesterFirstName: 'Old', visitRequesterLastName: 'Requester',
-                visitRequesterPhone: '000', visitRequesterEmail: 'old@test.com',
                 visitRequesterUserId: null,
             };
             mockVisitRepo.findOne.mockResolvedValue(existing);
@@ -801,10 +784,6 @@ describe('VisitsService', () => {
 
             expect(mockVisitRepo.save).toHaveBeenCalledWith(expect.objectContaining({
                 visitRequesterUserId: 'user-1',
-                visitRequesterFirstName: null,
-                visitRequesterLastName: null,
-                visitRequesterPhone: null,
-                visitRequesterEmail: null,
             }));
         });
 
@@ -817,10 +796,6 @@ describe('VisitsService', () => {
                 plannedEndTimeUtc: new Date('2025-01-15T17:00:00Z'),
                 visitRequesterUserId: 'requester-1',
                 visitRequesterUser: null,
-                visitRequesterFirstName: null,
-                visitRequesterLastName: null,
-                visitRequesterPhone: null,
-                visitRequesterEmail: null,
             };
             mockVisitRepo.findOne.mockResolvedValue(existing);
             mockVisitRepo.save.mockImplementation((e: any) => Promise.resolve(e));
@@ -858,10 +833,6 @@ describe('VisitsService', () => {
                 plannedEndTimeUtc: new Date('2025-01-15T17:00:00Z'),
                 visitRequesterUserId: null,
                 visitRequesterUser: null,
-                visitRequesterFirstName: 'Manual',
-                visitRequesterLastName: 'Requester',
-                visitRequesterPhone: '+972500000002',
-                visitRequesterEmail: 'manual@example.com',
             };
             mockVisitRepo.findOne.mockResolvedValue(existing);
             mockVisitRepo.save.mockImplementation((e: any) => Promise.resolve(e));
@@ -899,10 +870,6 @@ describe('VisitsService', () => {
                 plannedEndTimeUtc: new Date('2025-01-15T17:00:00Z'),
                 visitRequesterUserId: null,
                 visitRequesterUser: null,
-                visitRequesterFirstName: 'Manual',
-                visitRequesterLastName: 'Requester',
-                visitRequesterPhone: '+972500000002',
-                visitRequesterEmail: 'manual@example.com',
             };
             mockVisitRepo.findOne.mockResolvedValue(existing);
             mockVisitRepo.save.mockImplementation((e: any) => Promise.resolve(e));
@@ -925,10 +892,6 @@ describe('VisitsService', () => {
                 plannedEndTimeUtc: new Date('2025-01-15T17:00:00Z'),
                 visitRequesterUserId: null,
                 visitRequesterUser: null,
-                visitRequesterFirstName: null,
-                visitRequesterLastName: null,
-                visitRequesterPhone: null,
-                visitRequesterEmail: null,
             };
             mockVisitRepo.findOne.mockResolvedValue(existing);
             mockVisitRepo.save.mockImplementation((e: any) => Promise.resolve(e));

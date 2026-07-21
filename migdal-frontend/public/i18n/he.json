@@ -538,7 +538,12 @@
         "DUPLICATE_PERSON_ID": "מבקר נוסף בביקור זה בעל אותו מספר זהות",
         "DUPLICATE_PHONE": "מבקר נוסף בביקור זה בעל אותו מספר טלפון",
         "DIGITS_ONLY": "שדה זה חייב להכיל ספרות בלבד",
-        "ACCESS_LEVEL_REMOVED": "רמת הגישה שנבחרה הוסרה. יש לבחור רמת גישה חדשה."
+        "INVALID_PERSON_ID": "מספר תעודת זהות אינו תקין",
+        "INVALID_PHONE": "מספר טלפון אינו תקין (לדוגמה: 0501234567)",
+        "INVALID_CAR_NUMBER": "מספר רכב אינו תקין (5-8 ספרות)",
+        "ACCESS_LEVEL_REMOVED": "רמת הגישה שנבחרה הוסרה. יש לבחור רמת גישה חדשה.",
+        "ESCORT_MUST_BE_SYSTEM_USER": "יש לבחור מלווה מרשימת המשתמשים",
+        "REQUESTER_MUST_BE_SYSTEM_USER": "יש לבחור מבקש ביקור מרשימת המשתמשים"
     },
     "PLACEHOLDER": {
         "ENTER_USERNAME": "הכנס שם משתמש",
@@ -1091,6 +1096,11 @@
         "IMPORT_EMPTY_FILE": "הקובץ ריק או שאין בו שורות נתונים.",
         "IMPORT_ALL_INVALID": "לא נמצאו שורות תקינות. כל {{count}} השורות מכילות שגיאות.",
         "IMPORT_ROW_ERROR": "שורה {{row}}: חסר {{fields}}",
+        "IMPORT_SHEET_ROW_ERROR": "{{sheet}} — שורה {{row}}: חסר {{fields}}",
+        "IMPORT_BUILDING_NOT_FOUND": "לא נמצא מבנה בשם \"{{name}}\"",
+        "IMPORT_REQUESTER_NOT_MATCHED": "לא נמצא משתמש יחיד עבור מבקש הביקור \"{{identifier}}\" — יש לבחור אותו ידנית",
+        "IMPORT_ESCORT_NOT_MATCHED": "לא נמצא משתמש יחיד עבור המלווה \"{{name}}\" — יש להשלים את הבחירה ידנית",
+        "IMPORT_VEHICLE_TYPE_NOT_FOUND": "סוג הרכב \"{{value}}\" עבור {{visitor}} אינו ברשימת היצרנים המוגדרת — יש לבחור ידנית",
         "IMPORT_ERRORS_TITLE": "שגיאות ייבוא",
         "CHECK_IN_CODE": "קוד כניסה",
         "RESEND_CODE": "שלח שוב קוד כניסה",

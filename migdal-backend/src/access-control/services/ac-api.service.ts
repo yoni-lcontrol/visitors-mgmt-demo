@@ -131,8 +131,9 @@ export class AccessControlApiService {
 
     private async delete<T>(path: string): Promise<T> {
         const url = `${this.getBaseUrl()}${path}`;
-        const body = '';
-        const config = this.buildConfig(body);
+        const data = {};
+        const body = JSON.stringify(data);
+        const config = this.buildConfig(body, { data });
 
         try {
             const response = await firstValueFrom(

@@ -11,14 +11,6 @@ export function resolveVisitRequester(visit: Visit): { firstName: string; lastNa
             email: visit.visitRequesterUser.email ?? '',
         };
     }
-    if (visit.visitRequesterFirstName) {
-        return {
-            firstName: visit.visitRequesterFirstName,
-            lastName: visit.visitRequesterLastName ?? '',
-            phone: visit.visitRequesterPhone ?? '',
-            email: visit.visitRequesterEmail ?? '',
-        };
-    }
     return null;
 }
 

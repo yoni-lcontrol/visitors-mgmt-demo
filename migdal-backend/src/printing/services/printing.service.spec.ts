@@ -219,8 +219,7 @@ describe('PrintingService', () => {
             });
             visitRepo.findOne.mockResolvedValue({
                 id: 'visit-1',
-                visitRequesterFirstName: 'Sarah',
-                visitRequesterLastName: 'Connor',
+                visitRequesterUser: { firstName: 'Sarah', lastName: 'Connor' },
             });
             commandRouting.routeCommand.mockResolvedValue({
                 commandLog: { id: 'log-1' },

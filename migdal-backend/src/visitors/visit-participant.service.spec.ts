@@ -167,7 +167,7 @@ describe('VisitParticipantService', () => {
             await expect(service.updateVisitVisitor('v1', 'bad', {} as any)).rejects.toThrow(NotFoundException);
         });
 
-        it('should clear carNumber and vehicleType when hasVehicle is false', async () => {
+        it('should keep carNumber and vehicleType untouched when hasVehicle is false and no values are provided', async () => {
             mockVisitorPersistence.findByPersonId.mockResolvedValue(null);
             mockVvRepo.findOne.mockResolvedValue({ id: 'vv1', visitId: 'v1', visitorId: 'vis1', isActive: true });
             mockVisitorRepo.findOne.mockResolvedValue({ id: 'vis1', firstName: 'Jane', lastName: 'Smith', isActive: true, carNumber: 'ABC', vehicleType: 'private' });
@@ -178,7 +178,7 @@ describe('VisitParticipantService', () => {
 
             await service.updateVisitVisitor('v1', 'vv1', { hasVehicle: false } as any, 'user-1');
 
-            expect(mockVisitorRepo.save).toHaveBeenCalledWith(expect.objectContaining({ carNumber: null, vehicleType: null }));
+            expect(mockVisitorRepo.save).toHaveBeenCalledWith(expect.objectContaining({ carNumber: 'ABC', vehicleType: 'private' }));
         });
 
         it('should set vehicleType when provided', async () => {

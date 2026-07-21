@@ -99,24 +99,6 @@ export class VisitsService {
         };
     }
 
-    private buildAutoEscortFromRequester(requester: VisitRequesterDto): {
-        firstName: string;
-        lastName: string;
-        phone: string;
-        email: string;
-        sector: string | null;
-    } {
-        return this.normalizeAutoEscortOrThrow(
-            {
-                firstName: requester.firstName,
-                lastName: requester.lastName,
-                phone: requester.phone,
-                email: requester.email,
-            },
-            'visit requester',
-        );
-    }
-
     private buildAutoEscortFromUser(user: User | null, sourceLabel: string): {
         firstName: string;
         lastName: string;
@@ -145,6 +127,7 @@ export class VisitsService {
         isSelfRequester: boolean,
         currentUser: User | null,
         escortRequired: boolean,
+        requesterUser: User | null = null,
     ): Array<{ firstName: string; lastName: string; phone: string; email: string; sector?: string | null }> {
         const explicitEscorts = dto.escorts ?? [];
         if (explicitEscorts.length > 0) {
@@ -153,7 +136,7 @@ export class VisitsService {
 
         if (!isSelfRequester && dto.visitRequester) {
             try {
-                return [this.buildAutoEscortFromRequester(dto.visitRequester)];
+                return [this.buildAutoEscortFromUser(requesterUser, 'visit requester user')];
             } catch (e) {
                 if (!escortRequired) return [];
                 throw e;
@@ -185,7 +168,11 @@ export class VisitsService {
                 return this.buildAutoEscortFromUser(currentUser, 'current user');
             }
 
-            return this.buildAutoEscortFromRequester(dto.visitRequester as VisitRequesterDto);
+            const requesterUser = await this.userRepo.findOne({
+                where: { id: (dto.visitRequester as VisitRequesterDto).userId },
+                relations: ['sector'],
+            });
+            return this.buildAutoEscortFromUser(requesterUser, 'visit requester user');
         }
 
         if (visit.visitRequesterUserId) {
@@ -196,15 +183,7 @@ export class VisitsService {
             return this.buildAutoEscortFromUser(requesterUser, 'visit requester user');
         }
 
-        return this.normalizeAutoEscortOrThrow(
-            {
-                firstName: visit.visitRequesterFirstName,
-                lastName: visit.visitRequesterLastName,
-                phone: visit.visitRequesterPhone,
-                email: visit.visitRequesterEmail,
-            },
-            'visit requester',
-        );
+        throw new BadRequestException('Cannot resolve auto-escort: no visit requester found');
     }
 
     private async ensureAutoEscortForUpdate(
@@ -383,7 +362,7 @@ export class VisitsService {
 
         if (search) {
             qb.andWhere(
-                '(v.title LIKE :s OR v.purposeOfVisit LIKE :s OR v.visitRequesterFirstName LIKE :s OR v.visitRequesterLastName LIKE :s OR reqUser.firstName LIKE :s OR reqUser.lastName LIKE :s)',
+                '(v.title LIKE :s OR v.purposeOfVisit LIKE :s OR reqUser.firstName LIKE :s OR reqUser.lastName LIKE :s)',
                 { s: `%${search}%` },
             );
         }
@@ -427,7 +406,7 @@ export class VisitsService {
 
         if (search) {
             qb.andWhere(
-                '(v.title LIKE :s OR v.purposeOfVisit LIKE :s OR v.visitRequesterFirstName LIKE :s OR v.visitRequesterLastName LIKE :s OR reqUser.firstName LIKE :s OR reqUser.lastName LIKE :s)',
+                '(v.title LIKE :s OR v.purposeOfVisit LIKE :s OR reqUser.firstName LIKE :s OR reqUser.lastName LIKE :s)',
                 { s: `%${search}%` },
             );
         }
@@ -584,8 +563,6 @@ export class VisitsService {
                         wb.orWhere('building.name LIKE :s', { s });
                     }
                     if (field === 'all' || field === 'requester') {
-                        wb.orWhere('v.visitRequesterFirstName LIKE :s', { s });
-                        wb.orWhere('v.visitRequesterLastName LIKE :s', { s });
                         wb.orWhere('reqUser.firstName LIKE :s', { s });
                         wb.orWhere('reqUser.lastName LIKE :s', { s });
                     }
@@ -723,7 +700,6 @@ export class VisitsService {
             throw new BadRequestException('A visit must have at least one visitor');
         }
 
-        // Resolve visitRequester: if provided, store manual fields; otherwise store userId reference
         const isSelfRequester = !dto.visitRequester;
         if (isSelfRequester && !currentUserId) {
             throw new BadRequestException('visitRequester is required');
@@ -741,7 +717,10 @@ export class VisitsService {
         const currentUser = currentUserId
             ? await this.userRepo.findOne({ where: { id: currentUserId }, relations: ['sector'] })
             : null;
-        const escortsToCreate = this.getCreateEscorts(dto, isSelfRequester, currentUser, escortRequired);
+        const requesterUser = !isSelfRequester && dto.visitRequester
+            ? await this.userRepo.findOne({ where: { id: dto.visitRequester.userId }, relations: ['sector'] })
+            : null;
+        const escortsToCreate = this.getCreateEscorts(dto, isSelfRequester, currentUser, escortRequired, requesterUser);
 
         // Check blacklist for all visitors (returns map of blacklisted personIds)
         const blacklistedMap = await this.participantService.validateVisitorsNotBlacklisted(dto.visitors);
@@ -767,11 +746,7 @@ export class VisitsService {
                 floor: dto.floor ?? null,
                 plannedStartTimeUtc: plannedStart,
                 plannedEndTimeUtc: plannedEnd,
-                visitRequesterUserId: isSelfRequester ? currentUserId! : null,
-                visitRequesterFirstName: dto.visitRequester?.firstName ?? null,
-                visitRequesterLastName: dto.visitRequester?.lastName ?? null,
-                visitRequesterPhone: dto.visitRequester?.phone ?? null,
-                visitRequesterEmail: dto.visitRequester?.email ?? null,
+                visitRequesterUserId: isSelfRequester ? currentUserId! : (dto.visitRequester?.userId ?? null),
                 createdByUserId: currentUserId ?? null,
                 createdBy: currentUserId ?? null,
                 updatedBy: currentUserId ?? null,
@@ -880,20 +855,12 @@ export class VisitsService {
                 carNumber: firstVisitor.carNumber ?? '',
             } : undefined;
 
-            // Resolve requester name for notifications
-            let requesterName = '';
-            if (dto.visitRequester) {
-                requesterName = [dto.visitRequester.firstName, dto.visitRequester.lastName].filter(Boolean).join(' ');
-            } else if (currentUser) {
-                requesterName = [currentUser.firstName, currentUser.lastName].filter(Boolean).join(' ');
-            }
-
-            // Resolve requester contact info for notifications
-            const requesterContact = dto.visitRequester
-                ? { phone: dto.visitRequester.phone || undefined, email: dto.visitRequester.email || undefined }
-                : currentUser
-                    ? { phone: currentUser.phone || undefined, email: currentUser.email || undefined }
-                    : undefined;
+            // Resolve requester name/contact for notifications from the pre-loaded user
+            const notifRequester = requesterUser ?? currentUser;
+            const requesterName = [notifRequester?.firstName, notifRequester?.lastName].filter(Boolean).join(' ');
+            const requesterContact = notifRequester
+                ? { phone: notifRequester.phone || undefined, email: notifRequester.email || undefined }
+                : undefined;
 
             this.smsNotification.triggerSms(NotificationEvent.VisitCreated, {
                 visit: {
@@ -966,16 +933,8 @@ export class VisitsService {
             plannedEndTimeUtc: newEnd,
             ...(isSwitchToSelf ? {
                 visitRequesterUserId: currentUserId ?? visit.visitRequesterUserId,
-                visitRequesterFirstName: null,
-                visitRequesterLastName: null,
-                visitRequesterPhone: null,
-                visitRequesterEmail: null,
             } : isSwitchToManual ? {
-                visitRequesterUserId: null,
-                visitRequesterFirstName: dto.visitRequester!.firstName,
-                visitRequesterLastName: dto.visitRequester!.lastName,
-                visitRequesterPhone: dto.visitRequester!.phone,
-                visitRequesterEmail: dto.visitRequester!.email,
+                visitRequesterUserId: dto.visitRequester!.userId,
             } : {}),
             updatedBy: currentUserId ?? null,
         });
@@ -1014,7 +973,7 @@ export class VisitsService {
     }
 
     async removeVisit(id: string, currentUserId?: string, userPermissions?: string[]): Promise<void> {
-        const visit = await this.visitRepo.findOne({ where: { id, isActive: true } });
+        const visit = await this.visitRepo.findOne({ where: { id, isActive: true }, relations: ['visitRequesterUser'] });
         if (!visit) throw new NotFoundException('Visit not found');
 
         if (shouldRestrictDeletionToOwnVisits(userPermissions) && visit.createdByUserId !== currentUserId) {

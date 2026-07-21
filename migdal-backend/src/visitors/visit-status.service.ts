@@ -81,7 +81,7 @@ export class VisitStatusService {
             .innerJoin('vv.visit', 'v')
             .addSelect(['vv.id', 'vv.visitId', 'vv.visitorId', 'vv.notes'])
             .addSelect(['vis.id', 'vis.firstName', 'vis.lastName', 'vis.email', 'vis.phone', 'vis.personId', 'vis.carNumber', 'vis.vehicleType'])
-            .addSelect(['v.id', 'v.title', 'v.plannedStartTimeUtc', 'v.plannedEndTimeUtc', 'v.siteId', 'v.visitRequesterFirstName', 'v.visitRequesterLastName', 'v.visitRequesterPhone', 'v.visitRequesterEmail', 'v.visitRequesterUserId', 'v.purposeOfVisit'])
+            .addSelect(['v.id', 'v.title', 'v.plannedStartTimeUtc', 'v.plannedEndTimeUtc', 'v.siteId', 'v.visitRequesterUserId', 'v.purposeOfVisit'])
             .leftJoin('v.visitRequesterUser', 'reqUser')
             .addSelect(['reqUser.id', 'reqUser.firstName', 'reqUser.lastName', 'reqUser.phone', 'reqUser.email'])
             .where('s.currentStatus IN (:...statuses)', { statuses })

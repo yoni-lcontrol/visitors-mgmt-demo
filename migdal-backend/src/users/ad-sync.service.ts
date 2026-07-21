@@ -421,6 +421,7 @@ export class AdSyncService {
         if (adUser.lastName && localUser.lastName !== adUser.lastName) { localUser.lastName = adUser.lastName; changed = true; }
         if (adUser.email && localUser.email !== adUser.email) { localUser.email = adUser.email; changed = true; }
         if (adUser.phone && localUser.phone !== adUser.phone) { localUser.phone = adUser.phone; changed = true; }
+        if (adUser.mobile !== undefined && localUser.mobile !== adUser.mobile) { localUser.mobile = adUser.mobile; changed = true; }
         if (adUser.department !== undefined && localUser.department !== adUser.department) { localUser.department = adUser.department; changed = true; }
         if (adUser.title !== undefined && localUser.title !== adUser.title) { localUser.title = adUser.title; changed = true; }
         if (adUser.employeeId !== undefined && localUser.employeeId !== adUser.employeeId) { localUser.employeeId = adUser.employeeId; changed = true; }
@@ -513,6 +514,7 @@ export class AdSyncService {
             lastName: adUser.lastName || '-',
             email: adUser.email,
             phone: adUser.phone,
+            mobile: adUser.mobile,
             department: adUser.department,
             title: adUser.title,
             employeeId: adUser.employeeId,

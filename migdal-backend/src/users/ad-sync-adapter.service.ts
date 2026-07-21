@@ -9,6 +9,7 @@ export interface AdUserEntry {
     lastName: string;
     email: string | null;
     phone: string | null;
+    mobile: string | null;
     department: string | null;
     title: string | null;
     employeeId: string | null;
@@ -273,7 +274,8 @@ export class AdSyncAdapterService {
             firstName: this.getAttr(entry, 'givenName') || samAccount,
             lastName: this.getAttr(entry, 'sn') || '',
             email: this.getAttr(entry, 'mail') || null,
-            phone: this.getAttr(entry, 'mobile') || this.getAttr(entry, 'telephoneNumber') || null,
+            phone: this.getAttr(entry, 'telephoneNumber') || null,
+            mobile: this.getAttr(entry, 'mobile') || null,
             department: this.getAttr(entry, 'department') || null,
             title: this.getAttr(entry, 'title') || null,
             employeeId: this.getAttr(entry, 'employeeID') || null,

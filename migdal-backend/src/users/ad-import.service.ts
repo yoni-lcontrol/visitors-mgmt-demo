@@ -20,6 +20,7 @@ interface AdUserEntry {
     lastName: string;
     email: string | null;
     phone: string | null;
+    mobile: string | null;
     idNumber: string | null;
     employeeId: string | null;
     company: string | null;
@@ -120,7 +121,8 @@ export class AdImportService {
                     firstName: this.getAttr(entry, 'givenName') || this.getAttr(entry, 'sAMAccountName'),
                     lastName: this.getAttr(entry, 'sn') || '',
                     email: this.getAttr(entry, 'mail') || null,
-                    phone: this.getAttr(entry, 'telephoneNumber') || this.getAttr(entry, 'mobile') || null,
+                    phone: this.getAttr(entry, 'telephoneNumber') || null,
+                    mobile: this.getAttr(entry, 'mobile') || null,
                     idNumber: this.getAttr(entry, 'employeeID') || null,
                     employeeId: this.getAttr(entry, 'employeeID') || null,
                     company: this.getAttr(entry, 'company') || null,
@@ -170,6 +172,7 @@ export class AdImportService {
                 if (adUser.lastName && existing.lastName !== adUser.lastName) { existing.lastName = adUser.lastName; changed = true; }
                 if (adUser.email && existing.email !== adUser.email) { existing.email = adUser.email; changed = true; }
                 if (adUser.phone && existing.phone !== adUser.phone) { existing.phone = adUser.phone; changed = true; }
+                if (adUser.mobile !== null && existing.mobile !== adUser.mobile) { existing.mobile = adUser.mobile; changed = true; }
                 if (adUser.idNumber && existing.idNumber !== adUser.idNumber) { existing.idNumber = adUser.idNumber; changed = true; }
                 if (adUser.employeeId !== null && existing.employeeId !== adUser.employeeId) { existing.employeeId = adUser.employeeId; changed = true; }
 
@@ -198,6 +201,7 @@ export class AdImportService {
                     lastName: adUser.lastName || '-',
                     email: adUser.email,
                     phone: adUser.phone,
+                    mobile: adUser.mobile,
                     idNumber: adUser.idNumber,
                     employeeId: adUser.employeeId,
                     sectorId,

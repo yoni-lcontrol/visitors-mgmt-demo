@@ -267,8 +267,8 @@ describe('VisitStatusService', () => {
         const mockVisit = {
             id: 'v1', title: 'Meeting', plannedStartTimeUtc: new Date(),
             plannedEndTimeUtc: null, siteId: 'site1',
-            visitRequesterFirstName: 'John', visitRequesterLastName: 'Doe',
-            visitRequesterPhone: '123', visitRequesterEmail: 'j@d.com',
+            visitRequesterUserId: 'u1',
+            visitRequesterUser: { firstName: 'John', lastName: 'Doe', phone: '123', email: 'j@d.com' },
             purposeOfVisit: 'Test meeting',
         };
 

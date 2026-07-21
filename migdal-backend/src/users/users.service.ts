@@ -72,6 +72,7 @@ export class UsersService {
             username: 'user.username',
             email: 'user.email',
             phone: 'user.phone',
+            mobile: 'user.mobile',
             sectorName: 'sector.name',
             isActive: 'user.isActive',
         });
@@ -161,6 +162,7 @@ export class UsersService {
             lastName: dto.lastName,
             email: dto.email ?? null,
             phone: dto.phone ?? null,
+            mobile: dto.mobile ?? null,
             idNumber: dto.idNumber ?? null,
             employeeId: dto.employeeId ?? null,
             licensePlate: dto.licensePlate ?? null,

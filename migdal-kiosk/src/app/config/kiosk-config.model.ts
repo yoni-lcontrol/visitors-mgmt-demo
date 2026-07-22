@@ -8,7 +8,13 @@ export interface KioskConfig {
     RELOAD_AFTER_IDLE_MS: number;
     APP_VERSION: string;
     API_BASE_URL: string;
-    WS_URL: string;
+    /** Sent as the x-kiosk-api-key header on REST calls to the backend. */
     WS_API_KEY: string;
+    /** Hostname/IP of the paired scanner machine on the local network. */
+    SCANNER_HOST: string;
+    /** Port the scanner's local WebSocket server listens on. */
+    SCANNER_PORT: number;
+    /** Shared secret sent in the hello handshake; must match the scanner's LocalServerToken. */
+    SCANNER_TOKEN: string;
     HEARTBEAT_INTERVAL_MS: number;
 }

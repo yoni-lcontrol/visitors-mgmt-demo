@@ -140,16 +140,12 @@
       <HintPath>packages\Uno.Fonts.Fluent.2.2.2\lib\netstandard1.0\Uno.Fonts.Fluent.dll</HintPath>
     </Reference>
     <Reference Include="WindowsBase" />
-    <Reference Include="SocketIOClient, Version=3.0.6.0, Culture=neutral">
-      <HintPath>packages\SocketIOClient.3.0.6\lib\netstandard2.0\SocketIOClient.dll</HintPath>
-    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AgentConfig.cs" />
-    <Compile Include="AgentSocketClient.cs" />
     <Compile Include="FakeScannerDevice.cs" />
-    <Compile Include="HmacAuth.cs" />
     <Compile Include="IScannerDevice.cs" />
+    <Compile Include="KioskSocketServer.cs" />
     <Compile Include="AcuantConstants.cs" />
     <Compile Include="AcuantCore.cs" />
     <Compile Include="AcuantUtilities.cs" />

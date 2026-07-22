@@ -16,5 +16,11 @@ export interface KioskConfig {
     SCANNER_PORT: number;
     /** Shared secret sent in the hello handshake; must match the scanner's LocalServerToken. */
     SCANNER_TOKEN: string;
+    /** Hostname/IP of the paired printer machine on the local network. */
+    PRINTER_HOST: string;
+    /** Port the printer's local WebSocket server listens on. */
+    PRINTER_PORT: number;
+    /** Shared secret sent in the hello handshake; must match the printer's LocalServerToken. */
+    PRINTER_TOKEN: string;
     HEARTBEAT_INTERVAL_MS: number;
 }

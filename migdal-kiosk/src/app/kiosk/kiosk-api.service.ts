@@ -51,8 +51,13 @@ export class KioskApiService {
       .pipe(this.unwrap());
   }
 
-  printCard(params: { workstationCode: string; visitId: string; visitorId: string; cardTemplateId?: string; }): Observable<any> {
-    return this.http.post<{ data: any }>(`${this.baseUrl}/api/visits/kiosk/print-card`, params)
+  /**
+   * Builds the print payload from the backend. The caller is responsible for forwarding
+   * the result to the printer's local WebSocket link via PrinterSocketService.sendPrintJob(...) —
+   * the backend has no connection to the printer itself.
+   */
+  printCard(params: { workstationCode: string; visitId: string; visitorId: string; cardTemplateId?: string; }): Observable<{ correlationId: string; printData: any }> {
+    return this.http.post<{ data: { correlationId: string; printData: any } }>(`${this.baseUrl}/api/visits/kiosk/print-card`, params)
       .pipe(this.unwrap());
   }
 

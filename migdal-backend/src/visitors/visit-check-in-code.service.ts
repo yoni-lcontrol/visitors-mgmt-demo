@@ -491,12 +491,17 @@ export class VisitCheckInCodeService {
             visitorName,
         });
 
-        // Print card (fire-and-forget, don't block success)
-        console.log('[KIOSK-DEBUG] arriveByPersonId print check:', { workstationCode, visitId, visitorId });
+        // Build the print payload for the kiosk to forward to its paired printer directly —
+        // the backend has no connection to the printer itself, so this can't be fired
+        // server-side anymore; it's returned for the kiosk to send over its local printer link.
+        let print: { correlationId: string; printData: Record<string, unknown> } | null = null;
         if (workstationCode) {
-            this.printingService.requestKioskPrintCard(workstationCode, visitId, visitorId).catch((err) => {
-                this.logger.error(`Failed to print visitor card: ${err.message}`, err.stack);
-            });
+            try {
+                print = await this.printingService.requestKioskPrintCard(workstationCode, visitId, visitorId);
+            } catch (err) {
+                const error = err instanceof Error ? err : new Error(String(err));
+                this.logger.error(`Failed to build print payload: ${error.message}`, error.stack);
+            }
         }
 
         this.auditService.log({
@@ -508,7 +513,7 @@ export class VisitCheckInCodeService {
             newValue: { visitId, personId },
         }).catch(() => { });
 
-        return { ok: true, visitVisitorId: visitVisitor.id, visitorName, visitTitle };
+        return { ok: true, visitVisitorId: visitVisitor.id, visitorName, visitTitle, print };
     }
 
     async consumeCodeAndArrive(code: string): Promise<{

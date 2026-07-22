@@ -4,6 +4,7 @@ import { KioskService } from './kiosk/kiosk.service';
 import { NetworkService } from './kiosk/status/network.service';
 import { LanguageService } from './kiosk/language.service';
 import { KioskSocketService } from './kiosk/kiosk-socket.service';
+import { PrinterSocketService } from './kiosk/printer-socket.service';
 
 @Component({
   selector: 'app-root',
@@ -16,6 +17,7 @@ export class AppComponent implements OnInit {
     private network: NetworkService,
     private languageService: LanguageService,
     private ws: KioskSocketService,
+    private printerSocket: PrinterSocketService,
     private router: Router,
   ) { }
 
@@ -24,6 +26,7 @@ export class AppComponent implements OnInit {
     this.network.init();
     this.kiosk.init();
     this.ws.connect();
+    this.printerSocket.connect();
 
     // Auto-navigate to /scan when a scan result arrives and kiosk isn't already processing one
     this.ws.scanResults$.subscribe(() => {

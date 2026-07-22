@@ -1,10 +1,9 @@
-import { Injectable, Logger, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DeviceCommandRoutingService, CommandRouteResult } from '../../device-commands/services/device-command-routing.service';
 import { WorkstationSessionService } from '../../workstations/services/workstation-session.service';
 import { WorkstationsService } from '../../workstations/services/workstations.service';
-import { AgentRegistryService } from '../../agents/services/agent-registry.service';
 import { IntegrationProvider } from '../../integrations/common/enums/integration-provider.enum';
 import { CardTemplate } from '../../settings/entities/card-template.entity';
 import { Visitor } from '../../visitors/entities/visitor.entity';
@@ -31,7 +30,6 @@ export class PrintingService {
         private readonly commandRouting: DeviceCommandRoutingService,
         private readonly workstationSession: WorkstationSessionService,
         private readonly workstationsService: WorkstationsService,
-        private readonly agentRegistry: AgentRegistryService,
         @InjectRepository(CardTemplate)
         private readonly cardTemplateRepo: Repository<CardTemplate>,
         @InjectRepository(Visitor)
@@ -125,45 +123,30 @@ export class PrintingService {
     }
 
     /**
-     * Kiosk print: route print command by workstation code (no user session required).
+     * Kiosk print: build the print payload by workstation code (no user session required).
+     * The kiosk sends this payload directly to its paired printer's local WebSocket link —
+     * the backend no longer has any connection to the printer agent itself.
      */
     async requestKioskPrintCard(
         workstationCode: string,
         visitId: string,
         visitorId: string,
         cardTemplateId?: string,
-    ): Promise<{ ok: boolean; correlationId?: string; status?: string }> {
+    ): Promise<{ correlationId: string; printData: Record<string, unknown> }> {
         const workstation = await this.workstationsService.findByCode(workstationCode);
         if (!workstation) {
             throw new BadRequestException(`Unknown workstation: ${workstationCode}`);
         }
 
         const resolvedTemplateId = cardTemplateId || workstation.defaultCardTemplateId || undefined;
-
-        const agent = await this.agentRegistry.findActiveConnection(
-            workstation.id,
-            IntegrationProvider.Printer,
-        );
-        if (!agent || !agent.socketId) {
-            throw new ServiceUnavailableException('No printer agent connected on this workstation');
-        }
-
         const printData = await this.buildPrintData(visitId, visitorId, resolvedTemplateId);
         const correlationId = `kiosk-print-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-
-        this.usersGateway.emitToAgentNamespace(agent.socketId, WsEvent.AgentExecutePrint, {
-            correlationId,
-            visitId,
-            visitorId,
-            cardTemplateId: resolvedTemplateId,
-            printData,
-        });
 
         this.logger.log(
             `Kiosk print card: workstation=${workstationCode}, visit=${visitId}, visitor=${visitorId}, template=${resolvedTemplateId || 'none'}, correlationId=${correlationId}`,
         );
 
-        return { ok: true, correlationId, status: 'queued' };
+        return { correlationId, printData };
     }
 
     async requestTestPrintTemplate(

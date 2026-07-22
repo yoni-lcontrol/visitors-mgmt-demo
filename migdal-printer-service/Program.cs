@@ -46,8 +46,8 @@ try
             services.AddSingleton<PrinterManager>();
             services.AddHostedService(sp => sp.GetRequiredService<PrinterManager>());
 
-            // Agent socket client (connects to backend /ws/agents, handles commands)
-            services.AddHostedService<AgentSocketClient>();
+            // Local kiosk-facing WebSocket server (the paired kiosk connects directly, handles commands)
+            services.AddHostedService<KioskSocketServer>();
         })
         .Build();
 

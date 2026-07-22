@@ -7,6 +7,7 @@ import { KioskApiService } from '../../kiosk/kiosk-api.service';
 import { KioskFlowService } from '../../kiosk/kiosk-flow-state.service';
 import { KioskConfigService } from '../../config/kiosk-config.service';
 import { IdleService } from '../../kiosk/idle.service';
+import { PrinterSocketService } from '../../kiosk/printer-socket.service';
 import { firstValueFrom } from 'rxjs';
 import { ToasterService } from '../../kiosk/toaster.service';
 import { NgxSpinnerService } from 'ngx-spinner';
@@ -44,6 +45,7 @@ export class ConsentComponent implements OnInit {
     private kioskFlowService: KioskFlowService,
     private kioskCfg: KioskConfigService,
     private idle: IdleService,
+    private printerSocket: PrinterSocketService,
   ) { }
 
   ngOnInit() {
@@ -143,7 +145,11 @@ export class ConsentComponent implements OnInit {
         return;
       }
 
-      // 6) done (print is handled by backend)
+      // 6) forward the print job to the paired printer directly (fire-and-forget, don't block success)
+      if (result.print) {
+        this.printerSocket.sendPrintJob(result.print.correlationId, result.print.printData);
+      }
+
       await this.router.navigateByUrl('/success');
     } catch (err) {
       console.error('arrive failed', err);

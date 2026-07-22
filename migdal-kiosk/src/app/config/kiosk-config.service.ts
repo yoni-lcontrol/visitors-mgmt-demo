@@ -20,6 +20,9 @@ export class KioskConfigService {
     SCANNER_HOST: 'localhost',
     SCANNER_PORT: 5900,
     SCANNER_TOKEN: '',
+    PRINTER_HOST: 'localhost',
+    PRINTER_PORT: 5901,
+    PRINTER_TOKEN: '',
     HEARTBEAT_INTERVAL_MS: 30000,
   };
 

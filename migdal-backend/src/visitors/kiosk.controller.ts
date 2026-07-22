@@ -2,8 +2,6 @@ import {
     Controller,
     Post,
     Body,
-    HttpCode,
-    HttpStatus,
     UseInterceptors,
     UploadedFile,
 } from '@nestjs/common';
@@ -50,8 +48,7 @@ export class KioskController {
     }
 
     @Post('print-card')
-    @HttpCode(HttpStatus.ACCEPTED)
-    @ApiOperation({ summary: 'Print visitor card from kiosk (routes to workstation printer)' })
+    @ApiOperation({ summary: 'Build a print payload for the kiosk to send to its paired printer directly' })
     printCard(@Body() dto: KioskPrintCardDto) {
         return this.printingService.requestKioskPrintCard(
             dto.workstationCode,

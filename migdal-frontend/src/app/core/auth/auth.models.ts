@@ -19,6 +19,7 @@ export interface AuthUser {
     lastName: string;
     email: string | null;
     phone: string | null;
+    mobile: string | null;
     sector: { id: string; name: string } | null;
     roles: string[];
     permissions: string[];

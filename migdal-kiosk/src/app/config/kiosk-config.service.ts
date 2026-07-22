@@ -16,8 +16,10 @@ export class KioskConfigService {
     RELOAD_AFTER_IDLE_MS: 1800000,
     APP_VERSION: '0.0.0',
     API_BASE_URL: '',
-    WS_URL: '',
     WS_API_KEY: '',
+    SCANNER_HOST: 'localhost',
+    SCANNER_PORT: 5900,
+    SCANNER_TOKEN: '',
     HEARTBEAT_INTERVAL_MS: 30000,
   };
 

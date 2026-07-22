@@ -513,7 +513,12 @@
         "DUPLICATE_PERSON_ID": "Another visitor in this visit has the same ID number",
         "DUPLICATE_PHONE": "Another visitor in this visit has the same phone number",
         "DIGITS_ONLY": "This field must contain only digits",
-        "ACCESS_LEVEL_REMOVED": "The selected access level was removed. Please choose a new access level."
+        "INVALID_PERSON_ID": "Invalid ID number",
+        "INVALID_PHONE": "Invalid phone number (e.g. 0501234567)",
+        "INVALID_CAR_NUMBER": "Invalid vehicle number (5-8 digits)",
+        "ACCESS_LEVEL_REMOVED": "The selected access level was removed. Please choose a new access level.",
+        "ESCORT_MUST_BE_SYSTEM_USER": "Escort must be selected from the system users list",
+        "REQUESTER_MUST_BE_SYSTEM_USER": "Requester must be selected from the system users list"
     },
     "PLACEHOLDER": {
         "ENTER_USERNAME": "Enter username",
@@ -1068,6 +1073,11 @@
         "IMPORT_EMPTY_FILE": "The file is empty or has no data rows.",
         "IMPORT_ALL_INVALID": "No valid rows found. All {{count}} row(s) have errors.",
         "IMPORT_ROW_ERROR": "Row {{row}}: missing {{fields}}",
+        "IMPORT_SHEET_ROW_ERROR": "{{sheet}} — row {{row}}: missing {{fields}}",
+        "IMPORT_BUILDING_NOT_FOUND": "No building found named \"{{name}}\"",
+        "IMPORT_REQUESTER_NOT_MATCHED": "No unique user found for visit requester \"{{identifier}}\" — please select manually",
+        "IMPORT_ESCORT_NOT_MATCHED": "No unique user found for escort \"{{name}}\" — please complete the selection manually",
+        "IMPORT_VEHICLE_TYPE_NOT_FOUND": "Vehicle type \"{{value}}\" for {{visitor}} is not in the configured manufacturer list — please select it manually",
         "IMPORT_ERRORS_TITLE": "Import Errors",
         "CHECK_IN_CODE": "Check-In Code",
         "RESEND_CODE": "Resend Check-In Code",

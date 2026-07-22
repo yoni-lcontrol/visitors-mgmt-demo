@@ -264,10 +264,6 @@ export class VisitParticipantService {
         if (dto.personId !== undefined) visitor.personId = this.visitorPersistence.normalizePersonId(dto.personId);
         if (dto.carNumber !== undefined) visitor.carNumber = dto.carNumber?.trim() ? dto.carNumber.trim() : null;
         if (dto.vehicleType !== undefined) visitor.vehicleType = dto.vehicleType?.trim() ? dto.vehicleType.trim() : null;
-        if (dto.hasVehicle === false) {
-            visitor.carNumber = null;
-            visitor.vehicleType = null;
-        }
         visitor.updatedBy = currentUserId ?? null;
         await this.visitorRepo.save(visitor);
 

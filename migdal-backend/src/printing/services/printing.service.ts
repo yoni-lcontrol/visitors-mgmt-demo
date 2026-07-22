@@ -275,13 +275,8 @@ export class PrintingService {
         // Load visit data for visitRequester fields
         const visit = await this.visitRepo.findOne({ where: { id: visitId }, relations: ['visitRequesterUser'] });
         if (visit) {
-            if (visit.visitRequesterUser) {
-                printData.visitRequesterFirstName = visit.visitRequesterUser.firstName || '';
-                printData.visitRequesterLastName = visit.visitRequesterUser.lastName || '';
-            } else {
-                printData.visitRequesterFirstName = visit.visitRequesterFirstName || '';
-                printData.visitRequesterLastName = visit.visitRequesterLastName || '';
-            }
+            printData.visitRequesterFirstName = visit.visitRequesterUser?.firstName || '';
+            printData.visitRequesterLastName = visit.visitRequesterUser?.lastName || '';
         }
 
         // Load card template if resolved

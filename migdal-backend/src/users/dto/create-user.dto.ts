@@ -38,6 +38,13 @@ export class CreateUserDto {
     @Matches(/^\d+$/, { message: 'phone must contain only digits' })
     phone?: string;
 
+    @ApiPropertyOptional({ example: '0521234567' })
+    @IsOptional()
+    @Transform(({ value }) => (value === '' ? undefined : value))
+    @IsString()
+    @Matches(/^\d+$/, { message: 'mobile must contain only digits' })
+    mobile?: string;
+
     @ApiProperty({ example: '123456789' })
     @IsString()
     @IsNotEmpty()

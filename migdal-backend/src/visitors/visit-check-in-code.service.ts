@@ -230,9 +230,7 @@ export class VisitCheckInCodeService {
                 title: visit.title,
                 startTime: visit.plannedStartTimeUtc?.toLocaleString('he-IL') ?? '',
                 endTime: visit.plannedEndTimeUtc?.toLocaleString('he-IL') ?? '',
-                hostName: visit.visitRequesterUser
-                    ? [visit.visitRequesterUser.firstName, visit.visitRequesterUser.lastName].filter(Boolean).join(' ')
-                    : [visit.visitRequesterFirstName, visit.visitRequesterLastName].filter(Boolean).join(' '),
+                hostName: [visit.visitRequesterUser?.firstName, visit.visitRequesterUser?.lastName].filter(Boolean).join(' '),
                 siteName: visit.siteId ?? '',
                 purposeOfVisit: visit.purposeOfVisit ?? '',
             },

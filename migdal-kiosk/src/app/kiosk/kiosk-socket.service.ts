@@ -1,6 +1,5 @@
 import { Injectable, NgZone } from '@angular/core';
 import { BehaviorSubject, Observable, Subject } from 'rxjs';
-import { io, Socket } from 'socket.io-client';
 import { KioskConfigService } from '../config/kiosk-config.service';
 
 export interface ScanStatus {
@@ -32,10 +31,20 @@ export interface ScannerStatus {
   deviceConnected: boolean;
 }
 
+const RECONNECT_DELAY_MS = 2000;
+const RECONNECT_DELAY_MAX_MS = 10000;
+
+/**
+ * Connects directly to the scanner service's local WebSocket server
+ * (on a paired workstation on the same LAN) — no backend involved.
+ */
 @Injectable({ providedIn: 'root' })
 export class KioskSocketService {
-  private socket?: Socket;
+  private socket?: WebSocket;
   private started = false;
+  private manuallyDisconnected = false;
+  private reconnectAttempt = 0;
+  private reconnectTimer?: ReturnType<typeof setTimeout>;
 
   private readonly _connected$ = new BehaviorSubject<boolean>(false);
   readonly connected$: Observable<boolean> = this._connected$.asObservable();
@@ -64,109 +73,134 @@ export class KioskSocketService {
     if (this.started) return;
 
     const cfg = this.kioskCfg.config;
-    const wsUrl = cfg.WS_URL;
-
-    if (!wsUrl) {
-      console.error('[WS] WS_URL not configured in kiosk-config.json');
+    if (!cfg.SCANNER_HOST || !cfg.SCANNER_PORT) {
+      console.error('[Scanner] SCANNER_HOST/SCANNER_PORT not configured in kiosk-config.json');
       return;
     }
 
-    if (!cfg.WORKSTATION_CODE) {
-      console.warn('[WS] No WORKSTATION_CODE set — skipping WebSocket connection. Use ?workstation=CODE in the URL.');
-      return;
-    }
+    this.started = true;
+    this.manuallyDisconnected = false;
+    this.openSocket();
+  }
 
-    this.socket = io(`${wsUrl}/ws/kiosk`, {
-      transports: ['websocket'],
-      auth: {
-        apiKey: cfg.WS_API_KEY,
-        kioskId: cfg.KIOSK_ID,
-        workstationCode: cfg.WORKSTATION_CODE,
-      },
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 2000,
-      reconnectionDelayMax: 10000,
-    });
+  private openSocket(): void {
+    const cfg = this.kioskCfg.config;
+    const url = `ws://${cfg.SCANNER_HOST}:${cfg.SCANNER_PORT}/scanner/`;
 
-    this.socket.on('connect', () => {
-      this.started = true;
+    this.socket = new WebSocket(url);
+
+    this.socket.onopen = () => {
+      console.info('[Scanner] connected:', url);
+      this.reconnectAttempt = 0;
       this.zone.run(() => this._connected$.next(true));
-      console.info('[WS] connected to /ws/kiosk:', this.socket?.id);
+      this.send({ type: 'hello', token: cfg.SCANNER_TOKEN });
+    };
 
-      // Register with backend
-      this.socket!.emit('kiosk:register', {
-        kioskId: cfg.KIOSK_ID,
-        workstationCode: cfg.WORKSTATION_CODE,
-      });
-    });
-
-    this.socket.on('disconnect', (reason) => {
+    this.socket.onclose = (event) => {
       this.zone.run(() => {
         this._connected$.next(false);
         this._registered$.next(false);
       });
-      console.warn('[WS] disconnected:', reason);
-    });
+      console.warn('[Scanner] disconnected:', event.reason || event.code);
+      this.scheduleReconnect();
+    };
 
-    this.socket.on('connect_error', (err) => {
+    this.socket.onerror = () => {
       this.zone.run(() => this._connected$.next(false));
-      console.error('[WS] connection error:', err.message);
-    });
+      console.error('[Scanner] connection error');
+    };
 
-    // Registration confirmed
-    this.socket.on('kiosk:registered', (data: { kioskId: string; workstationCode: string }) => {
-      this.zone.run(() => this._registered$.next(true));
-      console.info('[WS] kiosk registered on workstation:', data.workstationCode);
-    });
+    this.socket.onmessage = (event) => this.handleMessage(event.data);
+  }
 
-    // Scan status updates (scanner progress on our workstation)
-    this.socket.on('kiosk:scan-status', (status: ScanStatus) => {
-      this.zone.run(() => this._scanStatus$.next(status));
-    });
+  private scheduleReconnect(): void {
+    if (this.manuallyDisconnected) return;
 
-    // Scan results (document scanned on our workstation)
-    this.socket.on('kiosk:scan-result', (data: ScanResult) => {
-      this.zone.run(() => {
-        this._pendingScanResult = data;
-        this._scanResults$.next(data);
-      });
-    });
+    this.reconnectAttempt++;
+    const delay = Math.min(RECONNECT_DELAY_MS * this.reconnectAttempt, RECONNECT_DELAY_MAX_MS);
+    this.reconnectTimer = setTimeout(() => {
+      if (!this.manuallyDisconnected) this.openSocket();
+    }, delay);
+  }
 
-    // Error from backend
-    this.socket.on('kiosk:error', (data: { reason: string }) => {
-      console.error('[WS] kiosk error:', data.reason);
-    });
+  private handleMessage(raw: string): void {
+    let msg: any;
+    try {
+      msg = JSON.parse(raw);
+    } catch {
+      console.error('[Scanner] received malformed message:', raw);
+      return;
+    }
 
-    // Scanner status response
-    this.socket.on('kiosk:scanner-status', (data: ScannerStatus) => {
-      console.info('[WS] scanner status:', data);
-      this.zone.run(() => this._scannerStatus$.next(data));
-    });
+    switch (msg.type) {
+      case 'hello-ack':
+        this.zone.run(() => this._registered$.next(true));
+        console.info('[Scanner] handshake accepted');
+        break;
+
+      case 'hello-reject':
+        console.error('[Scanner] handshake rejected:', msg.reason);
+        this.zone.run(() => this._registered$.next(false));
+        break;
+
+      case 'status': {
+        const status: ScannerStatus = { connected: !!msg.connected, deviceConnected: !!msg.deviceConnected };
+        this.zone.run(() => this._scannerStatus$.next(status));
+        break;
+      }
+
+      case 'scan-status':
+        this.zone.run(() => this._scanStatus$.next(msg as ScanStatus));
+        break;
+
+      case 'scan-result': {
+        const result: ScanResult = {
+          correlationId: msg.correlationId,
+          success: msg.success,
+          result: msg.result,
+          errorMessage: msg.errorMessage,
+        };
+        this.zone.run(() => {
+          this._pendingScanResult = result;
+          this._scanResults$.next(result);
+        });
+        break;
+      }
+
+      default:
+        console.warn('[Scanner] unknown message type:', msg.type);
+    }
   }
 
   requestScan(): void {
-    if (!this.socket?.connected) {
-      console.warn('[WS] cannot request scan — not connected');
+    if (this.socket?.readyState !== WebSocket.OPEN) {
+      console.warn('[Scanner] cannot request scan — not connected');
       return;
     }
-    this.socket.emit('kiosk:request-scan', {
-      kioskId: this.kioskCfg.config.KIOSK_ID,
-    });
+    this.send({ type: 'request-scan' });
   }
 
   checkScannerStatus(): void {
-    if (!this.socket?.connected) {
-      console.warn('[WS] cannot check scanner — not connected');
+    if (this.socket?.readyState !== WebSocket.OPEN) {
+      console.warn('[Scanner] cannot check status — not connected');
       this._scannerStatus$.next({ connected: false, deviceConnected: false });
       return;
     }
-    this.socket.emit('kiosk:check-scanner');
+    this.send({ type: 'check-status' });
+  }
+
+  private send(payload: unknown): void {
+    this.socket?.send(JSON.stringify(payload));
   }
 
   disconnect(): void {
+    this.manuallyDisconnected = true;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = undefined;
+    }
     if (this.socket) {
-      this.socket.disconnect();
+      this.socket.close();
       this.socket = undefined;
     }
 

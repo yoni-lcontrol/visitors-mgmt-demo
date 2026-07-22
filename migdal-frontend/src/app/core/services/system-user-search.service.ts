@@ -11,6 +11,7 @@ export interface SystemUserSuggestion {
     fullName: string;
     email: string | null;
     phone: string | null;
+    mobile: string | null;
     sectorName: string | null;
 }
 
@@ -38,6 +39,7 @@ export class SystemUserSearchService {
                 fullName: `${user.firstName} ${user.lastName}`.trim(),
                 email: user.email,
                 phone: user.phone,
+                mobile: user.mobile,
                 sectorName: user.sector?.name ?? null,
             }))),
         );

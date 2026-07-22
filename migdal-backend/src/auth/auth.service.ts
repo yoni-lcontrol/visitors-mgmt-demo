@@ -28,6 +28,7 @@ export class AuthService {
         lastName: string;
         email?: string | null;
         phone?: string | null;
+        mobile?: string | null;
         sector?: { id: string; name: string } | null;
         role: { id: string; name: string; permissions: { key: string }[] } | null;
         roles?: Array<{ id: string; name: string; permissions?: { key: string }[] }>;
@@ -39,6 +40,7 @@ export class AuthService {
             lastName: user.lastName,
             email: user.email ?? null,
             phone: user.phone ?? null,
+            mobile: user.mobile ?? null,
             sector: user.sector ? { id: user.sector.id, name: user.sector.name } : null,
             roles: this.extractRoleNames(user),
             permissions: this.extractPermissions(user),

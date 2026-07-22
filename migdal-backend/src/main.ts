@@ -44,8 +44,8 @@ async function bootstrap() {
         origin: (origin, callback) => {
             // Allow requests with no origin (e.g. mobile apps, curl, same-origin)
             if (!origin) return callback(null, true);
-            // Allow any localhost port (dev) or any local network IP
-            if (origin.match(/^https?:\/\/(localhost|10\.\d+\.\d+\.\d+)(:\d+)?$/) || corsOrigins.includes(origin)) {
+            // Allow any localhost port (dev) or any private-network IP (10.x, 172.16-31.x, 192.168.x)
+            if (origin.match(/^https?:\/\/(localhost|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+)(:\d+)?$/) || corsOrigins.includes(origin)) {
                 return callback(null, true);
             }
             callback(null, false);

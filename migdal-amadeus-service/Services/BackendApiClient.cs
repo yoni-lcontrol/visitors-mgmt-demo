@@ -33,7 +33,7 @@ public class BackendApiClient : IBackendApiClient
         _logger.LogInformation("Calling backend full sync endpoint: {Url}", url);
 
         var client = _httpClientFactory.CreateClient("Backend");
-        using var response = await client.PostAsync(url, content: null, cancellationToken);
+        using var response = await client.PostAsJsonAsync(url, new { }, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {

@@ -10,17 +10,17 @@ import { CheckboxModule } from 'primeng/checkbox';
 import { ApiService } from '@core/api/api.service';
 import { VisitsApiService } from '../services/visits-api.service';
 import { NotificationService } from '@core/notifications/notification.service';
-import { ExcelImportService } from '@core/services/excel-import.service';
+import { ExcelImportService, ParsedVisitWorkbook } from '@core/services/excel-import.service';
 import { BlacklistCheckService } from '@core/services/blacklist-check.service';
 import { VisitorSearchService, VisitorSuggestion } from '@core/services/visitor-search.service';
 import { SystemUserSearchService, SystemUserSuggestion } from '@core/services/system-user-search.service';
 import { SectorsLookupService, SectorLookupItem } from '@core/services/sectors-lookup.service';
-import { Subject, Subscription, EMPTY } from 'rxjs';
+import { Subject, Subscription, EMPTY, firstValueFrom } from 'rxjs';
 import { debounceTime, distinctUntilChanged, switchMap, catchError, finalize } from 'rxjs/operators';
 import { Visit, InlineVisitor, InlineEscort } from '@core/models/entities.model';
 import { VehicleModelsApiService } from '../../settings/services/vehicle-models-api.service';
 import { Building as BuildingItem } from '../../settings/services/buildings-api.service';
-import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
+import { EMAIL_PATTERN, PHONE_PATTERN, CAR_NUMBER_PATTERN } from '@shared/constants/regex.constants';
 import { PermissionService } from '@core/permissions/permission.service';
 import { AuthService } from '@core/auth/auth.service';
 
@@ -156,8 +156,11 @@ import { AuthService } from '@core/auth/auth.service';
                     (ngModelChange)="onRequesterNameChange($event)"
                     (focus)="onRequesterFocus('first')"
                     (blur)="onRequesterBlur()"
+                    [disabled]="requesterLockedFromAd"
                     [placeholder]="'PLACEHOLDER.ENTER_FIRST_NAME' | translate" autocomplete="off" />
-                  @if (adRequesterLoading) {
+                  @if (requesterLockedFromAd) {
+                    <i class="pi pi-lock input-spinner"></i>
+                  } @else if (adRequesterLoading) {
                     <i class="pi pi-spin pi-spinner input-spinner"></i>
                   }
                 </div>
@@ -171,7 +174,7 @@ import { AuthService } from '@core/auth/auth.service';
                         <div class="suggestion-secondary">
                           @if (p.sectorName) { <span>{{ p.sectorName }}</span> }
                           @if (p.email) { <span>{{ p.email }}</span> }
-                          @if (p.phone) { <span>{{ p.phone }}</span> }
+                          @if (p.phone || p.mobile) { <span>{{ p.phone || p.mobile }}</span> }
                         </div>
                       </div>
                     }
@@ -196,8 +199,11 @@ import { AuthService } from '@core/auth/auth.service';
                   (ngModelChange)="onRequesterNameChange($event)"
                   (focus)="onRequesterFocus('last')"
                   (blur)="onRequesterBlur()"
+                  [disabled]="requesterLockedFromAd"
                   [placeholder]="'PLACEHOLDER.ENTER_LAST_NAME' | translate" autocomplete="off" />
-                @if (adRequesterLoading) {
+                @if (requesterLockedFromAd) {
+                  <i class="pi pi-lock input-spinner"></i>
+                } @else if (adRequesterLoading) {
                   <i class="pi pi-spin pi-spinner input-spinner"></i>
                 }
               </div>
@@ -233,14 +239,18 @@ import { AuthService } from '@core/auth/auth.service';
             <div class="form-row">
               <div class="field">
                 <label><i class="pi pi-phone"></i> {{ 'VISITS.PHONE' | translate }} <span class="required">*</span></label>
-                <input type="text" [(ngModel)]="visitRequester.phone" required #obPhoneEdit="ngModel" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" />
-                @if (obPhoneEdit.invalid && obPhoneEdit.touched) {
-                  <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+                <input type="text" [(ngModel)]="visitRequester.phone" required [pattern]="phonePattern" #obPhoneEdit="ngModel" [disabled]="requesterLockedFromAd" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" />
+                @if (obPhoneEdit.touched) {
+                  @if (obPhoneEdit.errors?.['required']) {
+                    <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+                  } @else if (obPhoneEdit.errors?.['pattern']) {
+                    <small class="field-error">{{ 'VALIDATION.INVALID_PHONE' | translate }}</small>
+                  }
                 }
               </div>
               <div class="field">
                 <label><i class="pi pi-envelope"></i> {{ 'VISITS.EMAIL' | translate }} <span class="required">*</span></label>
-              <input type="email" [(ngModel)]="visitRequester.email" required [pattern]="emailPattern" #obEmailEdit="ngModel" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" />
+              <input type="email" [(ngModel)]="visitRequester.email" required [pattern]="emailPattern" #obEmailEdit="ngModel" [disabled]="requesterLockedFromAd" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" />
               @if (obEmailEdit.hasError('required') && obEmailEdit.touched) {
                 <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
               } @else if (obEmailEdit.hasError('pattern') && obEmailEdit.touched) {
@@ -248,6 +258,16 @@ import { AuthService } from '@core/auth/auth.service';
               }
             </div>
           </div>
+          @if (requesterLockedFromAd) {
+            <div style="display:flex;justify-content:flex-end;">
+              <button type="button" class="btn btn-secondary" (click)="clearRequesterSelection()" style="font-size:0.82rem;padding:0.3rem 0.7rem;">
+                <i class="pi pi-user-edit"></i> {{ 'COMMON.EDIT' | translate }}
+              </button>
+            </div>
+          }
+          @if (!requesterLockedFromAd && (visitRequester.firstName || visitRequester.lastName)) {
+            <small class="field-warning"><i class="pi pi-info-circle"></i> {{ 'VALIDATION.REQUESTER_MUST_BE_SYSTEM_USER' | translate }}</small>
+          }
           </div>
           }
           <!-- File Upload Section (Edit mode) -->
@@ -348,11 +368,14 @@ import { AuthService } from '@core/auth/auth.service';
                         <div class="suggestion-no-results">{{ 'VISITORS.NO_SEARCH_RESULTS' | translate }}</div>
                       </div>
                     }
-                    @if (vPersonId.invalid && vPersonId.touched) {
-                      <small class="field-error">
-                        @if (vPersonId.errors?.['required']) { {{ 'VALIDATION.REQUIRED' | translate }} }
-                        @else if (vPersonId.errors?.['pattern']) { {{ 'VALIDATION.DIGITS_ONLY' | translate }} }
-                      </small>
+                    @if (vPersonId.touched) {
+                      @if (vPersonId.errors?.['required']) {
+                        <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+                      } @else if (vPersonId.errors?.['pattern']) {
+                        <small class="field-error">{{ 'VALIDATION.DIGITS_ONLY' | translate }}</small>
+                      } @else if (isInvalidPersonId($index)) {
+                        <small class="field-error">{{ 'VALIDATION.INVALID_PERSON_ID' | translate }}</small>
+                      }
                     }
                     @if (blacklistMap.get($index)?.blacklisted) {
                       <small class="field-warning"><i class="pi pi-exclamation-triangle"></i> {{ 'VALIDATION.BLACKLISTED_WARNING' | translate }}</small>
@@ -363,7 +386,7 @@ import { AuthService } from '@core/auth/auth.service';
                   </div>
                   <div class="field">
                     <label><i class="pi pi-user"></i> {{ 'VISITS.FIRST_NAME' | translate }} <span class="required">*</span></label>
-                    <input type="text" [(ngModel)]="v.firstName" required #vFirstName="ngModel" [placeholder]="'PLACEHOLDER.ENTER_FIRST_NAME' | translate" />
+                    <input type="text" [(ngModel)]="v.firstName" required #vFirstName="ngModel" [placeholder]="'PLACEHOLDER.ENTER_FIRST_NAME' | translate" [disabled]="!!visitorLockedFromDb.get($index)" />
                     @if (vFirstName.invalid && vFirstName.touched) {
                       <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
                     }
@@ -372,16 +395,22 @@ import { AuthService } from '@core/auth/auth.service';
                 <div class="form-row">
                   <div class="field">
                     <label><i class="pi pi-user"></i> {{ 'VISITS.LAST_NAME' | translate }} <span class="required">*</span></label>
-                    <input type="text" [(ngModel)]="v.lastName" required #vLastName="ngModel" [placeholder]="'PLACEHOLDER.ENTER_LAST_NAME' | translate" />
+                    <input type="text" [(ngModel)]="v.lastName" required #vLastName="ngModel" [placeholder]="'PLACEHOLDER.ENTER_LAST_NAME' | translate" [disabled]="!!visitorLockedFromDb.get($index)" />
                     @if (vLastName.invalid && vLastName.touched) {
                       <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
                     }
                   </div>
                   <div class="field">
                     <label><i class="pi pi-phone"></i> {{ 'VISITS.PHONE' | translate }} <span class="required">*</span></label>
-                    <input type="text" [(ngModel)]="v.phone" required #vPhone="ngModel" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" />
-                    @if (vPhone.invalid && vPhone.touched) {
-                      <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+                    <input type="text" [(ngModel)]="v.phone" required [pattern]="phonePattern" #vPhone="ngModel"
+                      (ngModelChange)="onPhoneChange($index, $event)"
+                      [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" [disabled]="!!visitorLockedFromDb.get($index)" />
+                    @if (vPhone.touched) {
+                      @if (vPhone.errors?.['required']) {
+                        <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+                      } @else if (vPhone.errors?.['pattern']) {
+                        <small class="field-error">{{ 'VALIDATION.INVALID_PHONE' | translate }}</small>
+                      }
                     }
                     @if (isDuplicatePhone($index)) {
                       <small class="field-warning"><i class="pi pi-exclamation-triangle"></i> {{ 'VALIDATION.DUPLICATE_PHONE' | translate }}</small>
@@ -391,7 +420,7 @@ import { AuthService } from '@core/auth/auth.service';
                 <div class="form-row">
                   <div class="field">
                     <label><i class="pi pi-envelope"></i> {{ 'VISITS.EMAIL' | translate }}</label>
-                    <input type="email" [(ngModel)]="v.email" [pattern]="emailPattern" #vEmail="ngModel" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" />
+                    <input type="email" [(ngModel)]="v.email" [pattern]="emailPattern" #vEmail="ngModel" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" [disabled]="!!visitorLockedFromDb.get($index)" />
                     @if (vEmail.hasError('pattern') && vEmail.touched) {
                       <small class="field-error">{{ 'VALIDATION.EMAIL' | translate }}</small>
                     }
@@ -410,11 +439,16 @@ import { AuthService } from '@core/auth/auth.service';
                     <div class="field">
                       <label><i class="pi pi-car"></i> {{ 'VISITORS.CAR_NUMBER' | translate }} <span class="required">*</span></label>
                       <div class="input-wrapper">
-                        <input type="text" [(ngModel)]="v.carNumber" required #vCarNumber="ngModel"
+                        <input type="text" [(ngModel)]="v.carNumber" required [pattern]="carNumberPattern" #vCarNumber="ngModel"
+                          (ngModelChange)="onCarNumberChange($index, $event)"
                           [placeholder]="'PLACEHOLDER.ENTER_CAR_NUMBER' | translate" />
                       </div>
-                      @if (vCarNumber.invalid && vCarNumber.touched) {
-                        <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+                      @if (vCarNumber.touched) {
+                        @if (vCarNumber.errors?.['required']) {
+                          <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+                        } @else if (vCarNumber.errors?.['pattern']) {
+                          <small class="field-error">{{ 'VALIDATION.INVALID_CAR_NUMBER' | translate }}</small>
+                        }
                       }
                     </div>
                     <div class="field">
@@ -422,15 +456,11 @@ import { AuthService } from '@core/auth/auth.service';
                       <p-dropdown
                         [(ngModel)]="v.vehicleType"
                         [options]="vehicleTypeOptions"
-                        [group]="true"
-                        optionGroupLabel="label"
-                        optionGroupChildren="items"
                         optionLabel="label"
                         optionValue="value"
                         [placeholder]="'VISITORS.SELECT_VEHICLE_TYPE' | translate"
                         [filter]="true"
                         filterBy="label"
-                        panelStyleClass="vehicle-type-panel"
                         appendTo="body"
                         [style]="{'width':'100%'}"
                         required
@@ -441,15 +471,6 @@ import { AuthService } from '@core/auth/auth.service';
                       }
                     </div>
                   </div>
-                  @if (canRequestParking) {
-                  <div class="field checkbox-field parking-toggle">
-                    <label class="checkbox-label">
-                      <input type="checkbox" [(ngModel)]="v.requestParking" />
-                      <i class="pi pi-warehouse"></i>
-                      {{ 'VISITORS.REQUEST_PARKING' | translate }}
-                    </label>
-                  </div>
-                  }
                 </div>
                 }
               </div>
@@ -464,7 +485,7 @@ import { AuthService } from '@core/auth/auth.service';
               </button>
               }
             </div>
-            <input #visitorFileInput type="file" accept=".xlsx,.xls" (change)="onVisitorFileSelected($event)" style="display:none" />
+            <input #visitorFileInput type="file" accept=".xlsx,.xls" (change)="onImportFileSelected($event)" style="display:none" />
             @if (importErrors.length) {
               <div class="import-errors">
                 <div class="import-errors-header">
@@ -585,8 +606,11 @@ import { AuthService } from '@core/auth/auth.service';
                     (ngModelChange)="onRequesterNameChange($event)"
                     (focus)="onRequesterFocus('first')"
                     (blur)="onRequesterBlur()"
+                    [disabled]="requesterLockedFromAd"
                     [placeholder]="'PLACEHOLDER.ENTER_FIRST_NAME' | translate" autocomplete="off" />
-                  @if (adRequesterLoading) {
+                  @if (requesterLockedFromAd) {
+                    <i class="pi pi-lock input-spinner"></i>
+                  } @else if (adRequesterLoading) {
                     <i class="pi pi-spin pi-spinner input-spinner"></i>
                   }
                 </div>
@@ -600,7 +624,7 @@ import { AuthService } from '@core/auth/auth.service';
                         <div class="suggestion-secondary">
                           @if (p.sectorName) { <span>{{ p.sectorName }}</span> }
                           @if (p.email) { <span>{{ p.email }}</span> }
-                          @if (p.phone) { <span>{{ p.phone }}</span> }
+                          @if (p.phone || p.mobile) { <span>{{ p.phone || p.mobile }}</span> }
                         </div>
                       </div>
                     }
@@ -625,8 +649,11 @@ import { AuthService } from '@core/auth/auth.service';
                     (ngModelChange)="onRequesterNameChange($event)"
                     (focus)="onRequesterFocus('last')"
                     (blur)="onRequesterBlur()"
+                    [disabled]="requesterLockedFromAd"
                     [placeholder]="'PLACEHOLDER.ENTER_LAST_NAME' | translate" autocomplete="off" />
-                  @if (adRequesterLoading) {
+                  @if (requesterLockedFromAd) {
+                    <i class="pi pi-lock input-spinner"></i>
+                  } @else if (adRequesterLoading) {
                     <i class="pi pi-spin pi-spinner input-spinner"></i>
                   }
                 </div>
@@ -640,7 +667,7 @@ import { AuthService } from '@core/auth/auth.service';
                         <div class="suggestion-secondary">
                           @if (p.sectorName) { <span>{{ p.sectorName }}</span> }
                           @if (p.email) { <span>{{ p.email }}</span> }
-                          @if (p.phone) { <span>{{ p.phone }}</span> }
+                          @if (p.phone || p.mobile) { <span>{{ p.phone || p.mobile }}</span> }
                         </div>
                       </div>
                     }
@@ -662,14 +689,18 @@ import { AuthService } from '@core/auth/auth.service';
               <div class="form-row">
                 <div class="field">
                   <label><i class="pi pi-phone"></i> {{ 'VISITS.PHONE' | translate }} <span class="required">*</span></label>
-                  <input type="text" [(ngModel)]="visitRequester.phone" required #obPhone="ngModel" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" />
-                  @if (obPhone.invalid && obPhone.touched) {
-                    <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+                  <input type="text" [(ngModel)]="visitRequester.phone" required [pattern]="phonePattern" #obPhone="ngModel" [disabled]="requesterLockedFromAd" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" />
+                  @if (obPhone.touched) {
+                    @if (obPhone.errors?.['required']) {
+                      <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+                    } @else if (obPhone.errors?.['pattern']) {
+                      <small class="field-error">{{ 'VALIDATION.INVALID_PHONE' | translate }}</small>
+                    }
                   }
                 </div>
                 <div class="field">
                   <label><i class="pi pi-envelope"></i> {{ 'VISITS.EMAIL' | translate }} <span class="required">*</span></label>
-                <input type="email" [(ngModel)]="visitRequester.email" required [pattern]="emailPattern" #obEmail="ngModel" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" />
+                <input type="email" [(ngModel)]="visitRequester.email" required [pattern]="emailPattern" #obEmail="ngModel" [disabled]="requesterLockedFromAd" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" />
                 @if (obEmail.hasError('required') && obEmail.touched) {
                   <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
                 } @else if (obEmail.hasError('pattern') && obEmail.touched) {
@@ -677,6 +708,16 @@ import { AuthService } from '@core/auth/auth.service';
                 }
                 </div>
               </div>
+              @if (requesterLockedFromAd) {
+                <div style="display:flex;justify-content:flex-end;">
+                  <button type="button" class="btn btn-secondary" (click)="clearRequesterSelection()" style="font-size:0.82rem;padding:0.3rem 0.7rem;">
+                    <i class="pi pi-user-edit"></i> {{ 'COMMON.EDIT' | translate }}
+                  </button>
+                </div>
+              }
+              @if (!requesterLockedFromAd && (visitRequester.firstName || visitRequester.lastName)) {
+                <small class="field-warning"><i class="pi pi-info-circle"></i> {{ 'VALIDATION.REQUESTER_MUST_BE_SYSTEM_USER' | translate }}</small>
+              }
             </div>
             }
 
@@ -691,9 +732,16 @@ import { AuthService } from '@core/auth/auth.service';
               <div class="inline-row">
                 <div class="inline-row-header">
                   <span class="inline-row-num">{{ 'VISITS.ESCORT' | translate }} {{ $index + 1 }}</span>
-                  <button class="btn-icon danger" (click)="removeInlineEscort($index)" [title]="'COMMON.DELETE' | translate">
-                    <i class="pi pi-times"></i>
-                  </button>
+                  <div style="display:flex;gap:0.35rem;align-items:center;">
+                    @if (escortLockedFromAd.get($index)) {
+                      <button class="btn-icon" type="button" (click)="clearEscortSelection($index)" [title]="'COMMON.EDIT' | translate">
+                        <i class="pi pi-user-edit"></i>
+                      </button>
+                    }
+                    <button class="btn-icon danger" (click)="removeInlineEscort($index)" [title]="'COMMON.DELETE' | translate">
+                      <i class="pi pi-times"></i>
+                    </button>
+                  </div>
                 </div>
                 <div class="form-row">
                   <div class="field">
@@ -703,8 +751,11 @@ import { AuthService } from '@core/auth/auth.service';
                         (ngModelChange)="onEscortNameChange($index, $event)"
                         (focus)="onEscortNameFocus($index, 'first')"
                         (blur)="onEscortNameBlur($index)"
+                        [disabled]="!!escortLockedFromAd.get($index)"
                         [placeholder]="'PLACEHOLDER.ENTER_FIRST_NAME' | translate" autocomplete="off" />
-                      @if (adEscortLoading.get($index)) {
+                      @if (escortLockedFromAd.get($index)) {
+                        <i class="pi pi-lock input-spinner"></i>
+                      } @else if (adEscortLoading.get($index)) {
                         <i class="pi pi-spin pi-spinner input-spinner"></i>
                       }
                     </div>
@@ -717,6 +768,7 @@ import { AuthService } from '@core/auth/auth.service';
                             </div>
                             <div class="suggestion-secondary">
                               @if (p.sectorName) { <span>{{ p.sectorName }}</span> }
+                              @if (p.phone || p.mobile) { <span>{{ p.phone || p.mobile }}</span> }
                             </div>
                           </div>
                         }
@@ -741,8 +793,11 @@ import { AuthService } from '@core/auth/auth.service';
                         (ngModelChange)="onEscortNameChange($index, $event)"
                         (focus)="onEscortNameFocus($index, 'last')"
                         (blur)="onEscortNameBlur($index)"
+                        [disabled]="!!escortLockedFromAd.get($index)"
                         [placeholder]="'PLACEHOLDER.ENTER_LAST_NAME' | translate" autocomplete="off" />
-                      @if (adEscortLoading.get($index)) {
+                      @if (escortLockedFromAd.get($index)) {
+                        <i class="pi pi-lock input-spinner"></i>
+                      } @else if (adEscortLoading.get($index)) {
                         <i class="pi pi-spin pi-spinner input-spinner"></i>
                       }
                     </div>
@@ -755,6 +810,7 @@ import { AuthService } from '@core/auth/auth.service';
                             </div>
                             <div class="suggestion-secondary">
                               @if (p.sectorName) { <span>{{ p.sectorName }}</span> }
+                              @if (p.phone || p.mobile) { <span>{{ p.phone || p.mobile }}</span> }
                             </div>
                           </div>
                         }
@@ -776,14 +832,18 @@ import { AuthService } from '@core/auth/auth.service';
                 <div class="form-row">
                   <div class="field">
                     <label><i class="pi pi-phone"></i> {{ 'VISITS.PHONE' | translate }} <span class="required">*</span></label>
-                    <input type="text" [(ngModel)]="e.phone" required #ePhone="ngModel" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" />
-                    @if (ePhone.invalid && ePhone.touched) {
-                      <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+                    <input type="text" [(ngModel)]="e.phone" required [pattern]="phonePattern" #ePhone="ngModel" [disabled]="!!escortLockedFromAd.get($index)" [placeholder]="'PLACEHOLDER.ENTER_PHONE' | translate" />
+                    @if (ePhone.touched) {
+                      @if (ePhone.errors?.['required']) {
+                        <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
+                      } @else if (ePhone.errors?.['pattern']) {
+                        <small class="field-error">{{ 'VALIDATION.INVALID_PHONE' | translate }}</small>
+                      }
                     }
                   </div>
                   <div class="field">
                     <label><i class="pi pi-envelope"></i> {{ 'VISITS.EMAIL' | translate }} <span class="required">*</span></label>
-                    <input type="email" [(ngModel)]="e.email" required [pattern]="emailPattern" #eEmail="ngModel" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" />
+                    <input type="email" [(ngModel)]="e.email" required [pattern]="emailPattern" #eEmail="ngModel" [disabled]="!!escortLockedFromAd.get($index)" [placeholder]="'PLACEHOLDER.ENTER_EMAIL' | translate" />
                     @if (eEmail.hasError('required') && eEmail.touched) {
                       <small class="field-error">{{ 'VALIDATION.REQUIRED' | translate }}</small>
                     } @else if (eEmail.hasError('pattern') && eEmail.touched) {
@@ -801,10 +861,14 @@ import { AuthService } from '@core/auth/auth.service';
                       optionValue="name"
                       [placeholder]="'VISITS.SECTOR' | translate"
                       appendTo="body"
+                      [disabled]="!!escortLockedFromAd.get($index)"
                       [style]="{'width':'100%'}"
                     ></p-dropdown>
                   </div>
                 </div>
+                @if (!escortLockedFromAd.get($index) && (e.firstName || e.lastName)) {
+                  <small class="field-warning"><i class="pi pi-info-circle"></i> {{ 'VALIDATION.ESCORT_MUST_BE_SYSTEM_USER' | translate }}</small>
+                }
               </div>
             }
             <button class="btn btn-secondary btn-add-inline" (click)="addInlineEscort()">
@@ -1166,6 +1230,8 @@ export class VisitDialogComponent implements OnDestroy {
 
   today = new Date();
   emailPattern = EMAIL_PATTERN.source;
+  phonePattern = PHONE_PATTERN.source;
+  carNumberPattern = CAR_NUMBER_PATTERN.source;
   saving = false;
   purposeOfVisitOptions = [
     { label: 'פגישה', value: 'פגישה' },
@@ -1173,14 +1239,16 @@ export class VisitDialogComponent implements OnDestroy {
     { label: 'עבודת תחזוקה', value: 'עבודת תחזוקה' },
     { label: 'אחר', value: 'אחר' },
   ];
-  vehicleTypeOptions: { label: string; items: { label: string; value: string }[] }[] = [];
+  vehicleTypeOptions: { label: string; value: string }[] = [];
   escortSectorOptions: SectorLookupItem[] = [];
 
   private readonly vehicleModelsApi = inject(VehicleModelsApiService);
 
   private buildVehicleTypeOptions(): void {
-    this.vehicleModelsApi.lookup().subscribe({
-      next: (options) => this.vehicleTypeOptions = options,
+    this.vehicleModelsApi.getManufacturers().subscribe({
+      next: (manufacturers) => {
+        this.vehicleTypeOptions = manufacturers.map(m => ({ label: m, value: m }));
+      },
       error: () => this.vehicleTypeOptions = [],
     });
   }
@@ -1205,6 +1273,7 @@ export class VisitDialogComponent implements OnDestroy {
       plannedEndTime: null,
     };
   visitRequester = { firstName: '', lastName: '', phone: '', email: '' };
+  selectedRequesterUserId: string | null = null;
   requesterIsSomeoneElse = false;
   requesterLockedToOnBehalf = false;
   inlineVisitors: InlineVisitor[] = [];
@@ -1226,6 +1295,7 @@ export class VisitDialogComponent implements OnDestroy {
   showNoResults = new Map<number, boolean>();
   searchLoading = new Map<number, boolean>();
   suggestionsVisible = new Map<number, boolean>();
+  visitorLockedFromDb = new Map<number, boolean>();
   private searchSubjects = new Map<number, Subject<string>>();
   private searchSubs: Subscription[] = [];
 
@@ -1248,6 +1318,10 @@ export class VisitDialogComponent implements OnDestroy {
   adEscortActiveField = new Map<number, 'first' | 'last' | ''>();
   private adEscortSubjects = new Map<number, Subject<string>>();
   private adEscortSubs: Subscription[] = [];
+
+  // Lock flags — set when a user is selected from the AD/system-user list
+  escortLockedFromAd = new Map<number, boolean>();
+  requesterLockedFromAd = false;
 
   open(visit?: Visit): void {
     this.buildVehicleTypeOptions();
@@ -1273,7 +1347,10 @@ export class VisitDialogComponent implements OnDestroy {
       this.visitRequester = visit.visitRequester
         ? { ...visit.visitRequester }
         : { firstName: '', lastName: '', phone: '', email: '' };
-      this.requesterIsSomeoneElse = !visit.visitRequesterUserId;
+      this.requesterLockedFromAd = !!visit.visitRequester;
+      const currentUserId = this.authService.currentUser?.id;
+      this.requesterIsSomeoneElse = !!visit.visitRequesterUserId && visit.visitRequesterUserId !== currentUserId;
+      this.selectedRequesterUserId = visit.visitRequesterUserId ?? null;
       if (this.requesterLockedToOnBehalf) {
         this.requesterIsSomeoneElse = true;
       }
@@ -1305,6 +1382,7 @@ export class VisitDialogComponent implements OnDestroy {
     this.editing = null;
     this.form = { title: '', purposeOfVisit: '', buildingId: '', floor: null, plannedStartDate: null, plannedStartTime: null, plannedEndDate: null, plannedEndTime: null };
     this.visitRequester = { firstName: '', lastName: '', phone: '', email: '' };
+    this.selectedRequesterUserId = null;
     this.requesterIsSomeoneElse = false;
     this.requesterLockedToOnBehalf = false;
     this.inlineVisitors = [];
@@ -1313,6 +1391,9 @@ export class VisitDialogComponent implements OnDestroy {
     this.pendingFiles = [];
     this.existingFiles = [];
     this.saving = false;
+    this.visitorLockedFromDb.clear();
+    this.escortLockedFromAd.clear();
+    this.requesterLockedFromAd = false;
     this.clearBlacklistState();
     this.clearAdSearchState();
   }
@@ -1358,11 +1439,15 @@ export class VisitDialogComponent implements OnDestroy {
 
     if (!this.requesterIsSomeoneElse) {
       this.visitRequester = { firstName: '', lastName: '', phone: '', email: '' };
+      this.selectedRequesterUserId = null;
+      this.requesterLockedFromAd = false;
     }
   }
 
   onVehicleCheckboxChange(v: InlineVisitor): void {
-    if (!v.hasVehicle) {
+    if (v.hasVehicle) {
+      v.requestParking = this.canRequestParking;
+    } else {
       v.carNumber = '';
       v.vehicleType = '';
       v.requestParking = false;
@@ -1377,21 +1462,25 @@ export class VisitDialogComponent implements OnDestroy {
     if (this.endBeforeStartError()) return false;
     if (this.requesterLockedToOnBehalf && !this.requesterIsSomeoneElse) return false;
     if (this.requesterIsSomeoneElse) {
-      if (!this.visitRequester.firstName || !this.visitRequester.lastName || !this.visitRequester.phone || !this.visitRequester.email) return false;
-      if (!EMAIL_PATTERN.test(this.visitRequester.email)) return false;
+      if (!this.selectedRequesterUserId || !this.requesterLockedFromAd) return false;
     }
     if (!this.editing) {
       if (!this.inlineVisitors.length) return false;
       for (const v of this.inlineVisitors) {
         if (!v.firstName || !v.lastName || !v.personId || !v.phone) return false;
         if (!/^[0-9]*$/.test(v.personId)) return false;
+        if (!this.isValidIsraeliId(v.personId)) return false;
+        if (!PHONE_PATTERN.test(v.phone)) return false;
         if (v.email && !EMAIL_PATTERN.test(v.email)) return false;
         if (v.hasVehicle && (!v.carNumber || !v.vehicleType)) return false;
+        if (v.hasVehicle && !CAR_NUMBER_PATTERN.test(v.carNumber)) return false;
       }
+      if (this.inlineVisitors.some((_, i) => this.isDuplicatePersonId(i))) return false;
       if (this.escortRequired && !this.inlineEscorts.length) return false;
-      for (const e of this.inlineEscorts) {
+      for (const [i, e] of this.inlineEscorts.entries()) {
         if (!e.firstName || !e.lastName || !e.phone || !e.email) return false;
-        if (!EMAIL_PATTERN.test(e.email)) return false;
+        if (!this.escortLockedFromAd.get(i)) return false;
+        // Skip pattern validation for system-sourced data (phone/email format may differ from local pattern)
       }
     }
     return true;
@@ -1422,9 +1511,15 @@ export class VisitDialogComponent implements OnDestroy {
       newSuggestions.set(k > index ? k - 1 : k, v);
     }
     this.visitorSuggestions = newSuggestions;
+    // Reindex locked state
+    const newLocked = new Map<number, boolean>();
+    for (const [k, v] of this.visitorLockedFromDb) {
+      if (k !== index) newLocked.set(k > index ? k - 1 : k, v);
+    }
+    this.visitorLockedFromDb = newLocked;
   }
 
-  async onVisitorFileSelected(event: Event): Promise<void> {
+  async onImportFileSelected(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
@@ -1432,48 +1527,185 @@ export class VisitDialogComponent implements OnDestroy {
 
     this.importErrors = [];
 
+    let workbook: ParsedVisitWorkbook;
     try {
-      const rows = await this.excelImport.parseFile(file);
-      if (!rows.length) {
-        this.notify.error('VISITS.IMPORT_EMPTY_FILE');
-        return;
-      }
-
-      const mapped = this.excelImport.mapRows(rows);
-      const result = this.excelImport.validateVisitorRows(mapped);
-
-      if (result.invalid.length && !result.valid.length) {
-        this.notify.error(this.translate.instant('VISITS.IMPORT_ALL_INVALID', { count: result.invalid.length }));
-        this.importErrors = result.invalid.map(e =>
-          this.translate.instant('VISITS.IMPORT_ROW_ERROR', { row: e.row, fields: e.errors.join(', ') })
-        );
-        return;
-      }
-
-      for (const row of result.valid) {
-        this.inlineVisitors.push({
-          firstName: row['firstName'] ?? '',
-          lastName: row['lastName'] ?? '',
-          email: row['email'] ?? '',
-          phone: row['phone'] ?? '',
-          personId: row['personId'] ?? '',
-          hasVehicle: !!(row['carNumber']),
-          carNumber: row['carNumber'] ?? '',
-          vehicleType: row['vehicleType'] ?? '',
-          requestParking: false,
-        });
-      }
-
-      if (result.invalid.length) {
-        this.notify.success(this.translate.instant('VISITS.IMPORT_PARTIAL', { valid: result.valid.length, invalid: result.invalid.length }));
-        this.importErrors = result.invalid.map(e =>
-          this.translate.instant('VISITS.IMPORT_ROW_ERROR', { row: e.row, fields: e.errors.join(', ') })
-        );
-      } else {
-        this.notify.success(this.translate.instant('VISITS.IMPORT_SUCCESS', { count: result.valid.length }));
-      }
+      workbook = await this.excelImport.parseVisitWorkbook(file);
     } catch {
       this.notify.error('VISITS.IMPORT_INVALID_FILE');
+      return;
+    }
+
+    if (!workbook.visitDetails && !workbook.visitorRows.length && !workbook.escortRows.length) {
+      this.notify.error('VISITS.IMPORT_EMPTY_FILE');
+      return;
+    }
+
+    const errors: string[] = [];
+
+    if (workbook.visitDetails) {
+      await this.applyImportedVisitDetails(workbook.visitDetails, errors);
+    }
+
+    const visitorSummary = workbook.visitorRows.length
+      ? this.applyImportedVisitors(workbook.visitorRows, errors)
+      : null;
+
+    if (workbook.escortRows.length) {
+      await this.applyImportedEscorts(workbook.escortRows, errors);
+    }
+
+    this.importErrors = errors;
+
+    if (visitorSummary) {
+      if (visitorSummary.invalid && !visitorSummary.valid) {
+        this.notify.error(this.translate.instant('VISITS.IMPORT_ALL_INVALID', { count: visitorSummary.invalid }));
+      } else if (visitorSummary.invalid) {
+        this.notify.success(this.translate.instant('VISITS.IMPORT_PARTIAL', { valid: visitorSummary.valid, invalid: visitorSummary.invalid }));
+      } else {
+        this.notify.success(this.translate.instant('VISITS.IMPORT_SUCCESS', { count: visitorSummary.valid }));
+      }
+    } else if (!errors.length) {
+      this.notify.success('COMMON.SUCCESS');
+    }
+  }
+
+  private applyImportedVisitors(rows: Record<string, unknown>[], errors: string[]): { valid: number; invalid: number } {
+    const mapped = this.excelImport.mapRows(rows);
+    const result = this.excelImport.validateVisitorRows(mapped);
+
+    for (const row of result.valid) {
+      const hasVehicle = row['hasVehicle'] !== undefined && row['hasVehicle'] !== ''
+        ? this.excelImport.parseBoolean(row['hasVehicle'])
+        : !!row['carNumber'];
+      const vehicleType = hasVehicle ? this.resolveVehicleType(row['vehicleType'], row, errors) : '';
+      this.inlineVisitors.push({
+        firstName: row['firstName'] ?? '',
+        lastName: row['lastName'] ?? '',
+        email: row['email'] ?? '',
+        phone: row['phone'] ?? '',
+        personId: row['personId'] ?? '',
+        hasVehicle,
+        carNumber: hasVehicle ? (row['carNumber'] ?? '') : '',
+        vehicleType,
+        requestParking: hasVehicle ? (this.canRequestParking && this.excelImport.parseBoolean(row['requestParking'])) : false,
+      });
+    }
+
+    for (const invalid of result.invalid) {
+      errors.push(this.translate.instant('VISITS.IMPORT_SHEET_ROW_ERROR', {
+        sheet: this.translate.instant('VISITS.VISITORS'),
+        row: invalid.row,
+        fields: invalid.errors.join(', '),
+      }));
+    }
+
+    return { valid: result.valid.length, invalid: result.invalid.length };
+  }
+
+  private resolveVehicleType(rawValue: string, row: Record<string, string>, errors: string[]): string {
+    const raw = (rawValue ?? '').trim();
+    if (!raw) return '';
+
+    // Vehicle type must be one of the configured manufacturers. If the list hasn't
+    // loaded yet, fall back to the raw value rather than rejecting every row.
+    if (!this.vehicleTypeOptions.length) return raw;
+
+    const match = this.vehicleTypeOptions.find(o => o.label.trim().toLowerCase() === raw.toLowerCase());
+    if (match) return match.value;
+
+    errors.push(this.translate.instant('VISITS.IMPORT_VEHICLE_TYPE_NOT_FOUND', {
+      visitor: `${row['firstName'] ?? ''} ${row['lastName'] ?? ''}`.trim(),
+      value: raw,
+    }));
+    return '';
+  }
+
+  private async applyImportedVisitDetails(raw: Record<string, unknown>, errors: string[]): Promise<void> {
+    const mapped = this.excelImport.mapVisitDetailsRow(raw);
+    const result = this.excelImport.validateVisitDetails(mapped);
+
+    if (!result.data) {
+      if (result.errors.length) {
+        errors.push(this.translate.instant('VISITS.IMPORT_SHEET_ROW_ERROR', {
+          sheet: this.translate.instant('VISITS.VISIT_DETAILS'),
+          row: 2,
+          fields: result.errors.join(', '),
+        }));
+      }
+      return;
+    }
+
+    const details = result.data;
+    this.form.title = details.title;
+    this.form.purposeOfVisit = details.purposeOfVisit;
+    this.form.floor = details.floor;
+    this.form.plannedStartDate = details.plannedStart;
+    this.form.plannedStartTime = details.plannedStart;
+    this.form.plannedEndDate = details.plannedEnd;
+    this.form.plannedEndTime = details.plannedEnd;
+
+    const building = this.buildings.find(b => b.name.trim().toLowerCase() === details.buildingName.trim().toLowerCase());
+    if (building) {
+      this.form.buildingId = building.id;
+    } else {
+      errors.push(this.translate.instant('VISITS.IMPORT_BUILDING_NOT_FOUND', { name: details.buildingName }));
+    }
+
+    await this.resolveVisitRequester(details.requesterIdentifier, errors);
+  }
+
+  private async resolveVisitRequester(identifier: string, errors: string[]): Promise<void> {
+    let matches: SystemUserSuggestion[] = [];
+    try {
+      matches = await firstValueFrom(this.systemUserSearch.searchUsers(identifier));
+    } catch {
+      matches = [];
+    }
+
+    if (matches.length === 1) {
+      this.requesterIsSomeoneElse = true;
+      this.selectRequesterSuggestion(matches[0]);
+    } else {
+      errors.push(this.translate.instant('VISITS.IMPORT_REQUESTER_NOT_MATCHED', { identifier }));
+    }
+  }
+
+  private async applyImportedEscorts(rows: Record<string, unknown>[], errors: string[]): Promise<void> {
+    const mapped = this.excelImport.mapEscortRows(rows);
+    const result = this.excelImport.validateEscortRows(mapped);
+
+    for (const invalid of result.invalid) {
+      errors.push(this.translate.instant('VISITS.IMPORT_SHEET_ROW_ERROR', {
+        sheet: this.translate.instant('VISITS.ESCORTS'),
+        row: invalid.row,
+        fields: invalid.errors.join(', '),
+      }));
+    }
+
+    for (const row of result.valid) {
+      await this.resolveAndAddEscort(row, errors);
+    }
+  }
+
+  private async resolveAndAddEscort(row: Record<string, string>, errors: string[]): Promise<void> {
+    const firstName = row['firstName'] ?? '';
+    const lastName = row['lastName'] ?? '';
+    const query = (row['email'] || `${firstName} ${lastName}`).trim();
+
+    let matches: SystemUserSuggestion[] = [];
+    try {
+      matches = await firstValueFrom(this.systemUserSearch.searchUsers(query));
+    } catch {
+      matches = [];
+    }
+
+    const index = this.inlineEscorts.length;
+    this.inlineEscorts.push({ firstName, lastName, phone: '', email: '', sector: '' });
+
+    if (matches.length === 1) {
+      this.selectEscortSuggestion(index, matches[0]);
+    } else {
+      errors.push(this.translate.instant('VISITS.IMPORT_ESCORT_NOT_MATCHED', { name: `${firstName} ${lastName}`.trim() }));
     }
   }
 
@@ -1483,6 +1715,38 @@ export class VisitDialogComponent implements OnDestroy {
 
   removeInlineEscort(index: number): void {
     this.inlineEscorts.splice(index, 1);
+    const newLocked = new Map<number, boolean>();
+    for (const [k, v] of this.escortLockedFromAd) {
+      if (k !== index) newLocked.set(k > index ? k - 1 : k, v);
+    }
+    this.escortLockedFromAd = newLocked;
+  }
+
+  clearEscortSelection(index: number): void {
+    const e = this.inlineEscorts[index];
+    if (!e) return;
+    e.firstName = '';
+    e.lastName = '';
+    e.phone = '';
+    e.email = '';
+    e.sector = '';
+    this.escortLockedFromAd.delete(index);
+    this.adEscortSuggestions.delete(index);
+    this.adEscortVisible.delete(index);
+    this.adEscortNoResults.delete(index);
+    this.adEscortError.delete(index);
+    this.adEscortActiveField.delete(index);
+  }
+
+  clearRequesterSelection(): void {
+    this.visitRequester = { firstName: '', lastName: '', phone: '', email: '' };
+    this.selectedRequesterUserId = null;
+    this.requesterLockedFromAd = false;
+    this.adRequesterSuggestions = [];
+    this.adRequesterVisible = false;
+    this.adRequesterNoResults = false;
+    this.adRequesterError = '';
+    this.adRequesterActiveField = '';
   }
 
   // ── Save ──
@@ -1503,12 +1767,7 @@ export class VisitDialogComponent implements OnDestroy {
     this.saving = true;
 
     const visitRequesterPayload = this.requesterIsSomeoneElse
-      ? {
-        firstName: this.visitRequester.firstName,
-        lastName: this.visitRequester.lastName,
-        phone: this.visitRequester.phone,
-        email: this.visitRequester.email,
-      }
+      ? { userId: this.selectedRequesterUserId }
       : undefined;
 
     if (this.editing) {
@@ -1563,15 +1822,15 @@ export class VisitDialogComponent implements OnDestroy {
   // ── Blacklist validation ──
 
   onPersonIdChange(index: number, value: string): void {
+    // Strip any non-digit characters (e.g. spaces, dashes, RTL markers)
+    const sanitized = value.replace(/\D/g, '');
+    if (sanitized !== value) {
+      this.inlineVisitors[index].personId = sanitized;
+      value = sanitized;
+    }
+    this.visitorLockedFromDb.delete(index);
     if (!value || !value.trim()) {
       this.blacklistMap.delete(index);
-      this.visitorSuggestions.delete(index);
-      this.showNoResults.delete(index);
-      this.searchLoading.delete(index);
-      return;
-    }
-    // Skip search/blacklist if input contains non-digit characters
-    if (!/^\d+$/.test(value.trim())) {
       this.visitorSuggestions.delete(index);
       this.showNoResults.delete(index);
       this.searchLoading.delete(index);
@@ -1615,14 +1874,20 @@ export class VisitDialogComponent implements OnDestroy {
         }),
       ).subscribe(results => {
         this.searchLoading.delete(index);
-        if (results.length) {
+        const currentPersonId = this.inlineVisitors[index]?.personId?.trim();
+        const exactMatch = results.find(r => r.personId === currentPersonId);
+        if (exactMatch) {
+          this.selectSuggestion(index, exactMatch);
+          this.visitorLockedFromDb.set(index, true);
+        } else if (results.length) {
           this.visitorSuggestions.set(index, results);
           this.showNoResults.delete(index);
+          this.suggestionsVisible.set(index, true);
         } else {
           this.visitorSuggestions.delete(index);
           this.showNoResults.set(index, true);
+          this.suggestionsVisible.set(index, true);
         }
-        this.suggestionsVisible.set(index, true);
       });
       this.searchSubs.push(sub);
     }
@@ -1639,6 +1904,21 @@ export class VisitDialogComponent implements OnDestroy {
     setTimeout(() => this.suggestionsVisible.delete(index), 200);
   }
 
+  onPhoneChange(index: number, value: string): void {
+    const hasPlus = value.startsWith('+');
+    const sanitized = (hasPlus ? '+' : '') + value.replace(/\D/g, '');
+    if (sanitized !== value) {
+      this.inlineVisitors[index].phone = sanitized;
+    }
+  }
+
+  onCarNumberChange(index: number, value: string): void {
+    const sanitized = value.replace(/[\s\-]/g, '');
+    if (sanitized !== value) {
+      this.inlineVisitors[index].carNumber = sanitized;
+    }
+  }
+
   selectSuggestion(index: number, visitor: VisitorSuggestion): void {
     const v = this.inlineVisitors[index];
     if (!v) return;
@@ -1650,6 +1930,7 @@ export class VisitDialogComponent implements OnDestroy {
     v.carNumber = visitor.carNumber ?? '';
     v.vehicleType = visitor.vehicleType ?? '';
     v.hasVehicle = !!(visitor.carNumber);
+    this.visitorLockedFromDb.set(index, true);
     this.visitorSuggestions.delete(index);
     this.showNoResults.delete(index);
     this.suggestionsVisible.delete(index);
@@ -1677,6 +1958,27 @@ export class VisitDialogComponent implements OnDestroy {
     return this.inlineVisitors.some((v, i) => i !== index && v.phone?.trim() === val);
   }
 
+  isValidIsraeliId(id: string): boolean {
+    const cleaned = id.replace(/\D/g, '');
+    if (cleaned.length < 5 || cleaned.length > 9) return false;
+    const padded = cleaned.padStart(9, '0');
+    let sum = 0;
+    for (let i = 0; i < 9; i++) {
+      let digit = parseInt(padded[i], 10);
+      if (i % 2 === 1) digit *= 2;
+      if (digit > 9) digit -= 9;
+      sum += digit;
+    }
+    return sum % 10 === 0;
+  }
+
+  isInvalidPersonId(index: number): boolean {
+    const id = this.inlineVisitors[index]?.personId?.trim();
+    if (!id) return false;
+    if (!/^\d+$/.test(id)) return false;
+    return !this.isValidIsraeliId(id);
+  }
+
   private clearBlacklistState(): void {
     this.blacklistMap.clear();
     this.blacklistSubs.forEach(s => s.unsubscribe());
@@ -1695,6 +1997,7 @@ export class VisitDialogComponent implements OnDestroy {
   // ── AD People Search (Visit Requester & Escorts) ──
 
   onRequesterNameChange(value: string): void {
+    this.requesterLockedFromAd = false;
     if (!value || value.trim().length < 2) {
       this.adRequesterSuggestions = [];
       this.adRequesterNoResults = false;
@@ -1745,7 +2048,9 @@ export class VisitDialogComponent implements OnDestroy {
     this.visitRequester.firstName = person.firstName;
     this.visitRequester.lastName = person.lastName;
     this.visitRequester.email = person.email ?? '';
-    this.visitRequester.phone = person.phone ?? '';
+    this.visitRequester.phone = person.phone || person.mobile || '';
+    this.selectedRequesterUserId = person.id;
+    this.requesterLockedFromAd = true;
     this.adRequesterSuggestions = [];
     this.adRequesterVisible = false;
     this.adRequesterNoResults = false;
@@ -1754,6 +2059,7 @@ export class VisitDialogComponent implements OnDestroy {
   }
 
   onEscortNameChange(index: number, value: string): void {
+    this.escortLockedFromAd.delete(index);
     if (!value || value.trim().length < 2) {
       this.adEscortSuggestions.delete(index);
       this.adEscortNoResults.delete(index);
@@ -1820,8 +2126,9 @@ export class VisitDialogComponent implements OnDestroy {
     e.firstName = person.firstName;
     e.lastName = person.lastName;
     e.email = person.email ?? '';
-    e.phone = person.phone ?? '';
+    e.phone = person.phone || person.mobile || '';
     e.sector = person.sectorName ?? '';
+    this.escortLockedFromAd.set(index, true);
     this.adEscortSuggestions.delete(index);
     this.adEscortVisible.delete(index);
     this.adEscortNoResults.delete(index);

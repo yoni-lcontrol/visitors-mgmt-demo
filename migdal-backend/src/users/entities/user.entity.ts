@@ -23,6 +23,9 @@ export class User extends BaseEntity {
     @Column({ type: 'nvarchar', length: 50, nullable: true })
     phone!: string | null;
 
+    @Column({ type: 'nvarchar', length: 50, nullable: true })
+    mobile!: string | null;
+
     @Column({ type: 'datetime2', nullable: true })
     lastLoginAt!: Date | null;
 

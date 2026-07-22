@@ -3,7 +3,6 @@ import {
     IsString,
     IsOptional,
     IsArray,
-    IsEmail,
     IsInt,
     IsDateString,
     ValidateNested,
@@ -17,25 +16,11 @@ import { VisitEscortItemDto } from './visit-escort-item.dto';
 import { GUID_REGEX } from '../../common/constants/regex.constants';
 
 export class VisitRequesterDto {
-    @ApiProperty({ example: 'David' })
+    @ApiProperty({ example: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890' })
     @IsString()
     @IsNotEmpty()
-    firstName!: string;
-
-    @ApiProperty({ example: 'Cohen' })
-    @IsString()
-    @IsNotEmpty()
-    lastName!: string;
-
-    @ApiProperty({ example: '+972501234567' })
-    @IsString()
-    @IsNotEmpty()
-    phone!: string;
-
-    @ApiProperty({ example: 'david@example.com' })
-    @IsEmail()
-    @IsNotEmpty()
-    email!: string;
+    @Matches(GUID_REGEX, { message: 'userId must be a valid GUID' })
+    userId!: string;
 }
 
 export class CreateVisitDto {

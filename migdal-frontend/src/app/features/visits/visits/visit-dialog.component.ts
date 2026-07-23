@@ -1657,7 +1657,7 @@ export class VisitDialogComponent implements OnDestroy {
   private async resolveVisitRequester(identifier: string, errors: string[]): Promise<void> {
     let matches: SystemUserSuggestion[] = [];
     try {
-      matches = await firstValueFrom(this.systemUserSearch.searchUsers(identifier));
+      matches = await firstValueFrom(this.systemUserSearch.searchUsers(identifier, 'requester'));
     } catch {
       matches = [];
     }
@@ -2013,7 +2013,7 @@ export class VisitDialogComponent implements OnDestroy {
           if (q.length < 2) { this.adRequesterSuggestions = []; return EMPTY; }
           this.adRequesterLoading = true;
           this.adRequesterError = '';
-          return this.systemUserSearch.searchUsers(q).pipe(
+          return this.systemUserSearch.searchUsers(q, 'requester').pipe(
             catchError(err => {
               this.adRequesterSuggestions = [];
               this.adRequesterNoResults = false;

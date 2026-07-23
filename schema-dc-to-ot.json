@@ -21,6 +21,16 @@
         "summary": "Start async device import job",
         "operationId": "triggerFullImport",
         "description": "Triggers a background device import (controllers/doors/extensions with IOs). Returns immediately with a jobId. Poll GET /api/import/status/{jobId} for progress and the final ImportCallbackPayload.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "description": "Job accepted — returns jobId for polling",
@@ -70,6 +80,16 @@
         "summary": "Start async access-level import job",
         "operationId": "triggerAccessLevelImport",
         "description": "Triggers a background access-level import from Amadeus OData. Returns immediately with a jobId. Poll GET /api/import/status/{jobId} for progress; the completed status includes accessLevelPayload.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "description": "Job accepted — returns jobId for polling",
@@ -238,6 +258,16 @@
         "summary": "Archive cardholder",
         "operationId": "archiveCardholder",
         "description": "Soft-deletes / archives the cardholder in Amadeus without removing the record.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "parameters": [
           {
             "name": "amadeusUid",
@@ -457,6 +487,16 @@
         "summary": "Trigger configured access import (access levels or access groups)",
         "operationId": "importAccess",
         "description": "⚠️ NOT currently called from NestJS ac-api.service.ts. Reads the ImportAccessLevels configuration setting to determine which type to import (AccessLevels or AccessGroups) and runs the import.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Import completed successfully",
@@ -789,6 +829,16 @@
         "summary": "Trigger full sync (C# → NestJS)",
         "operationId": "triggerSyncFull",
         "description": "⚠️ Trigger endpoint — NOT called by NestJS. When invoked (e.g. on startup or manually), the C# service fetches all data from Amadeus OData and POSTs it to the NestJS /api/sync/full endpoint.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync completed",
@@ -819,6 +869,16 @@
         "summary": "Trigger controller sync (C# → NestJS)",
         "operationId": "triggerSyncControllers",
         "description": "⚠️ Trigger endpoint — NOT called by NestJS.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync completed",
@@ -844,6 +904,16 @@
         "summary": "Trigger door sync (C# → NestJS)",
         "operationId": "triggerSyncDoors",
         "description": "⚠️ Trigger endpoint — NOT called by NestJS.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync completed",
@@ -869,6 +939,16 @@
         "summary": "Trigger extension sync (C# → NestJS)",
         "operationId": "triggerSyncExtensions",
         "description": "⚠️ Trigger endpoint — NOT called by NestJS.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync completed",
@@ -894,6 +974,16 @@
         "summary": "Trigger access-group sync (C# → NestJS)",
         "operationId": "triggerSyncAccessGroups",
         "description": "⚠️ Trigger endpoint — NOT called by NestJS.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync completed",
@@ -919,6 +1009,16 @@
         "summary": "Trigger security-group sync (C# → NestJS)",
         "operationId": "triggerSyncSecurityGroups",
         "description": "⚠️ Trigger endpoint — NOT called by NestJS.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync completed",
@@ -944,6 +1044,16 @@
         "summary": "Trigger access-level sync (C# → NestJS)",
         "operationId": "triggerSyncAccessLevels",
         "description": "⚠️ Trigger endpoint — NOT called by NestJS.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync completed",
@@ -969,6 +1079,16 @@
         "summary": "Trigger cardholder sync (C# → NestJS)",
         "operationId": "triggerSyncCardholders",
         "description": "⚠️ Trigger endpoint — NOT called by NestJS.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync completed",
@@ -992,6 +1112,13 @@
   },
   "components": {
     "schemas": {
+      "EmptyRequestBody": {
+        "title": "EmptyRequestBody",
+        "description": "Endpoint takes no input — request body must be an empty JSON object. Extra properties are rejected.",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
       "ImportJobAcceptedResponse": {
         "title": "ImportJobAcceptedResponse",
         "type": "object",

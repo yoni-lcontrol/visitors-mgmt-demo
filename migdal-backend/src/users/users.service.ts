@@ -16,8 +16,19 @@ import { hashPassword } from '../common/utils/hash.util';
 import { toExcelBuffer } from '../common/utils/excel.util';
 import { applyTableFilters, parseTableFilters } from '../common/utils/table-filter.util';
 import { Role } from '../roles/entities/role.entity';
+import { AdGroupRoleMapping } from '../ad-group-role-mappings/entities/ad-group-role-mapping.entity';
 import { UsersGateway } from '../websocket/gateways/users.gateway';
 import { AuditService } from '../audit/audit.service';
+
+// Per spec: visit requester ("מזמין") lookup is restricted to these AD groups —
+// every Sniper group except the default employee group (Sniper_useres / עובד מגדל).
+const REQUESTER_ELIGIBLE_AD_GROUPS = [
+    'Sniper_Mangers',
+    'Sniper_merkaz_Hadrachot',
+    'Sniper_Moked_bitachon',
+    'Sniper_Dalpak_Bitachon',
+    'Sniper_Kabat',
+];
 
 @Injectable()
 export class UsersService {
@@ -26,6 +37,8 @@ export class UsersService {
         private readonly userRepo: Repository<User>,
         @InjectRepository(Role)
         private readonly roleRepo: Repository<Role>,
+        @InjectRepository(AdGroupRoleMapping)
+        private readonly adGroupRoleMappingRepo: Repository<AdGroupRoleMapping>,
         private readonly wsGateway: UsersGateway,
         private readonly auditService: AuditService,
     ) { }
@@ -33,6 +46,28 @@ export class UsersService {
     async findAll(query: PaginationQueryDto): Promise<PaginatedResult<User>> {
         const result = await paginateQuery(this.buildFindAllQuery(query), query.page, query.limit);
         result.items = result.items.map(u => this.stripSensitive(u));
+        return result;
+    }
+
+    /** Users eligible to be selected as a visit requester ("מזמין") on behalf of someone else. */
+    async findRequesterCandidates(query: PaginationQueryDto): Promise<PaginatedResult<User>> {
+        const mappings = await this.adGroupRoleMappingRepo.find({
+            where: { groupName: In(REQUESTER_ELIGIBLE_AD_GROUPS) },
+        });
+        const roleIds = [...new Set(mappings.map((m) => m.roleId))];
+
+        const qb = this.buildFindAllQuery(query);
+        if (roleIds.length === 0) {
+            qb.andWhere('1 = 0');
+        } else {
+            qb.andWhere(
+                'EXISTS (SELECT 1 FROM UserRoles ur WHERE ur.userId = user.id AND ur.roleId IN (:...roleIds))',
+                { roleIds },
+            );
+        }
+
+        const result = await paginateQuery(qb, query.page, query.limit);
+        result.items = result.items.map((u) => this.stripSensitive(u));
         return result;
     }
 

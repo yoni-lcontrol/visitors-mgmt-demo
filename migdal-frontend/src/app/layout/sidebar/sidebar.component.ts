@@ -21,7 +21,7 @@ import { TranslateModule } from '@ngx-translate/core';
   template: `
     <nav class="sidebar" [class.collapsed]="collapsed">
       <div class="sidebar-brand">
-        <img src="images/logo.svg" alt="Migdal" class="brand-logo" />
+        <img src="images/logo.png" alt="Migdal" class="brand-logo" />
         <span class="brand-text">{{ 'APP.NAME' | translate }}</span>
         <button class="btn-sidebar-close" (click)="closeSidebar.emit()">
           <i class="pi pi-times"></i>

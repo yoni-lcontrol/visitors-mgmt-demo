@@ -6,7 +6,7 @@ import { AccountInfo, InteractionRequiredAuthError } from '@azure/msal-browser';
 import { MsalService } from '@azure/msal-angular';
 import { environment } from '../../../environments/environment';
 import { TokenService } from './token.service';
-import { AuthUser, LoginRequest, LoginResponse, EntraLoginRequest, EntraClientConfig } from './auth.models';
+import { AuthUser, LoginRequest, LoginResponse, EntraLoginRequest, EntraClientConfig, KerberosClientConfig } from './auth.models';
 import { UserWebSocketService } from '../websocket/user-websocket.service';
 import { WorkstationSessionService } from '../services/workstation-session.service';
 import { DeviceStatusService } from '../services/device-status.service';
@@ -156,6 +156,23 @@ export class AuthService {
 
     getEntraConfig(): Observable<EntraClientConfig> {
         return this.http.get<EntraClientConfig>(`${this.apiUrl}/entra-config`);
+    }
+
+    getKerberosConfig(): Observable<KerberosClientConfig> {
+        return this.http.get<KerberosClientConfig>(`${this.apiUrl}/kerberos-config`);
+    }
+
+    loginWithKerberos(): Observable<LoginResponse> {
+        return this.http
+            .get<LoginResponse>(`${this.apiUrl}/kerberos-login`, {
+                withCredentials: true,
+            })
+            .pipe(
+                tap((response) => {
+                    this.tokenService.setAccessToken(response.accessToken);
+                    this.setAuthenticatedUser(response.user);
+                }),
+            );
     }
 
     loginWithEntra(): Observable<LoginResponse> {

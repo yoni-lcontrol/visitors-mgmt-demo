@@ -113,10 +113,11 @@
         "LOGIN_SUBTITLE": "Enter your credentials to access the platform",
         "INVALID_CREDENTIALS": "Invalid username or password",
         "ACCOUNT_DEACTIVATED": "Your account has been deactivated. Please contact your system administrator to restore access.",
-        "ACCOUNT_PENDING_APPROVAL": "Your Microsoft account is recognized but is pending administrator approval.",
+        "ACCOUNT_PENDING_APPROVAL": "Your account is recognized but is pending administrator approval.",
         "ACCOUNT_NOT_PROVISIONED": "No matching local account was found. Please contact your administrator.",
         "OR": "or",
-        "LOGIN_WITH_MICROSOFT": "Sign in with Microsoft"
+        "LOGIN_WITH_MICROSOFT": "Sign in with Microsoft",
+        "LOGIN_WITH_WINDOWS": "Sign in with Windows"
     },
     "COMMON": {
         "ACTIONS": "Actions",

@@ -1227,11 +1227,13 @@ export class NotificationSettingsComponent implements OnInit, HasUnsavedChanges 
     if (this.smsSaving) return;
     this.smsSaving = true;
 
-    const templates = this.smsTemplates.map((tpl) => ({
-      event: tpl.event,
-      targetGroup: tpl.targetGroup,
-      template: tpl.template,
-    }));
+    const templates = this.smsTemplates
+      .filter((tpl) => tpl.template.trim() !== '')
+      .map((tpl) => ({
+        event: tpl.event,
+        targetGroup: tpl.targetGroup,
+        template: tpl.template,
+      }));
 
     this.api.put('/settings/sms-templates', { templates }).subscribe({
       next: () => {
@@ -1250,12 +1252,14 @@ export class NotificationSettingsComponent implements OnInit, HasUnsavedChanges 
     if (this.emailSaving) return;
     this.emailSaving = true;
 
-    const templates = this.emailTemplates.map((etpl) => ({
-      event: etpl.event,
-      targetGroup: etpl.targetGroup,
-      subject: etpl.subject,
-      bodyHtml: etpl.bodyHtml,
-    }));
+    const templates = this.emailTemplates
+      .filter((etpl) => etpl.subject.trim() !== '' && etpl.bodyHtml.trim() !== '')
+      .map((etpl) => ({
+        event: etpl.event,
+        targetGroup: etpl.targetGroup,
+        subject: etpl.subject,
+        bodyHtml: etpl.bodyHtml,
+      }));
 
     this.api.put('/settings/email-templates', { templates }).subscribe({
       next: () => {

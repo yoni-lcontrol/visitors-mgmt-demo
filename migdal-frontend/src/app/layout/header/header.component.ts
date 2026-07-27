@@ -16,7 +16,7 @@ import { AgentStatusIconsComponent } from './agent-status-icons.component';
         <button class="btn-icon menu-toggle" (click)="toggleSidebar.emit()">
           <i class="pi pi-bars"></i>
         </button>
-        <img src="images/logo.svg" alt="Migdal" class="header-logo" />
+        <img src="images/logo.png" alt="Migdal" class="header-logo" />
         <h2>{{ 'APP.NAME' | translate }}</h2>
       </div>
       <div class="header-right">

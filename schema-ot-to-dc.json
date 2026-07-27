@@ -21,6 +21,16 @@
         "summary": "Trigger full startup sync",
         "operationId": "syncFull",
         "description": "Called by Amadeus8 on startup (and manually). Triggers a full upsert of all controllers, doors, door IOs, extensions, extension IOs, access groups, security groups, and cardholders into the NestJS database. Response is wrapped in ApiResponseEnvelope.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync completed (wrapped in envelope)",
@@ -50,6 +60,16 @@
         "summary": "Sync controllers only",
         "operationId": "syncControllers",
         "description": "⚠️ Defined in BackendApiDefinitions but NOT called by BackendApiClient. Route exists in NestJS but unused by C# service.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync result (wrapped in envelope)",
@@ -79,6 +99,16 @@
         "summary": "Sync doors only",
         "operationId": "syncDoors",
         "description": "⚠️ Defined in BackendApiDefinitions but NOT called by BackendApiClient.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync result (wrapped in envelope)",
@@ -108,6 +138,16 @@
         "summary": "Sync extensions only",
         "operationId": "syncExtensions",
         "description": "⚠️ Defined in BackendApiDefinitions but NOT called by BackendApiClient.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync result (wrapped in envelope)",
@@ -137,6 +177,16 @@
         "summary": "Sync access groups only",
         "operationId": "syncAccessGroups",
         "description": "⚠️ Defined in BackendApiDefinitions but NOT called by BackendApiClient.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync result (wrapped in envelope)",
@@ -166,6 +216,16 @@
         "summary": "Sync security groups only",
         "operationId": "syncSecurityGroups",
         "description": "⚠️ Defined in BackendApiDefinitions but NOT called by BackendApiClient.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync result (wrapped in envelope)",
@@ -195,6 +255,16 @@
         "summary": "Sync access levels only",
         "operationId": "syncAccessLevels",
         "description": "⚠️ Defined in BackendApiDefinitions but NOT called by BackendApiClient. Access levels are a normalized view combining access groups and security groups.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync result (wrapped in envelope)",
@@ -224,6 +294,16 @@
         "summary": "Sync cardholders only",
         "operationId": "syncCardholders",
         "description": "⚠️ Defined in BackendApiDefinitions but NOT called by BackendApiClient.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmptyRequestBody"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Sync result (wrapped in envelope)",
@@ -453,6 +533,13 @@
   },
   "components": {
     "schemas": {
+      "EmptyRequestBody": {
+        "title": "EmptyRequestBody",
+        "description": "Endpoint takes no input — request body must be an empty JSON object. Extra properties are rejected.",
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
       "ApiResponseEnvelope": {
         "title": "ApiResponseEnvelope",
         "description": "Global response wrapper applied by NestJS TransformResponseInterceptor to ALL responses. The C# BackendApiClient uses BackendApiEnvelope<T> to unwrap .data for GET endpoints.",

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule, RequestMethod } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -6,6 +6,8 @@ import { ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { EntraIdService } from './entra-id.service';
+import { KerberosService } from './kerberos.service';
+import { KerberosSsoMiddleware } from './middleware/kerberos-sso.middleware';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { RefreshToken } from './entities/refresh-token.entity';
@@ -28,7 +30,13 @@ import { UsersModule } from '../users/users.module';
         UsersModule,
     ],
     controllers: [AuthController],
-    providers: [AuthService, EntraIdService, JwtStrategy, JwtRefreshStrategy],
-    exports: [AuthService, EntraIdService],
+    providers: [AuthService, EntraIdService, KerberosService, JwtStrategy, JwtRefreshStrategy],
+    exports: [AuthService, EntraIdService, KerberosService],
 })
-export class AuthModule { }
+export class AuthModule implements NestModule {
+    configure(consumer: MiddlewareConsumer) {
+        consumer
+            .apply(KerberosSsoMiddleware)
+            .forRoutes({ path: 'auth/kerberos-login', method: RequestMethod.GET });
+    }
+}

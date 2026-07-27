@@ -34,3 +34,7 @@ export interface EntraClientConfig {
     postLogoutRedirectUri: string | null;
     apiAudience: string | null;
 }
+
+export interface KerberosClientConfig {
+    enabled: boolean;
+}

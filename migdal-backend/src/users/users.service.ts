@@ -16,8 +16,19 @@ import { hashPassword } from '../common/utils/hash.util';
 import { toExcelBuffer } from '../common/utils/excel.util';
 import { applyTableFilters, parseTableFilters } from '../common/utils/table-filter.util';
 import { Role } from '../roles/entities/role.entity';
+import { AdGroupRoleMapping } from '../ad-group-role-mappings/entities/ad-group-role-mapping.entity';
 import { UsersGateway } from '../websocket/gateways/users.gateway';
 import { AuditService } from '../audit/audit.service';
+
+// Per spec: visit requester ("מזמין") lookup is restricted to these AD groups —
+// every Sniper group except the default employee group (Sniper_useres / עובד מגדל).
+const REQUESTER_ELIGIBLE_AD_GROUPS = [
+    'Sniper_Mangers',
+    'Sniper_merkaz_Hadrachot',
+    'Sniper_Moked_bitachon',
+    'Sniper_Dalpak_Bitachon',
+    'Sniper_Kabat',
+];
 
 @Injectable()
 export class UsersService {
@@ -26,6 +37,8 @@ export class UsersService {
         private readonly userRepo: Repository<User>,
         @InjectRepository(Role)
         private readonly roleRepo: Repository<Role>,
+        @InjectRepository(AdGroupRoleMapping)
+        private readonly adGroupRoleMappingRepo: Repository<AdGroupRoleMapping>,
         private readonly wsGateway: UsersGateway,
         private readonly auditService: AuditService,
     ) { }
@@ -33,6 +46,28 @@ export class UsersService {
     async findAll(query: PaginationQueryDto): Promise<PaginatedResult<User>> {
         const result = await paginateQuery(this.buildFindAllQuery(query), query.page, query.limit);
         result.items = result.items.map(u => this.stripSensitive(u));
+        return result;
+    }
+
+    /** Users eligible to be selected as a visit requester ("מזמין") on behalf of someone else. */
+    async findRequesterCandidates(query: PaginationQueryDto): Promise<PaginatedResult<User>> {
+        const mappings = await this.adGroupRoleMappingRepo.find({
+            where: { groupName: In(REQUESTER_ELIGIBLE_AD_GROUPS) },
+        });
+        const roleIds = [...new Set(mappings.map((m) => m.roleId))];
+
+        const qb = this.buildFindAllQuery(query);
+        if (roleIds.length === 0) {
+            qb.andWhere('1 = 0');
+        } else {
+            qb.andWhere(
+                'EXISTS (SELECT 1 FROM UserRoles ur WHERE ur.userId = user.id AND ur.roleId IN (:...roleIds))',
+                { roleIds },
+            );
+        }
+
+        const result = await paginateQuery(qb, query.page, query.limit);
+        result.items = result.items.map((u) => this.stripSensitive(u));
         return result;
     }
 
@@ -124,7 +159,7 @@ export class UsersService {
         });
     }
 
-    async findByExternalIdentity(externalAuthId: string, externalTenantId: string): Promise<User | null> {
+    async findByExternalIdentity(externalAuthId: string, externalTenantId: string, provider: string = 'entra'): Promise<User | null> {
         const qb = this.userRepo
             .createQueryBuilder('user')
             .leftJoinAndSelect('user.sector', 'sector')
@@ -134,7 +169,7 @@ export class UsersService {
             .leftJoinAndSelect('roles.permissions', 'rolesPermissions')
             .where('user.externalAuthId = :externalAuthId', { externalAuthId })
             .andWhere('(user.externalAuthProvider = :provider OR user.externalAuthProvider IS NULL)', {
-                provider: 'entra',
+                provider,
             })
             .andWhere('(user.externalTenantId = :externalTenantId OR user.externalTenantId IS NULL)', {
                 externalTenantId,
@@ -388,7 +423,7 @@ export class UsersService {
             externalAuthId: params.externalAuthId,
             externalTenantId: params.externalTenantId,
             lastExternalLoginAt: new Date(),
-            syncSource: 'entra',
+            syncSource: params.externalAuthProvider,
             roleId: roles[0]?.id ?? null,
             roles,
         });
@@ -415,8 +450,10 @@ export class UsersService {
         preferredUsername: string | null;
         email: string | null;
         displayName: string | null;
+        provider?: string;
     }): Promise<User> {
-        const existing = await this.findByExternalIdentity(params.oid, params.tid);
+        const provider = params.provider ?? 'entra';
+        const existing = await this.findByExternalIdentity(params.oid, params.tid, provider);
         if (existing) {
             await this.userRepo.update(existing.id, {
                 email: params.email ?? existing.email,
@@ -429,7 +466,7 @@ export class UsersService {
 
         const usernameBase = params.preferredUsername
             ?? params.email?.split('@')[0]
-            ?? `entra_${params.oid.slice(0, 8)}`;
+            ?? `${provider}_${params.oid.slice(0, 8)}`;
         const username = await this.generateUniqueUsername(usernameBase);
 
         const fullName = (params.displayName ?? '').trim();
@@ -443,10 +480,10 @@ export class UsersService {
             lastName,
             displayName: params.displayName,
             email: params.email,
-            externalAuthProvider: 'entra',
+            externalAuthProvider: provider,
             externalAuthId: params.oid,
             externalTenantId: params.tid,
-            syncSource: 'entra-pending',
+            syncSource: `${provider}-pending`,
             isActive: false,
             lastExternalLoginAt: new Date(),
             lastLoginAt: null,
@@ -459,10 +496,10 @@ export class UsersService {
         this.auditService.log({
             userId: null,
             module: 'users',
-            action: 'ENTRA_PENDING_CREATED',
+            action: `${provider.toUpperCase()}_PENDING_CREATED`,
             entity: 'User',
             entityId: saved.id,
-            description: `Created pending Entra user ${saved.username}`,
+            description: `Created pending ${provider} user ${saved.username}`,
             newValue: {
                 externalAuthId: params.oid,
                 externalTenantId: params.tid,

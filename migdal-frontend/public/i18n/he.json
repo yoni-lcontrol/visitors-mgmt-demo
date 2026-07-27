@@ -113,10 +113,11 @@
         "LOGIN_SUBTITLE": "הכנס את פרטי ההתחברות שלך לגישה לפלטפורמה",
         "INVALID_CREDENTIALS": "שם משתמש או סיסמה שגויים",
         "ACCOUNT_DEACTIVATED": "חשבונך הושבת. אנא פנה למנהל המערכת שלך לשחזור הגישה.",
-        "ACCOUNT_PENDING_APPROVAL": "חשבון Microsoft שלך זוהה אך ממתין לאישור מנהל המערכת.",
+        "ACCOUNT_PENDING_APPROVAL": "חשבונך זוהה אך ממתין לאישור מנהל המערכת.",
         "ACCOUNT_NOT_PROVISIONED": "לא נמצא משתמש מקומי תואם. אנא פנה למנהל המערכת.",
         "OR": "או",
-        "LOGIN_WITH_MICROSOFT": "התחבר עם Microsoft"
+        "LOGIN_WITH_MICROSOFT": "התחבר עם Microsoft",
+        "LOGIN_WITH_WINDOWS": "התחבר עם Windows"
     },
     "COMMON": {
         "ACTIONS": "פעולות",

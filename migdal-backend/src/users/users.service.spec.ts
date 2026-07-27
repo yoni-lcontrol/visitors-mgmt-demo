@@ -4,6 +4,7 @@ import { NotFoundException, ConflictException, BadRequestException } from '@nest
 import { UsersService } from './users.service';
 import { User } from './entities/user.entity';
 import { Role } from '../roles/entities/role.entity';
+import { AdGroupRoleMapping } from '../ad-group-role-mappings/entities/ad-group-role-mapping.entity';
 import { createMockRepository, createMockQueryBuilder, createMockWsGateway } from '../test-utils/mock.factory';
 import { UsersGateway } from '../websocket/gateways/users.gateway';
 import { AuditService } from '../audit/audit.service';
@@ -13,12 +14,14 @@ describe('UsersService', () => {
     let service: UsersService;
     let mockRepo: ReturnType<typeof createMockRepository>;
     let mockRoleRepo: ReturnType<typeof createMockRepository>;
+    let mockAdGroupRoleMappingRepo: ReturnType<typeof createMockRepository>;
     let mockWsGateway: ReturnType<typeof createMockWsGateway>;
     let mockAuditService: any;
 
     beforeEach(async () => {
         mockRepo = createMockRepository();
         mockRoleRepo = createMockRepository();
+        mockAdGroupRoleMappingRepo = createMockRepository();
         mockWsGateway = createMockWsGateway();
         mockAuditService = {
             log: jest.fn().mockResolvedValue(undefined),
@@ -29,6 +32,7 @@ describe('UsersService', () => {
                 UsersService,
                 { provide: getRepositoryToken(User), useValue: mockRepo },
                 { provide: getRepositoryToken(Role), useValue: mockRoleRepo },
+                { provide: getRepositoryToken(AdGroupRoleMapping), useValue: mockAdGroupRoleMappingRepo },
                 { provide: UsersGateway, useValue: mockWsGateway },
                 { provide: AuditService, useValue: mockAuditService },
             ],
@@ -51,6 +55,40 @@ describe('UsersService', () => {
             expect((result.items[0] as any).passwordHash).toBeUndefined();
             expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('user.role', 'role');
             expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('user.sector', 'sector');
+        });
+    });
+
+    describe('findRequesterCandidates', () => {
+        it('restricts results to users in requester-eligible AD group roles', async () => {
+            mockAdGroupRoleMappingRepo.find.mockResolvedValue([
+                { roleId: 'role-kabat' },
+                { roleId: 'role-dalpak' },
+            ]);
+            const users = [{ id: '1', username: 'kabat-user', firstName: 'A', lastName: 'B', role: null }];
+            const qb = createMockQueryBuilder(users, 1);
+            mockRepo.createQueryBuilder.mockReturnValue(qb);
+
+            const result = await service.findRequesterCandidates({ page: 1, limit: 10 } as any);
+
+            expect(mockAdGroupRoleMappingRepo.find).toHaveBeenCalledWith({
+                where: { groupName: expect.anything() },
+            });
+            expect(qb.andWhere).toHaveBeenCalledWith(
+                expect.stringContaining('EXISTS'),
+                { roleIds: ['role-kabat', 'role-dalpak'] },
+            );
+            expect(result.items).toHaveLength(1);
+        });
+
+        it('excludes all users when no requester-eligible role mappings exist', async () => {
+            mockAdGroupRoleMappingRepo.find.mockResolvedValue([]);
+            const qb = createMockQueryBuilder([], 0);
+            mockRepo.createQueryBuilder.mockReturnValue(qb);
+
+            const result = await service.findRequesterCandidates({ page: 1, limit: 10 } as any);
+
+            expect(qb.andWhere).toHaveBeenCalledWith('1 = 0');
+            expect(result.items).toHaveLength(0);
         });
     });
 

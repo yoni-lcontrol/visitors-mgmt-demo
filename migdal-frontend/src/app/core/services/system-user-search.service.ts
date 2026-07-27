@@ -19,7 +19,7 @@ export interface SystemUserSuggestion {
 export class SystemUserSearchService {
     private api = inject(ApiService);
 
-    searchUsers(query: string): Observable<SystemUserSuggestion[]> {
+    searchUsers(query: string, scope?: 'requester'): Observable<SystemUserSuggestion[]> {
         if (!query || query.trim().length < 2) {
             return of([]);
         }
@@ -31,6 +31,7 @@ export class SystemUserSearchService {
             sortBy: 'firstName',
             sortOrder: 'ASC',
             filters: JSON.stringify({ isActive: { value: true, matchMode: 'equals' } }),
+            ...(scope ? { scope } : {}),
         }).pipe(
             map((result) => result.items.map((user) => ({
                 id: user.id,

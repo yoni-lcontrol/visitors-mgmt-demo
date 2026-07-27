@@ -73,8 +73,11 @@ export class UsersController {
 
     @Get('lookup')
     @RequirePermissions(PermissionKey.VisitsCreate)
-    @ApiOperation({ summary: 'Search users for requester selection (visit on-behalf flow)' })
-    lookup(@Query() query: PaginationQueryDto) {
+    @ApiOperation({ summary: 'Search users for requester/escort selection (visit on-behalf flow)' })
+    lookup(@Query() query: PaginationQueryDto, @Query('scope') scope?: string) {
+        if (scope === 'requester') {
+            return this.usersService.findRequesterCandidates(query);
+        }
         return this.usersService.findAll(query);
     }
 

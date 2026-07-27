@@ -15,6 +15,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { EntraIdService } from './entra-id.service';
+import { KerberosService } from './kerberos.service';
 import { LoginDto } from './dto/login.dto';
 import { EntraLoginDto } from './dto/entra-login.dto';
 import { Public } from '../common/decorators/public.decorator';
@@ -28,6 +29,7 @@ export class AuthController {
     constructor(
         private readonly authService: AuthService,
         private readonly entraIdService: EntraIdService,
+        private readonly kerberosService: KerberosService,
         private readonly configService: ConfigService,
     ) { }
 
@@ -163,6 +165,48 @@ export class AuthController {
             redirectUri: config.redirectUri || null,
             postLogoutRedirectUri: config.postLogoutRedirectUri || null,
             apiAudience: config.apiAudience || null,
+        };
+    }
+
+    @Public()
+    @Get('kerberos-login')
+    @ApiOperation({ summary: 'Login via Windows Kerberos/NTLM SSO (SPNEGO Negotiate)' })
+    async kerberosLogin(
+        @Req() req: Request,
+        @Res({ passthrough: true }) res: Response,
+    ) {
+        const identity = this.kerberosService.extractIdentity(req.sso?.user);
+        if (!identity) {
+            throw new UnauthorizedException('Kerberos SSO did not resolve a Windows identity');
+        }
+
+        const result = await this.authService.loginWithKerberos(
+            identity,
+            req.headers['user-agent'],
+            req.ip,
+        );
+
+        const refreshDays = this.configService.get<number>('JWT_REFRESH_EXPIRATION_DAYS', 7);
+        res.cookie('refreshToken', result.refreshToken, {
+            httpOnly: true,
+            secure: this.configService.get('APP_ENV') === 'production',
+            sameSite: 'strict',
+            maxAge: refreshDays * 24 * 60 * 60 * 1000,
+            path: '/api/auth',
+        });
+
+        return {
+            accessToken: result.accessToken,
+            user: result.user,
+        };
+    }
+
+    @Public()
+    @Get('kerberos-config')
+    @ApiOperation({ summary: 'Get Kerberos SSO availability' })
+    kerberosConfig() {
+        return {
+            enabled: this.kerberosService.isConfigured(),
         };
     }
 }

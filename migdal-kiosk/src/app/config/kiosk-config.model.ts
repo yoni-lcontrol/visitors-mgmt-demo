@@ -23,4 +23,6 @@ export interface KioskConfig {
     /** Shared secret sent in the hello handshake; must match the printer's LocalServerToken. */
     PRINTER_TOKEN: string;
     HEARTBEAT_INTERVAL_MS: number;
+    /** Per-workstation overrides (e.g. SCANNER_TOKEN/PRINTER_TOKEN), keyed by WORKSTATION_CODE. */
+    STATION_OVERRIDES?: Record<string, Partial<KioskConfig>>;
 }

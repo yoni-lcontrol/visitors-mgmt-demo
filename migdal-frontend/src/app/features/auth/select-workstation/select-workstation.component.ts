@@ -17,7 +17,7 @@ import { AccessibleWorkstation } from '../../../core/models/entities.model';
     <div class="ws-container">
       <div class="ws-card">
         <div class="ws-header">
-          <img src="images/logo.svg" alt="Migdal" class="ws-logo" />
+          <img src="images/logo.png" alt="Migdal" class="ws-logo" />
           <h1>{{ 'SELECT_WORKSTATION.TITLE' | translate }}</h1>
           <p>{{ 'SELECT_WORKSTATION.SUBTITLE' | translate }}</p>
         </div>

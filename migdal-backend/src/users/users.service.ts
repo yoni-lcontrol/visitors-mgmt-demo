@@ -159,7 +159,7 @@ export class UsersService {
         });
     }
 
-    async findByExternalIdentity(externalAuthId: string, externalTenantId: string): Promise<User | null> {
+    async findByExternalIdentity(externalAuthId: string, externalTenantId: string, provider: string = 'entra'): Promise<User | null> {
         const qb = this.userRepo
             .createQueryBuilder('user')
             .leftJoinAndSelect('user.sector', 'sector')
@@ -169,7 +169,7 @@ export class UsersService {
             .leftJoinAndSelect('roles.permissions', 'rolesPermissions')
             .where('user.externalAuthId = :externalAuthId', { externalAuthId })
             .andWhere('(user.externalAuthProvider = :provider OR user.externalAuthProvider IS NULL)', {
-                provider: 'entra',
+                provider,
             })
             .andWhere('(user.externalTenantId = :externalTenantId OR user.externalTenantId IS NULL)', {
                 externalTenantId,
@@ -423,7 +423,7 @@ export class UsersService {
             externalAuthId: params.externalAuthId,
             externalTenantId: params.externalTenantId,
             lastExternalLoginAt: new Date(),
-            syncSource: 'entra',
+            syncSource: params.externalAuthProvider,
             roleId: roles[0]?.id ?? null,
             roles,
         });
@@ -450,8 +450,10 @@ export class UsersService {
         preferredUsername: string | null;
         email: string | null;
         displayName: string | null;
+        provider?: string;
     }): Promise<User> {
-        const existing = await this.findByExternalIdentity(params.oid, params.tid);
+        const provider = params.provider ?? 'entra';
+        const existing = await this.findByExternalIdentity(params.oid, params.tid, provider);
         if (existing) {
             await this.userRepo.update(existing.id, {
                 email: params.email ?? existing.email,
@@ -464,7 +466,7 @@ export class UsersService {
 
         const usernameBase = params.preferredUsername
             ?? params.email?.split('@')[0]
-            ?? `entra_${params.oid.slice(0, 8)}`;
+            ?? `${provider}_${params.oid.slice(0, 8)}`;
         const username = await this.generateUniqueUsername(usernameBase);
 
         const fullName = (params.displayName ?? '').trim();
@@ -478,10 +480,10 @@ export class UsersService {
             lastName,
             displayName: params.displayName,
             email: params.email,
-            externalAuthProvider: 'entra',
+            externalAuthProvider: provider,
             externalAuthId: params.oid,
             externalTenantId: params.tid,
-            syncSource: 'entra-pending',
+            syncSource: `${provider}-pending`,
             isActive: false,
             lastExternalLoginAt: new Date(),
             lastLoginAt: null,
@@ -494,10 +496,10 @@ export class UsersService {
         this.auditService.log({
             userId: null,
             module: 'users',
-            action: 'ENTRA_PENDING_CREATED',
+            action: `${provider.toUpperCase()}_PENDING_CREATED`,
             entity: 'User',
             entityId: saved.id,
-            description: `Created pending Entra user ${saved.username}`,
+            description: `Created pending ${provider} user ${saved.username}`,
             newValue: {
                 externalAuthId: params.oid,
                 externalTenantId: params.tid,

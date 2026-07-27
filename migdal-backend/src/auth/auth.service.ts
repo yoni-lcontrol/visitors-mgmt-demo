@@ -7,6 +7,7 @@ import { Client as LdapClient } from 'ldapts';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { AdConfiguration } from '../settings/entities/ad-configuration.entity';
 import { EntraIdService } from './entra-id.service';
+import { KerberosService, KerberosIdentity } from './kerberos.service';
 import { UsersService } from '../users/users.service';
 import { AuditService } from '../audit/audit.service';
 import { LoginDto } from './dto/login.dto';
@@ -53,6 +54,7 @@ export class AuthService {
         private readonly usersService: UsersService,
         private readonly auditService: AuditService,
         private readonly entraIdService: EntraIdService,
+        private readonly kerberosService: KerberosService,
         @InjectRepository(RefreshToken)
         private readonly refreshTokenRepo: Repository<RefreshToken>,
         @InjectRepository(AdConfiguration)
@@ -426,6 +428,101 @@ export class AuthService {
             entity: 'User',
             entityId: user.id,
             description: `User ${user.username} logged in via Microsoft Entra ID`,
+            ipAddress,
+            userAgent,
+        }).catch(() => { });
+
+        return {
+            accessToken: localAccessToken,
+            refreshToken,
+            user: this.mapUserResponse(user),
+        };
+    }
+
+    async loginWithKerberos(
+        identity: KerberosIdentity,
+        userAgent?: string,
+        ipAddress?: string,
+    ): Promise<LoginResponseDto> {
+        const config = this.kerberosService.getConfig();
+
+        // 1. Try to find user by Kerberos identity (SID + domain)
+        let user = await this.usersService.findByExternalIdentity(identity.sid, identity.domain, 'kerberos');
+
+        // 2. Fallback: find by username (covers users already provisioned via AD sync / LDAP login)
+        if (!user) {
+            user = await this.usersService.findByUsername(identity.username);
+            if (user) {
+                await this.usersService.linkExternalAuth(user.id, {
+                    provider: 'kerberos',
+                    externalId: identity.sid,
+                    tenantId: identity.domain,
+                    displayName: identity.displayName ?? undefined,
+                });
+            }
+        }
+
+        // 3. Unknown-user policy: autoProvision | pending | deny
+        if (!user && config.unknownUserMode === 'autoProvision') {
+            const { firstName, lastName } = this.kerberosService.extractDisplayName(identity);
+
+            user = await this.usersService.createExternalUser({
+                username: identity.username,
+                firstName,
+                lastName,
+                displayName: identity.displayName ?? `${firstName} ${lastName}`.trim(),
+                email: null,
+                externalAuthProvider: 'kerberos',
+                externalAuthId: identity.sid,
+                externalTenantId: identity.domain,
+                roleNames: [config.defaultRole],
+            });
+        }
+
+        if (!user && config.unknownUserMode === 'pending') {
+            await this.usersService.createPendingExternalUser({
+                oid: identity.sid,
+                tid: identity.domain,
+                preferredUsername: identity.username,
+                email: null,
+                displayName: identity.displayName,
+                provider: 'kerberos',
+            });
+
+            throw new UnauthorizedException(
+                'No matching local account found. Your sign-in request is pending administrator approval.',
+            );
+        }
+
+        if (!user) {
+            throw new UnauthorizedException(
+                'No matching local account found. Contact your administrator.',
+            );
+        }
+
+        if (!user.isActive) {
+            throw new UnauthorizedException(ErrorMessages.USER_INACTIVE);
+        }
+
+        // Update external login timestamp
+        await this.usersService.updateLastExternalLogin(user.id, {
+            displayName: identity.displayName ?? undefined,
+        });
+
+        // Generate local app tokens (same as password login)
+        const { accessToken: localAccessToken, refreshToken } = await this.generateTokens(
+            user,
+            userAgent,
+            ipAddress,
+        );
+
+        this.auditService.log({
+            userId: user.id,
+            module: 'auth',
+            action: 'KERBEROS_LOGIN',
+            entity: 'User',
+            entityId: user.id,
+            description: `User ${user.username} logged in via Kerberos SSO`,
             ipAddress,
             userAgent,
         }).catch(() => { });

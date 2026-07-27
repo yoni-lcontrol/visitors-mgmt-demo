@@ -5,6 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { EntraIdService } from './entra-id.service';
+import { KerberosService } from './kerberos.service';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { AdConfiguration } from '../settings/entities/ad-configuration.entity';
 import { UsersService } from '../users/users.service';
@@ -30,6 +31,7 @@ describe('AuthService', () => {
     let mockConfigService: any;
     let mockAuditService: any;
     let mockEntraIdService: any;
+    let mockKerberosService: any;
 
     beforeEach(async () => {
         mockRefreshTokenRepo = createMockRepository();
@@ -72,6 +74,16 @@ describe('AuthService', () => {
             extractEmail: jest.fn(),
             extractDisplayName: jest.fn(),
         };
+        mockKerberosService = {
+            getConfig: jest.fn().mockReturnValue({
+                enabled: true,
+                unknownUserMode: 'deny',
+                defaultRole: 'Viewer',
+            }),
+            isConfigured: jest.fn().mockReturnValue(true),
+            extractIdentity: jest.fn(),
+            extractDisplayName: jest.fn(),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -83,6 +95,7 @@ describe('AuthService', () => {
                 { provide: ConfigService, useValue: mockConfigService },
                 { provide: AuditService, useValue: mockAuditService },
                 { provide: EntraIdService, useValue: mockEntraIdService },
+                { provide: KerberosService, useValue: mockKerberosService },
             ],
         }).compile();
 

@@ -17,14 +17,7 @@ export class KioskConfigService {
     APP_VERSION: '0.0.0',
     API_BASE_URL: '',
     WS_API_KEY: '',
-    SCANNER_HOST: 'localhost',
-    SCANNER_PORT: 5900,
-    SCANNER_TOKEN: '',
-    PRINTER_HOST: 'localhost',
-    PRINTER_PORT: 5901,
-    PRINTER_TOKEN: '',
     HEARTBEAT_INTERVAL_MS: 30000,
-    STATION_OVERRIDES: {},
   };
 
   constructor(private http: HttpClient) { }
@@ -56,12 +49,6 @@ export class KioskConfigService {
         this._config.WORKSTATION_CODE = stored;
         this._config.KIOSK_ID = stored;
       }
-    }
-
-    // Apply this workstation's scanner/printer overrides (e.g. per-station tokens), if configured
-    const override = this._config.STATION_OVERRIDES?.[this._config.WORKSTATION_CODE];
-    if (override) {
-      this._config = { ...this._config, ...override };
     }
   }
 

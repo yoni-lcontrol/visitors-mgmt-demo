@@ -374,6 +374,7 @@ export class VisitParticipantService {
                 phone: e.phone,
                 email: e.email,
                 sector: e.sector?.trim() ? e.sector.trim() : null,
+                userId: e.userId ?? null,
                 createdBy: currentUserId ?? null,
                 updatedBy: currentUserId ?? null,
             });
@@ -403,6 +404,7 @@ export class VisitParticipantService {
             phone: escort.phone,
             email: escort.email,
             sector: escort.sector,
+            userId: escort.userId,
         };
 
         if (dto.firstName !== undefined) escort.firstName = dto.firstName;
@@ -410,6 +412,7 @@ export class VisitParticipantService {
         if (dto.phone !== undefined) escort.phone = dto.phone;
         if (dto.email !== undefined) escort.email = dto.email;
         if (dto.sector !== undefined) escort.sector = dto.sector?.trim() ? dto.sector.trim() : null;
+        if (dto.userId !== undefined) escort.userId = dto.userId ?? null;
         escort.updatedBy = currentUserId ?? null;
         await this.visitEscortRepo.save(escort);
 

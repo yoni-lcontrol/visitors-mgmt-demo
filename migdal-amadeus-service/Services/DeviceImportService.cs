@@ -1168,7 +1168,7 @@ public class DeviceImportService : IDeviceImportService
         Exception? exception = null)
     {
         result.Skipped++;
-        RecordFailureDetail(result, equipmentType, externalId, name, stage, category, message, exception);
+        RecordFailureDetail(result, equipmentType, externalId, name, stage, category, message, exception, isSkip: true);
     }
 
     private void RecordFailure(
@@ -1182,7 +1182,7 @@ public class DeviceImportService : IDeviceImportService
         Exception? exception = null)
     {
         result.Failed++;
-        RecordFailureDetail(result, equipmentType, externalId, name, stage, category, message, exception);
+        RecordFailureDetail(result, equipmentType, externalId, name, stage, category, message, exception, isSkip: false);
     }
 
     private void RecordFailureDetail(
@@ -1193,7 +1193,8 @@ public class DeviceImportService : IDeviceImportService
         string stage,
         string category,
         string message,
-        Exception? exception)
+        Exception? exception,
+        bool isSkip)
     {
         var detail = new ImportFailureDetailDto
         {
@@ -1207,6 +1208,21 @@ public class DeviceImportService : IDeviceImportService
         };
 
         result.Failures.Add(detail);
+
+        if (isSkip)
+        {
+            _logger.LogWarning(
+                exception,
+                "{Operation} record skipped. EquipmentType={EquipmentType}, ExternalId={ExternalId}, Name={Name}, Stage={Stage}, Category={Category}, Message={Message}",
+                result.Operation,
+                detail.EquipmentType,
+                detail.ExternalId,
+                detail.Name,
+                detail.FailureStage,
+                detail.FailureCategory,
+                detail.Message);
+            return;
+        }
 
         _logger.LogError(
             exception,

@@ -110,6 +110,27 @@ export class CardholderService {
         return result;
     }
 
+    async activateVisitorCard(personId: string, currentUserId?: string): Promise<{ success: boolean; message?: string }> {
+        try {
+            const result = await this.acApi.activateVisitorCardByIdNumber(personId);
+
+            this.auditService.log({
+                userId: currentUserId,
+                module: 'access-control',
+                action: 'CARDHOLDER_ACTIVATE',
+                entity: 'Cardholder',
+                entityId: personId,
+                description: `Activated visitor card for personId ${personId}`,
+            }).catch(() => { });
+
+            return result;
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            this.logger.error(`Failed to activate visitor card for personId ${personId}: ${message}`);
+            return { success: false, message };
+        }
+    }
+
     async remove(cardholderId: string, currentUserId?: string): Promise<RemoteCardholderResponse> {
         const queueResult = await this.syncQueue.enqueueAndExecute({
             operation: SyncQueueOperation.DeleteCardholder,

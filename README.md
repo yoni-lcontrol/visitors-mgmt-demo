@@ -8,7 +8,7 @@ Migdal is an enterprise-grade platform for managing access control systems, visi
 
 ### Key Features
 
-- **JWT Authentication** with access + refresh tokens, Microsoft Entra ID (Azure AD) SSO
+- **JWT Authentication** with access + refresh tokens, Kerberos/Windows SSO
 - **Role-Based Access Control (RBAC)** with 47 granular permissions across 14 modules
 - **Access Control Management** — controllers, doors, extensions, IOs, access levels, cardholders
 - **Visitor Management** — visits, calendar, on-site tracking, check-in codes, visitor card printing
@@ -31,7 +31,7 @@ Migdal is an enterprise-grade platform for managing access control systems, visi
 | Frontend | Angular 19, TypeScript, PrimeNG, ngx-translate |
 | Backend | NestJS, TypeScript, TypeORM |
 | Database | Microsoft SQL Server |
-| Auth | JWT (access + refresh tokens), Passport, bcrypt, Microsoft Entra ID |
+| Auth | JWT (access + refresh tokens), Passport, bcrypt, Kerberos/Windows SSO |
 | Real-time | socket.io via @nestjs/websockets (dual namespace) |
 | Scanner Agent | .NET / C# — Acuant/Gemalto SDK, HMAC auth, socket.io client |
 | Printer Agent | .NET 9 / C# — CuCustomWnd SDK, template rendering, HMAC auth, socket.io client |
@@ -53,7 +53,7 @@ Migdal is an enterprise-grade platform for managing access control systems, visi
 ┌─────────────────────────────────────────────────┐
 │              NestJS Backend                      │
 │  - Modular architecture (20+ modules)           │
-│  - JWT + Entra ID auth with Passport            │
+│  - JWT + Kerberos SSO auth with Passport        │
 │  - Permission-based guards (47 permissions)     │
 │  - Global exception filters + validation pipes  │
 │  - Structured logging (Pino) + audit trail      │
@@ -90,7 +90,7 @@ migdal_v2/
 │       ├── access-control/    # Controllers, doors, extensions, IOs, access levels
 │       ├── agents/            # Device agent registration & management
 │       ├── audit/             # Audit logging & export
-│       ├── auth/              # JWT, refresh tokens, Entra ID SSO
+│       ├── auth/              # JWT, refresh tokens, Kerberos SSO
 │       ├── buildings/         # Building management
 │       ├── common/            # Enums, guards, pipes, decorators, constants
 │       ├── database/          # TypeORM config, migrations, seeds
@@ -191,8 +191,7 @@ Kiosk app available at: `http://localhost:4201`
 | [Backend Structure](docs/backend-structure.md) | NestJS project structure & modules |
 | [Frontend Structure](docs/frontend-structure.md) | Angular project structure & components |
 | [Database Design](docs/database-design.md) | Schema, tables, relationships |
-| [Auth Flow](docs/auth-flow.md) | Authentication & authorization (JWT + Entra ID) |
-| [Entra Setup](docs/entra-id-setup.md) | Microsoft Entra app registration and environment setup |
+| [Auth Flow](docs/auth-flow.md) | Authentication & authorization (JWT + Kerberos SSO) |
 | [WebSocket Events](docs/websocket-events.md) | Real-time event contracts (users + agents) |
 | [Permissions Model](docs/permissions-model.md) | RBAC & 47 permission keys |
 | [Integrations](docs/integrations.md) | Inbound M2M integration platform |

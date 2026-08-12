@@ -116,8 +116,8 @@
         "ACCOUNT_PENDING_APPROVAL": "Your account is recognized but is pending administrator approval.",
         "ACCOUNT_NOT_PROVISIONED": "No matching local account was found. Please contact your administrator.",
         "OR": "or",
-        "LOGIN_WITH_MICROSOFT": "Sign in with Microsoft",
-        "LOGIN_WITH_WINDOWS": "Sign in with Windows"
+        "LOGIN_WITH_WINDOWS": "Sign in with Windows",
+        "CHECKING_WINDOWS_SIGN_IN": "Checking Windows sign-in..."
     },
     "COMMON": {
         "ACTIONS": "Actions",
@@ -1149,7 +1149,7 @@
             "DELETE": "Delete",
             "LOGIN": "Login",
             "LOGOUT": "Logout",
-            "ENTRA_LOGIN": "Microsoft Login",
+            "KERBEROS_LOGIN": "Windows Login",
             "IMPORT": "Import",
             "ASSIGN_ROLES": "Assign Roles",
             "ASSIGN_USERS": "Assign Users",

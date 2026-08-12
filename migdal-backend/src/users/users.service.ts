@@ -159,7 +159,7 @@ export class UsersService {
         });
     }
 
-    async findByExternalIdentity(externalAuthId: string, externalTenantId: string, provider: string = 'entra'): Promise<User | null> {
+    async findByExternalIdentity(externalAuthId: string, externalTenantId: string, provider: string = 'kerberos'): Promise<User | null> {
         const qb = this.userRepo
             .createQueryBuilder('user')
             .leftJoinAndSelect('user.sector', 'sector')
@@ -452,7 +452,7 @@ export class UsersService {
         displayName: string | null;
         provider?: string;
     }): Promise<User> {
-        const provider = params.provider ?? 'entra';
+        const provider = params.provider ?? 'kerberos';
         const existing = await this.findByExternalIdentity(params.oid, params.tid, provider);
         if (existing) {
             await this.userRepo.update(existing.id, {

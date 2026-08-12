@@ -44,4 +44,14 @@ export class CreateDoorDto {
     @IsOptional()
     @IsBoolean()
     forEscort?: boolean;
+
+    @ApiPropertyOptional({ example: 'READER-BADGE-001', description: 'External ID of the badge reader co-located at this escort passage' })
+    @IsOptional()
+    @IsString()
+    badgeReaderExternalId?: string;
+
+    @ApiPropertyOptional({ example: 'READER-QR-001', description: 'External ID of the QR/code reader co-located at this escort passage' })
+    @IsOptional()
+    @IsString()
+    qrReaderExternalId?: string;
 }

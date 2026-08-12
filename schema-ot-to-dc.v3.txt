@@ -1,8 +1,8 @@
 {
-  "openapi": "3.1.0",
+  "openapi": "3.0.1",
   "info": {
     "title": "Amadeus8 AC Service → NestJS Backend API",
-    "version": "4.0.0",
+    "version": "3.0.1",
     "description": "All HTTP calls that the Amadeus8 C# service makes TO the NestJS backend, plus NestJS callback endpoints available for the C# service.\n\nChanges in v4.0.0:\n- Added POST /api/access-control/import/callback (NestJS import callback endpoint — not currently called by C#, polling used instead).\n- Added POST /api/access-control/import/access-levels/callback (NestJS access-level callback — not currently called by C#).\n- Noted stale BackendApiDefinitions references: GET /api/access-groups, /api/security-groups, /api/cardholders are defined but route paths do NOT exist on NestJS (actual paths are /api/access-control/*).\n\nv3.0.0 notes (retained):\n- All NestJS responses are wrapped in ApiResponseEnvelope { success, data, timestamp } via global TransformResponseInterceptor.\n- GET /api/events/amadeus now uses page + limit pagination (returns PaginatedResult). Previously used limit-only.\n- BackendApiClient unwraps envelope for GET endpoints via BackendApiEnvelope<T> (reads .data field).\n- BackendApiClient reads POST /api/sync/full response directly as SyncResultDto (outer 'success' maps to SyncResultDto.Success; inner data fields are lost — known gap).\n- Individual sync routes (/api/sync/controllers, /doors, /extensions, /access-groups, /security-groups, /cardholders) are defined in BackendApiDefinitions but NOT called by BackendApiClient. Retained for documentation.\n- BackendAmadeusEventDto.logId is int64 (long in C#).\n\nv2.0.0 notes (retained):\n- Added POST /api/sync/controllers, /doors, /extensions, /access-groups, /security-groups, /access-levels, /cardholders (7 routes).\n- Added GET /api/events/amadeus.\n- SyncResultDto includes 'succeeded' and 'failures' fields from C# SyncResultDto."
   },
   "servers": [
@@ -25,9 +25,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmptyRequestBody"
-              }
+              "schema": { "$ref": "#/components/schemas/EmptyRequestBody" }
             }
           }
         },
@@ -64,9 +62,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmptyRequestBody"
-              }
+              "schema": { "$ref": "#/components/schemas/EmptyRequestBody" }
             }
           }
         },
@@ -103,9 +99,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmptyRequestBody"
-              }
+              "schema": { "$ref": "#/components/schemas/EmptyRequestBody" }
             }
           }
         },
@@ -142,9 +136,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmptyRequestBody"
-              }
+              "schema": { "$ref": "#/components/schemas/EmptyRequestBody" }
             }
           }
         },
@@ -181,9 +173,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmptyRequestBody"
-              }
+              "schema": { "$ref": "#/components/schemas/EmptyRequestBody" }
             }
           }
         },
@@ -220,9 +210,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmptyRequestBody"
-              }
+              "schema": { "$ref": "#/components/schemas/EmptyRequestBody" }
             }
           }
         },
@@ -259,9 +247,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmptyRequestBody"
-              }
+              "schema": { "$ref": "#/components/schemas/EmptyRequestBody" }
             }
           }
         },
@@ -298,9 +284,7 @@
           "required": true,
           "content": {
             "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmptyRequestBody"
-              }
+              "schema": { "$ref": "#/components/schemas/EmptyRequestBody" }
             }
           }
         },
@@ -540,17 +524,6 @@
         "properties": {},
         "additionalProperties": false
       },
-      "ApiResponseEnvelope": {
-        "title": "ApiResponseEnvelope",
-        "description": "Global response wrapper applied by NestJS TransformResponseInterceptor to ALL responses. The C# BackendApiClient uses BackendApiEnvelope<T> to unwrap .data for GET endpoints.",
-        "type": "object",
-        "properties": {
-          "success": { "type": "boolean" },
-          "data": { "description": "The actual response payload (type varies per endpoint)" },
-          "timestamp": { "type": "string", "format": "date-time" }
-        },
-        "required": ["success", "data", "timestamp"]
-      },
       "ApiResponseEnvelope_SyncResultDto": {
         "title": "ApiResponseEnvelope<SyncResultDto>",
         "type": "object",
@@ -655,7 +628,7 @@
           "success": { "type": "boolean" },
           "operation": { "type": "string", "description": "e.g. 'full', 'controllers', 'doors'" },
           "startedUtc": { "type": "string", "format": "date-time" },
-          "completedUtc": { "type": ["string", "null"], "format": "date-time" },
+          "completedUtc": { "type": "string", "format": "date-time", "nullable": true },
           "totalReceived": { "type": "integer" },
           "created": { "type": "integer" },
           "updated": { "type": "integer" },
@@ -663,7 +636,7 @@
           "succeeded": { "type": "integer" },
           "skipped": { "type": "integer" },
           "failed": { "type": "integer" },
-          "errorMessage": { "type": ["string", "null"] },
+          "errorMessage": { "type": "string", "nullable": true },
           "failures": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/ImportFailureDetailDto" }
@@ -677,12 +650,12 @@
         "properties": {
           "occurredUtc": { "type": "string", "format": "date-time" },
           "equipmentType": { "type": "string" },
-          "externalId": { "type": ["string", "null"] },
-          "name": { "type": ["string", "null"] },
+          "externalId": { "type": "string", "nullable": true },
+          "name": { "type": "string", "nullable": true },
           "failureStage": { "type": "string" },
           "failureCategory": { "type": "string" },
           "message": { "type": "string" },
-          "stackTrace": { "type": ["string", "null"] }
+          "stackTrace": { "type": "string", "nullable": true }
         },
         "required": ["occurredUtc", "equipmentType", "failureStage", "failureCategory", "message"]
       },
@@ -697,60 +670,60 @@
         "title": "BackendControllerDto",
         "type": "object",
         "properties": {
-          "id": { "type": ["string", "null"] },
-          "externalId": { "type": ["string", "null"] },
-          "amadeusUid": { "type": ["string", "null"] },
-          "name": { "type": ["string", "null"] },
-          "isActive": { "type": ["boolean", "null"] }
+          "id": { "type": "string", "nullable": true },
+          "externalId": { "type": "string", "nullable": true },
+          "amadeusUid": { "type": "string", "nullable": true },
+          "name": { "type": "string", "nullable": true },
+          "isActive": { "type": "boolean", "nullable": true }
         }
       },
       "BackendDoorDto": {
         "title": "BackendDoorDto",
         "type": "object",
         "properties": {
-          "id": { "type": ["string", "null"] },
-          "externalId": { "type": ["string", "null"] },
-          "amadeusUid": { "type": ["string", "null"] },
-          "name": { "type": ["string", "null"] },
-          "controllerExternalId": { "type": ["string", "null"] }
+          "id": { "type": "string", "nullable": true },
+          "externalId": { "type": "string", "nullable": true },
+          "amadeusUid": { "type": "string", "nullable": true },
+          "name": { "type": "string", "nullable": true },
+          "controllerExternalId": { "type": "string", "nullable": true }
         }
       },
       "BackendDoorIoDto": {
         "title": "BackendDoorIoDto",
         "type": "object",
         "properties": {
-          "id": { "type": ["string", "null"] },
-          "externalId": { "type": ["string", "null"] },
-          "amadeusUid": { "type": ["string", "null"] },
-          "name": { "type": ["string", "null"] },
-          "ioType": { "type": ["string", "null"] },
-          "direction": { "type": ["string", "null"] },
-          "controllerExternalId": { "type": ["string", "null"] }
+          "id": { "type": "string", "nullable": true },
+          "externalId": { "type": "string", "nullable": true },
+          "amadeusUid": { "type": "string", "nullable": true },
+          "name": { "type": "string", "nullable": true },
+          "ioType": { "type": "string", "nullable": true },
+          "direction": { "type": "string", "nullable": true },
+          "controllerExternalId": { "type": "string", "nullable": true }
         }
       },
       "BackendExtensionDto": {
         "title": "BackendExtensionDto",
         "type": "object",
         "properties": {
-          "id": { "type": ["string", "null"] },
-          "externalId": { "type": ["string", "null"] },
-          "amadeusUid": { "type": ["string", "null"] },
-          "name": { "type": ["string", "null"] },
-          "controllerExternalId": { "type": ["string", "null"] }
+          "id": { "type": "string", "nullable": true },
+          "externalId": { "type": "string", "nullable": true },
+          "amadeusUid": { "type": "string", "nullable": true },
+          "name": { "type": "string", "nullable": true },
+          "controllerExternalId": { "type": "string", "nullable": true }
         }
       },
       "BackendExtensionIoDto": {
         "title": "BackendExtensionIoDto",
         "type": "object",
         "properties": {
-          "id": { "type": ["string", "null"] },
-          "externalId": { "type": ["string", "null"] },
-          "amadeusUid": { "type": ["string", "null"] },
-          "name": { "type": ["string", "null"] },
-          "ioType": { "type": ["string", "null"] },
-          "direction": { "type": ["string", "null"] },
-          "extensionExternalId": { "type": ["string", "null"] },
-          "controllerExternalId": { "type": ["string", "null"] }
+          "id": { "type": "string", "nullable": true },
+          "externalId": { "type": "string", "nullable": true },
+          "amadeusUid": { "type": "string", "nullable": true },
+          "name": { "type": "string", "nullable": true },
+          "ioType": { "type": "string", "nullable": true },
+          "direction": { "type": "string", "nullable": true },
+          "extensionExternalId": { "type": "string", "nullable": true },
+          "controllerExternalId": { "type": "string", "nullable": true }
         }
       },
       "BackendAmadeusEventDto": {
@@ -764,23 +737,23 @@
           "isActive": { "type": "boolean" },
           "occurredUtc": { "type": "string", "format": "date-time" },
           "receivedUtc": { "type": "string", "format": "date-time" },
-          "externalEventId": { "type": ["string", "null"] },
-          "eventUid": { "type": ["string", "null"] },
-          "logId": { "type": ["integer", "null"], "format": "int64", "description": "C# type is long (int64)" },
-          "eventTypeCode": { "type": ["integer", "null"] },
-          "controllerExternalId": { "type": ["string", "null"] },
-          "objectExternalId": { "type": ["string", "null"] },
-          "equipmentKind": { "type": ["string", "null"] },
-          "equipmentName": { "type": ["string", "null"] },
-          "readerUid": { "type": ["string", "null"] },
-          "inputUid": { "type": ["string", "null"] },
-          "outputUid": { "type": ["string", "null"] },
-          "cardholderUid": { "type": ["string", "null"] },
-          "cardholderFirstName": { "type": ["string", "null"] },
-          "cardholderLastName": { "type": ["string", "null"] },
-          "cardCode": { "type": ["string", "null"] },
-          "carRegistrationNum": { "type": ["string", "null"] },
-          "accessDeniedCode": { "type": ["integer", "null"] },
+          "externalEventId": { "type": "string", "nullable": true },
+          "eventUid": { "type": "string", "nullable": true },
+          "logId": { "type": "integer", "format": "int64", "description": "C# type is long (int64)", "nullable": true },
+          "eventTypeCode": { "type": "integer", "nullable": true },
+          "controllerExternalId": { "type": "string", "nullable": true },
+          "objectExternalId": { "type": "string", "nullable": true },
+          "equipmentKind": { "type": "string", "nullable": true },
+          "equipmentName": { "type": "string", "nullable": true },
+          "readerUid": { "type": "string", "nullable": true },
+          "inputUid": { "type": "string", "nullable": true },
+          "outputUid": { "type": "string", "nullable": true },
+          "cardholderUid": { "type": "string", "nullable": true },
+          "cardholderFirstName": { "type": "string", "nullable": true },
+          "cardholderLastName": { "type": "string", "nullable": true },
+          "cardCode": { "type": "string", "nullable": true },
+          "carRegistrationNum": { "type": "string", "nullable": true },
+          "accessDeniedCode": { "type": "integer", "nullable": true },
           "rawPayloadJson": { "type": "string", "description": "Full raw JSON of the original Amadeus SignalR event payload" }
         },
         "required": ["sourceSystem", "signalRMethod", "internalEventType", "isActive", "occurredUtc", "receivedUtc", "rawPayloadJson"]
@@ -806,7 +779,7 @@
             "enum": ["processed", "duplicate", "failed"]
           },
           "eventId": { "type": "string" },
-          "error": { "type": ["string", "null"] }
+          "error": { "type": "string", "nullable": true }
         },
         "required": ["status", "eventId"]
       },
@@ -822,15 +795,15 @@
           "isActive": { "type": "boolean" },
           "occurredUtc": { "type": "string", "format": "date-time" },
           "receivedUtc": { "type": "string", "format": "date-time" },
-          "externalEventId": { "type": ["string", "null"] },
+          "externalEventId": { "type": "string", "nullable": true },
           "status": { "type": "string", "enum": ["processed", "duplicate", "failed"] },
-          "controllerExternalId": { "type": ["string", "null"] },
-          "objectExternalId": { "type": ["string", "null"] },
-          "equipmentKind": { "type": ["string", "null"] },
-          "equipmentName": { "type": ["string", "null"] },
-          "cardholderFirstName": { "type": ["string", "null"] },
-          "cardholderLastName": { "type": ["string", "null"] },
-          "cardCode": { "type": ["string", "null"] }
+          "controllerExternalId": { "type": "string", "nullable": true },
+          "objectExternalId": { "type": "string", "nullable": true },
+          "equipmentKind": { "type": "string", "nullable": true },
+          "equipmentName": { "type": "string", "nullable": true },
+          "cardholderFirstName": { "type": "string", "nullable": true },
+          "cardholderLastName": { "type": "string", "nullable": true },
+          "cardCode": { "type": "string", "nullable": true }
         }
       },
       "ImportCallbackPayload": {
@@ -850,7 +823,7 @@
         "type": "object",
         "properties": {
           "name": { "type": "string" },
-          "externalId": { "type": ["string", "null"] },
+          "externalId": { "type": "string", "nullable": true },
           "active": { "type": "boolean" },
           "doors": {
             "type": "array",
@@ -868,7 +841,7 @@
         "type": "object",
         "properties": {
           "name": { "type": "string" },
-          "externalId": { "type": ["string", "null"] },
+          "externalId": { "type": "string", "nullable": true },
           "doorIos": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/CallbackIo" }
@@ -881,7 +854,7 @@
         "type": "object",
         "properties": {
           "name": { "type": "string" },
-          "externalId": { "type": ["string", "null"] },
+          "externalId": { "type": "string", "nullable": true },
           "extensionIos": {
             "type": "array",
             "items": { "$ref": "#/components/schemas/CallbackIo" }
@@ -894,8 +867,8 @@
         "type": "object",
         "properties": {
           "name": { "type": "string" },
-          "externalId": { "type": ["string", "null"] },
-          "type": { "type": ["string", "null"] }
+          "externalId": { "type": "string", "nullable": true },
+          "type": { "type": "string", "nullable": true }
         },
         "required": ["name"]
       },
@@ -918,7 +891,7 @@
           "name": { "type": "string" },
           "active": { "type": "boolean" },
           "visitorAccess": { "type": "boolean" },
-          "externalId": { "type": ["string", "null"] }
+          "externalId": { "type": "string", "nullable": true }
         },
         "required": ["name", "active", "visitorAccess"]
       }

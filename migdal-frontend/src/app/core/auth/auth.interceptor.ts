@@ -7,7 +7,7 @@ import { AuthService } from './auth.service';
 let isRefreshing = false;
 const refreshTokenSubject = new BehaviorSubject<string | null>(null);
 
-const AUTH_URLS = ['/auth/login', '/auth/refresh', '/auth/entra-login', '/auth/entra-config'];
+const AUTH_URLS = ['/auth/login', '/auth/refresh'];
 
 function isAuthUrl(url: string): boolean {
     return AUTH_URLS.some((authUrl) => url.includes(authUrl));

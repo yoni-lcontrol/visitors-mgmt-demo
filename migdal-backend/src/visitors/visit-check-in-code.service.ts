@@ -308,7 +308,6 @@ export class VisitCheckInCodeService {
     }
 
     async findVisitByPersonId(personId: string, identifyNumber?: string) {
-        console.log('[KIOSK-DEBUG] findVisitByPersonId called with:', { personId, identifyNumber });
         const trimmed = personId.trim();
         if (!trimmed) return { ok: false };
 
@@ -491,16 +490,17 @@ export class VisitCheckInCodeService {
             visitorName,
         });
 
-        // Build the print payload for the kiosk to forward to its paired printer directly —
-        // the backend has no connection to the printer itself, so this can't be fired
-        // server-side anymore; it's returned for the kiosk to send over its local printer link.
-        let print: { correlationId: string; printData: Record<string, unknown> } | null = null;
+        // Dispatch the card print to the workstation's printer agent. A printer problem
+        // must never fail the check-in itself — the kiosk gets print progress over
+        // /ws/kiosk, and `print: null` here just means nothing was dispatched.
+        let print: { ok: true; correlationId: string; status: 'queued' } | null = null;
         if (workstationCode) {
             try {
                 print = await this.printingService.requestKioskPrintCard(workstationCode, visitId, visitorId);
             } catch (err) {
                 const error = err instanceof Error ? err : new Error(String(err));
-                this.logger.error(`Failed to build print payload: ${error.message}`, error.stack);
+                this.logger.error(`Failed to dispatch kiosk card print: ${error.message}`, error.stack);
+                print = null;
             }
         }
 

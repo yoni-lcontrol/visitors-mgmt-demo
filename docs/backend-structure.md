@@ -268,7 +268,6 @@ backend/
 ├── src/
 │   ├── auth/
 │   │   ├── auth.service.spec.ts
-│   │   ├── entra-id.service.spec.ts
 │   │   └── ...
 │   ├── agents/
 │   │   └── services/

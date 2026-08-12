@@ -9,6 +9,8 @@ import { CardTemplate } from '../../settings/entities/card-template.entity';
 import { Visitor } from '../../visitors/entities/visitor.entity';
 import { Visit } from '../../visitors/entities/visit.entity';
 import { UsersGateway } from '../../websocket/gateways/users.gateway';
+import { AgentsGateway } from '../../websocket/gateways/agents.gateway';
+import { KioskGateway } from '../../websocket/gateways/kiosk.gateway';
 import { WsEvent } from '../../websocket/enums/ws-events.enum';
 
 export interface PrintCardRequest {
@@ -37,6 +39,8 @@ export class PrintingService {
         @InjectRepository(Visit)
         private readonly visitRepo: Repository<Visit>,
         private readonly usersGateway: UsersGateway,
+        private readonly agentsGateway: AgentsGateway,
+        private readonly kioskGateway: KioskGateway,
     ) { }
 
     /**
@@ -123,16 +127,16 @@ export class PrintingService {
     }
 
     /**
-     * Kiosk print: build the print payload by workstation code (no user session required).
-     * The kiosk sends this payload directly to its paired printer's local WebSocket link —
-     * the backend no longer has any connection to the printer agent itself.
+     * Kiosk print: dispatch a card print to the printer agent bound to the kiosk's
+     * workstation (no user session required — the kiosk is anonymous).
+     * Progress/results reach the kiosk over /ws/kiosk, not through this return value.
      */
     async requestKioskPrintCard(
         workstationCode: string,
         visitId: string,
         visitorId: string,
         cardTemplateId?: string,
-    ): Promise<{ correlationId: string; printData: Record<string, unknown> }> {
+    ): Promise<{ ok: true; correlationId: string; status: 'queued' }> {
         const workstation = await this.workstationsService.findByCode(workstationCode);
         if (!workstation) {
             throw new BadRequestException(`Unknown workstation: ${workstationCode}`);
@@ -140,13 +144,45 @@ export class PrintingService {
 
         const resolvedTemplateId = cardTemplateId || workstation.defaultCardTemplateId || undefined;
         const printData = await this.buildPrintData(visitId, visitorId, resolvedTemplateId);
-        const correlationId = `kiosk-print-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+        // Throws ServiceUnavailableException when no printer agent is connected —
+        // deliberately not swallowed so the caller can surface a real failure.
+        const routeResult = await this.commandRouting.routeKioskCommand({
+            workstationId: workstation.id,
+            providerType: IntegrationProvider.Printer,
+            commandType: 'print-card',
+            requestPayload: {
+                source: 'kiosk',
+                workstationCode,
+                visitId,
+                visitorId,
+                cardTemplateId: resolvedTemplateId,
+                printData,
+            },
+        });
 
         this.logger.log(
-            `Kiosk print card: workstation=${workstationCode}, visit=${visitId}, visitor=${visitorId}, template=${resolvedTemplateId || 'none'}, correlationId=${correlationId}`,
+            `Kiosk print card: workstation=${workstationCode}, visit=${visitId}, visitor=${visitorId}, template=${resolvedTemplateId || 'none'}, correlationId=${routeResult.correlationId}`,
         );
 
-        return { correlationId, printData };
+        // Tell the kiosk the job is queued
+        this.kioskGateway.emitPrintStatusToWorkstation(workstation.id, {
+            correlationId: routeResult.correlationId,
+            state: 'queued',
+            message: 'Print job queued',
+            serverTimeUtc: new Date().toISOString(),
+        });
+
+        // Dispatch to the printer agent
+        this.agentsGateway.emitToAgent(routeResult.agentSocketId, WsEvent.AgentExecutePrint, {
+            correlationId: routeResult.correlationId,
+            visitId,
+            visitorId,
+            cardTemplateId: resolvedTemplateId,
+            printData,
+        });
+
+        return { ok: true, correlationId: routeResult.correlationId, status: 'queued' as const };
     }
 
     async requestTestPrintTemplate(

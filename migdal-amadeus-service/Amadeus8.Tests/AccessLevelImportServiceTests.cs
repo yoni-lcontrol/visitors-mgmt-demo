@@ -200,5 +200,7 @@ public class AccessLevelImportServiceTests
         public Task DeleteCardholderAsync(string uid, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<AmadeusCardholderPersonalDetails?> GetCardholderPersonalDetailsAsync(string cardholderUid, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<AmadeusCardholderPersonalDetails> UpsertLicensePlateAsync(string cardholderUid, string licensePlate, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<(List<AmadeusCard> Items, int? TotalCount)> GetCardsPagedAsync(int skip, int top, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<List<AmadeusCard>> GetCardsByCardholderUidAsync(string cardholderUid, CancellationToken cancellationToken) => throw new NotImplementedException();
     }
 }

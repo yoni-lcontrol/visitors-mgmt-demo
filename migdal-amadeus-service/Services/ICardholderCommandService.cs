@@ -9,6 +9,7 @@ public interface ICardholderCommandService
     Task<VisitorCreationResultDto> CreateVisitorAsync(CreateAmadeusVisitorDto dto, CancellationToken cancellationToken);
     Task<VisitorCreationResultDto> DeleteVisitorAsync(string amadeusUid, CancellationToken cancellationToken);
     Task UpdateCardholderAsync(string amadeusUid, CardholderUpdateDto dto, CancellationToken cancellationToken);
+    Task<bool> ActivateCardholderByIdNumberAsync(string cardholderIdNumber, CancellationToken cancellationToken);
     Task DeleteCardholderAsync(string amadeusUid, CancellationToken cancellationToken);
     Task ArchiveCardholderAsync(string amadeusUid, CancellationToken cancellationToken);
     Task<CardholderDto?> GetCardholderByUidAsync(string amadeusUid, CancellationToken cancellationToken);

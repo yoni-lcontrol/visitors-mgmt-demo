@@ -69,6 +69,6 @@ import { AmadeusSyncQueueModule } from './amadeus-sync-queue.module';
         AccessControlApiService,
         CardholderService,
     ],
-    exports: [AcControllerService, AccessControlApiService],
+    exports: [AcControllerService, AccessControlApiService, CardholderService],
 })
 export class AccessControlModule { }

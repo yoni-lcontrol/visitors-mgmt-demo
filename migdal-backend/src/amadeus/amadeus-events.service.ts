@@ -6,6 +6,7 @@ import { InboundEventLogService } from '../integrations/common/services/inbound-
 import { UsersGateway } from '../websocket/gateways/users.gateway';
 import { WsEvent } from '../websocket/enums/ws-events.enum';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
+import { EscortGuestPairingService } from './services/escort-guest-pairing.service';
 
 export interface AmadeusRealtimeEvent {
     eventType: string;
@@ -29,6 +30,7 @@ export class AmadeusEventsService {
     constructor(
         private readonly eventLogService: InboundEventLogService,
         private readonly wsGateway: UsersGateway,
+        private readonly escortGuestPairing: EscortGuestPairingService,
     ) { }
 
     async getRecentEvents(limit = 200): Promise<AmadeusRealtimeEvent[]> {
@@ -78,6 +80,11 @@ export class AmadeusEventsService {
             cardholderName,
             cardholderUid: payload.cardholderUid,
             cardCode: payload.cardCode,
+        });
+
+        this.escortGuestPairing.handleAmadeusEvent(payload).catch((err) => {
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            this.logger.error(`Escort/guest pairing handling failed: ${message}`);
         });
     }
 

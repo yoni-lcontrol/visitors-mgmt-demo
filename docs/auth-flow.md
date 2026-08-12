@@ -54,7 +54,7 @@
 
 ### Post-Login Workstation Selection
 
-After successful login (local or Entra), the frontend checks `GET /workstations/accessible`.
+After successful login (local, AD, or Kerberos SSO), the frontend checks `GET /workstations/accessible`.
 If the user has accessible workstations, they are redirected to `/select-workstation` to choose one.
 If no workstations are assigned (via user or role), the user is sent directly to `/dashboard`, skipping the picker entirely.
 The user selects a workstation, which triggers `POST /api/workstations/bind` with the workstation ID.
@@ -230,82 +230,25 @@ export class UsersController {
 | Brute force | Rate limiting on login endpoint (recommended) |
 | Token revocation | Refresh tokens stored in DB, can be revoked on logout or admin action |
 
-## Microsoft Entra ID Authentication
+## Kerberos / Windows SSO Authentication
 
 ### Overview
 
-The application supports authentication via Microsoft Entra ID (Azure AD) in addition to local username/password login. After successful Entra authentication, the backend issues the same local JWT tokens (access + refresh), so all existing authorization logic remains unchanged.
+The application supports authentication via Windows Kerberos/NTLM SSO (SPNEGO Negotiate) in addition to local username/password login. After successful Kerberos authentication, the backend issues the same local JWT tokens (access + refresh), so all existing authorization logic remains unchanged.
 
 ### Architecture
 
-- **Frontend**: Uses MSAL Angular (`@azure/msal-angular`) + MSAL Browser with Authorization Code Flow + PKCE
-- **Backend**: Validates Microsoft-issued access tokens via JWKS, resolves internal users, then issues app JWTs
-- **Protocol**: OpenID Connect (OIDC)
-
-### Entra Login Flow
-
-```
-┌──────────┐           ┌──────────────┐           ┌──────────┐         ┌──────┐
-│ Frontend  │           │ Microsoft    │           │  Backend  │         │  DB  │
-│ (MSAL)    │           │ Entra ID     │           │           │         │      │
-└────┬─────┘           └──────┬───────┘           └────┬─────┘         └──┬───┘
-     │                         │                        │                   │
-     │ loginPopup()            │                        │                   │
-     │ (Auth Code + PKCE)      │                        │                   │
-     │ ────────────────────────>                        │                   │
-     │                         │                        │                   │
-     │  User authenticates     │                        │                   │
-     │  with Microsoft         │                        │                   │
-     │                         │                        │                   │
-     │ <────────────────────────                        │                   │
-    │ Access token + auth result                      │                   │
-     │                         │                        │                   │
-     │ POST /api/auth/entra-login                       │                   │
-    │ { accessToken }         │                        │                   │
-     │ ─────────────────────────────────────────────────>                   │
-     │                         │                        │                   │
-     │                         │  Fetch JWKS keys       │                   │
-     │                         │ <──────────────────────                    │
-     │                         │ ──────────────────────>                    │
-     │                         │                        │                   │
-    │                         │  Verify signature,     │                   │
-    │                         │  issuer, audience,     │                   │
-    │                         │  tenant, expiry        │                   │
-     │                         │                        │                   │
-    │                         │                        │ Find user by      │
-    │                         │                        │ externalAuthId+tid│
-     │                         │                        │ ──────────────────>
-     │                         │                        │ <──────────────────
-     │                         │                        │                   │
-    │                         │                        │ (or by email,     │
-    │                         │                        │  then link account│
-    │                         │                        │  with tenant)     │
-     │                         │                        │                   │
-     │                         │                        │ Load roles +      │
-     │                         │                        │ permissions       │
-     │                         │                        │ ──────────────────>
-     │                         │                        │ <──────────────────
-     │                         │                        │                   │
-     │                         │                        │ Generate local    │
-     │                         │                        │ access + refresh  │
-     │                         │                        │ tokens (JWT)      │
-     │                         │                        │                   │
-     │  200 OK                                          │                   │
-     │  Body: { accessToken, user }                     │                   │
-     │  Cookie: refreshToken (HttpOnly)                 │                   │
-     │ <─────────────────────────────────────────────────                   │
-     │                         │                        │                   │
-     │ Same as local login:    │                        │                   │
-     │ Store token, navigate   │                        │                   │
-```
+- **Frontend**: Calls `GET /api/auth/kerberos-login` with `withCredentials` so the browser negotiates SPNEGO automatically against the domain-joined backend.
+- **Backend**: `KerberosSsoMiddleware` resolves the Windows identity (via SSPI) on the request, `KerberosService` normalizes it, then `AuthService` resolves/provisions the local user and issues app JWTs.
+- **Protocol**: SPNEGO Negotiate over HTTP.
 
 ### User Mapping Strategy
 
-When a user authenticates via Entra ID, the backend resolves the local user in this order:
+When a user authenticates via Kerberos, the backend resolves the local user in this order:
 
-1. **By external identity (`externalAuthId` + `externalTenantId`)**: Matches Entra `oid` + `tid`.
-2. **By email/UPN fallback**: If no external identity match exists, resolves by email/UPN and links provider + tenant to the local user.
-3. **Unknown-user policy (`ENTRA_UNKNOWN_USER_MODE`)**:
+1. **By external identity (`externalAuthId` + `externalTenantId`)**: Matches the Windows SID + domain.
+2. **By username fallback**: If no external identity match exists, resolves by username (covers users already provisioned via AD sync / LDAP login) and links the Kerberos identity to the local user.
+3. **Unknown-user policy (`KERBEROS_UNKNOWN_USER_MODE`)**:
   - `deny`: reject login.
   - `pending`: create/update a disabled pending user record and reject login.
   - `autoProvision`: create a local user with a configured default role.
@@ -361,10 +304,10 @@ Why this structure is correct:
 
 | Field | Type | Purpose |
 |---|---|---|
-| `externalAuthProvider` | nvarchar(50) | Identity provider name (e.g., `entra`) |
-| `externalAuthId` | nvarchar(255) | External identity ID (Entra `oid` claim) |
-| `externalTenantId` | nvarchar(100) | Entra tenant ID (`tid`) |
-| `displayName` | nvarchar(200) | Last display name from Entra claims |
+| `externalAuthProvider` | nvarchar(50) | Identity provider name (e.g., `kerberos`) |
+| `externalAuthId` | nvarchar(255) | External identity ID (Windows SID) |
+| `externalTenantId` | nvarchar(100) | Windows domain |
+| `displayName` | nvarchar(200) | Last display name from Kerberos identity |
 | `lastExternalLoginAt` | datetime2 | Timestamp of last external login |
 
 ### Configuration
@@ -373,40 +316,20 @@ Environment variables (backend `.env`):
 
 | Variable | Description | Example |
 |---|---|---|
-| `ENTRA_TENANT_ID` | Microsoft Entra tenant ID | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `ENTRA_CLIENT_ID` | Application (client) ID registered in Entra | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `ENTRA_AUTHORITY` | Entra authority base URL | `https://login.microsoftonline.com/<tenant-id>` |
-| `ENTRA_REDIRECT_URI` | Frontend redirect URI | `http://localhost:4200` |
-| `ENTRA_POST_LOGOUT_REDIRECT_URI` | Frontend post-logout redirect URI | `http://localhost:4200` |
-| `ENTRA_API_AUDIENCE` | Expected audience/App ID URI for backend access tokens | `api://xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `APP_ID_URI` | Optional alias for API audience | `api://xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
-| `ENTRA_UNKNOWN_USER_MODE` | Unknown-user handling mode (`deny`/`pending`/`autoProvision`) | `deny` |
-| `ENTRA_AUTO_PROVISION` | Auto-create users on first Entra login | `false` |
-| `ENTRA_DEFAULT_ROLE` | Role assigned to auto-provisioned users | `Viewer` |
-
-Frontend environment (`environment.ts`):
-
-```typescript
-entra: {
-    clientId: '',      // Same as ENTRA_CLIENT_ID
-    tenantId: '',      // Same as ENTRA_TENANT_ID
-  authority: '',     // Same as ENTRA_AUTHORITY
-    redirectUri: 'http://localhost:4200',
-  postLogoutRedirectUri: 'http://localhost:4200',
-  apiAudience: '',   // Same as ENTRA_API_AUDIENCE / APP_ID_URI
-}
-```
+| `KERBEROS_ENABLED` | Enables Kerberos/Windows SSO login | `false` |
+| `KERBEROS_UNKNOWN_USER_MODE` | Unknown-user handling mode (`deny`/`pending`/`autoProvision`) | `deny` |
+| `KERBEROS_DEFAULT_ROLE` | Role assigned to auto-provisioned users | `Viewer` |
 
 ### Endpoints
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/auth/entra-login` | Public | Exchange Entra access token for local JWT |
-| `GET` | `/api/auth/entra-config` | Public | Get Entra client configuration (enabled, clientId, tenantId) |
+| `GET` | `/api/auth/kerberos-login` | Public (SPNEGO Negotiate) | Exchange the negotiated Windows identity for a local JWT |
+| `GET` | `/api/auth/kerberos-config` | Public | Get Kerberos SSO availability (enabled) |
 
-### Post-Entra Login Behavior
+### Post-Kerberos Login Behavior
 
-After successful Entra login, the application behaves identically to local password login:
+After successful Kerberos login, the application behaves identically to local password login:
 - Local access token (JWT) is issued with same payload format
 - Refresh token is stored as HttpOnly cookie
 - Same token refresh and rotation flow applies
@@ -416,7 +339,7 @@ After successful Entra login, the application behaves identically to local passw
 
 ### Audit Logging
 
-Entra logins are logged with action `ENTRA_LOGIN`. Auto-provisioned users are logged with action `AUTO_PROVISION`.
+Kerberos logins are logged with action `KERBEROS_LOGIN`. Auto-provisioned users are logged with action `AUTO_PROVISION`.
 
 ## Device Agent HMAC Authentication
 

@@ -173,9 +173,11 @@ In addition to the HTTP-based inbound event endpoints above, printer and scanner
 
 The agent HMAC authentication for WebSocket uses the same signature algorithm as the HTTP integration (see `integrations/common/services/integration-auth.service.ts`) but passes credentials via `socket.handshake.auth` instead of HTTP headers. See `docs/auth-flow.md` for details.
 
+> **Agents never address the backend directly.** The agent host is network-isolated and is only ever configured with the front server's public origin (`FrontServerUrl`) — the same host the kiosk SPA is served from. The front server's IIS reverse proxy (`migdal-kiosk/web.config`) is what forwards that connection on to `/ws/agents`. There is no route from the agent host to the backend's own address; see `docs/architecture.md` for the full topology.
+
 ## Scanner Agent Service (C# Windows Service)
 
-The scanner agent (`migdal-scanner-service/`) runs on workstation machines with Acuant/Gemalto ID scanners. It connects to the NestJS backend as a device agent via socket.io.
+The scanner agent (`migdal-scanner-service/`) runs on workstation machines with Acuant/Gemalto ID scanners. It has no network route to the backend — it dials the front server's public origin as a Socket.IO client, and the front server's reverse proxy forwards that connection on to the backend's `/ws/agents` namespace.
 
 ### Architecture
 
@@ -194,7 +196,7 @@ migdal-scanner-service/
 ├── AcuantCore.cs              # SDK resource/error helpers
 ├── AcuantUtilities.cs         # Image processing utilities
 ├── Logger.cs                  # Serilog configuration
-├── App.config                 # Configuration (ServerUrl, EnrollmentToken, License)
+├── App.config                 # Configuration (FrontServerUrl, EnrollmentToken, License)
 ├── ScannerService.csproj      # .NET Framework 4.7.2 project
 ├── ScannerService.sln         # Visual Studio solution
 ├── dll/                       # Native scanner SDK DLLs (NetScanW, NetScanWex)
@@ -221,7 +223,7 @@ migdal-scanner-service/
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `ServerUrl` | Backend WebSocket URL | `http://localhost:3000` |
+| `FrontServerUrl` | Front server's public origin (same host as the kiosk SPA) — **not** the backend's address; the agent has no route to the backend, the front server's reverse proxy forwards this on | `http://localhost:3000` |
 | `EnrollmentToken` | One-time enrollment token (cleared after use) | `` |
 | `MachineId` | Machine identifier | `Environment.MachineName` |
 | `HeartbeatIntervalMs` | Heartbeat interval (ms) | `30000` |
@@ -261,7 +263,7 @@ The backend routes this to the requesting user via `scanner:action:completed` (s
 
 ## Printer Agent Service (C# .NET 9 Windows Service)
 
-The printer agent (`migdal-printer-service/`) runs on workstation machines with USB card printers (Custom CuCustomWnd SDK). It connects to the NestJS backend as a device agent via socket.io.
+The printer agent (`migdal-printer-service/`) runs on workstation machines with USB card printers (Custom CuCustomWnd SDK). It has no network route to the backend — it dials the front server's public origin as a Socket.IO client, and the front server's reverse proxy forwards that connection on to the backend's `/ws/agents` namespace.
 
 ### Architecture
 
@@ -272,7 +274,7 @@ migdal-printer-service/
 ├── AgentSocketClient.cs       # Socket.IO client for /ws/agents namespace (BackgroundService)
 ├── HmacAuth.cs                # HMAC-SHA256 signature generation
 ├── PrinterManager.cs          # Printer SDK wrapper (IHostedService for SDK lifecycle)
-├── appsettings.json           # Configuration (ServerUrl, EnrollmentToken, etc.)
+├── appsettings.json           # Configuration (FrontServerUrl, EnrollmentToken, etc.)
 ├── printer-service.csproj     # .NET 9 Worker SDK, x64, WindowsForms (for System.Drawing)
 ├── CuCustomWndAPIWrapNET6.dll # Managed .NET wrapper for printer SDK
 └── CuCustomWndAPI.dll         # Native printer SDK
@@ -309,7 +311,7 @@ Template rendering supports: text elements with placeholders (`FullName`, `Depar
 
 | Key | Description | Default |
 |-----|-------------|---------|
-| `Agent:ServerUrl` | Backend WebSocket URL | `http://localhost:3000` |
+| `Agent:FrontServerUrl` | Front server's public origin (same host as the kiosk SPA) — **not** the backend's address; the agent has no route to the backend, the front server's reverse proxy forwards this on | `http://localhost:3000` |
 | `Agent:EnrollmentToken` | One-time enrollment token | `` |
 | `Agent:MachineId` | Machine identifier | `Environment.MachineName` |
 | `Agent:HeartbeatIntervalMs` | Heartbeat interval (ms) | `30000` |

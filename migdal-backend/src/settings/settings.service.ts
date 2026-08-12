@@ -90,21 +90,39 @@ export class SettingsService {
     /** Validates setting values for keys with special constraints. */
     private validateSettingValue(key: string, value: string): void {
         const retentionKeys = ['retention.auditLogsMonths', 'retention.visitsMonths', 'retention.deviceCommandLogsMonths'];
-        if (!retentionKeys.includes(key)) return;
+        if (retentionKeys.includes(key)) {
+            if (value.trim() === '') {
+                throw new BadRequestException('Retention value is required');
+            }
 
-        if (value.trim() === '') {
-            throw new BadRequestException('Retention value is required');
+            const num = Number(value);
+            if (!Number.isFinite(num) || !Number.isInteger(num)) {
+                throw new BadRequestException('Retention value must be a positive integer');
+            }
+            if (num < 1) {
+                throw new BadRequestException('Retention value must be at least 1');
+            }
+            if (num > 120) {
+                throw new BadRequestException('Retention value must not exceed 120');
+            }
+            return;
         }
 
-        const num = Number(value);
-        if (!Number.isFinite(num) || !Number.isInteger(num)) {
-            throw new BadRequestException('Retention value must be a positive integer');
-        }
-        if (num < 1) {
-            throw new BadRequestException('Retention value must be at least 1');
-        }
-        if (num > 120) {
-            throw new BadRequestException('Retention value must not exceed 120');
+        if (key === 'visitors.escortPairingWindowSeconds') {
+            if (value.trim() === '') {
+                throw new BadRequestException('Pairing window value is required');
+            }
+
+            const num = Number(value);
+            if (!Number.isFinite(num) || !Number.isInteger(num)) {
+                throw new BadRequestException('Pairing window value must be a positive integer');
+            }
+            if (num < 3) {
+                throw new BadRequestException('Pairing window must be at least 3 seconds');
+            }
+            if (num > 60) {
+                throw new BadRequestException('Pairing window must not exceed 60 seconds');
+            }
         }
     }
 

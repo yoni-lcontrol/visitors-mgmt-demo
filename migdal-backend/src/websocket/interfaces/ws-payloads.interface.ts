@@ -163,6 +163,25 @@ export interface AgentStatusUpdatePayload {
     [key: string]: unknown;
 }
 
+/** Backend -> User: an escort's badge was matched with a waiting guest's QR scan */
+export interface VisitsEscortGuestPairedPayload {
+    visitVisitorId: string;
+    escortUserId: string;
+    doorId: string;
+}
+
+/** Backend -> User: the guest's Amadeus card was activated following a successful pairing */
+export interface VisitsGuestCardActivatedPayload {
+    visitVisitorId: string;
+    personId: string;
+}
+
+/** Backend -> User: the escort exited, releasing the pairing and checking the guest out */
+export interface VisitsEscortReleasedPayload {
+    visitVisitorId: string;
+    escortUserId: string;
+}
+
 /** Kiosk -> Backend: register kiosk on a workstation */
 export interface KioskRegisterPayload {
     kioskId: string;
@@ -185,5 +204,26 @@ export interface KioskScanResultPayload {
     correlationId: string;
     success: boolean;
     result?: Record<string, unknown>;
+    errorMessage?: string;
+}
+
+/** Backend -> Kiosk: printer availability for the kiosk's workstation */
+export interface KioskPrinterStatusPayload {
+    connected: boolean;
+    deviceConnected: boolean;
+}
+
+/** Backend -> Kiosk: progress of a card print job */
+export interface KioskPrintStatusPayload {
+    correlationId: string;
+    state: 'queued' | 'printing' | 'completed' | 'failed';
+    message?: string;
+    serverTimeUtc: string;
+}
+
+/** Backend -> Kiosk: terminal result of a card print job */
+export interface KioskPrintResultPayload {
+    correlationId: string;
+    success: boolean;
     errorMessage?: string;
 }

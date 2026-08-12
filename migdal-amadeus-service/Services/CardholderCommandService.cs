@@ -98,6 +98,40 @@ public class CardholderCommandService : ICardholderCommandService
         _logger.LogInformation("Cardholder {Uid} updated", amadeusUid);
     }
 
+    public async Task<bool> ActivateCardholderByIdNumberAsync(string cardholderIdNumber, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Activating cardholder by CardholderIdNumber {IdNumber}", cardholderIdNumber);
+
+        var entity = await _dbContext.Cardholders
+            .FirstOrDefaultAsync(c => c.CardholderIdNumber == cardholderIdNumber && !c.IsDeleted, cancellationToken);
+
+        if (entity is null)
+        {
+            _logger.LogWarning("Cardholder with CardholderIdNumber {IdNumber} not found locally", cardholderIdNumber);
+            return false;
+        }
+
+        var fromDateValid = entity.IsFromDateActive && entity.FromDateValidUtc.HasValue && entity.FromDateValidUtc.Value <= DateTime.UtcNow
+            ? entity.FromDateValidUtc.Value
+            : DateTime.UtcNow;
+
+        var payload = new Dictionary<string, object?>
+        {
+            ["isFromDateActive"] = true,
+            ["fromDateValid"] = fromDateValid,
+        };
+
+        await _apiClient.UpdateCardholderAsync(entity.AmadeusUid, payload, cancellationToken);
+
+        entity.IsFromDateActive = true;
+        entity.FromDateValidUtc = fromDateValid;
+        entity.UpdatedUtc = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Cardholder {Uid} (idNumber {IdNumber}) activated", entity.AmadeusUid, cardholderIdNumber);
+        return true;
+    }
+
     public async Task<VisitorCreationResultDto> DeleteVisitorAsync(string amadeusUid, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Starting visitor deletion from Amadeus. AmadeusUid: {Uid}", amadeusUid);

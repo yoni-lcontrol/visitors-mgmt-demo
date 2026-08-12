@@ -116,8 +116,8 @@
         "ACCOUNT_PENDING_APPROVAL": "חשבונך זוהה אך ממתין לאישור מנהל המערכת.",
         "ACCOUNT_NOT_PROVISIONED": "לא נמצא משתמש מקומי תואם. אנא פנה למנהל המערכת.",
         "OR": "או",
-        "LOGIN_WITH_MICROSOFT": "התחבר עם Microsoft",
-        "LOGIN_WITH_WINDOWS": "התחבר עם Windows"
+        "LOGIN_WITH_WINDOWS": "התחבר עם Windows",
+        "CHECKING_WINDOWS_SIGN_IN": "בודק התחברות עם Windows..."
     },
     "COMMON": {
         "ACTIONS": "פעולות",
@@ -1181,7 +1181,7 @@
             "DELETE": "מחיקה",
             "LOGIN": "כניסה",
             "LOGOUT": "יציאה",
-            "ENTRA_LOGIN": "כניסה באמצעות מיקרוסופט",
+            "KERBEROS_LOGIN": "כניסה באמצעות Windows",
             "IMPORT": "ייבוא",
             "ASSIGN_ROLES": "שיוך תפקידים",
             "ASSIGN_USERS": "שיוך משתמשים",

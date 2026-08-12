@@ -1,17 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, of, tap, map, catchError, from, switchMap, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, of, tap, map, catchError, switchMap } from 'rxjs';
 import { Router } from '@angular/router';
-import { AccountInfo, InteractionRequiredAuthError } from '@azure/msal-browser';
-import { MsalService } from '@azure/msal-angular';
 import { environment } from '../../../environments/environment';
 import { TokenService } from './token.service';
-import { AuthUser, LoginRequest, LoginResponse, EntraLoginRequest, EntraClientConfig, KerberosClientConfig } from './auth.models';
+import { AuthUser, LoginRequest, LoginResponse, KerberosClientConfig } from './auth.models';
 import { UserWebSocketService } from '../websocket/user-websocket.service';
 import { WorkstationSessionService } from '../services/workstation-session.service';
 import { DeviceStatusService } from '../services/device-status.service';
 import { ScannerEventService } from '../services/scanner-event.service';
-import { getBackendApiScopes, isEntraConfigured } from './msal.config';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -31,7 +28,6 @@ export class AuthService {
         private wsSession: WorkstationSessionService,
         private deviceStatus: DeviceStatusService,
         private scannerEvent: ScannerEventService,
-        private msalService: MsalService,
     ) { }
 
     get currentUser(): AuthUser | null {
@@ -56,19 +52,17 @@ export class AuthService {
     }
 
     logout(): void {
-        const activeAccount = this.msalService.instance.getActiveAccount();
-
         this.http
             .post(`${this.apiUrl}/logout`, {}, { withCredentials: true })
             .subscribe({
-                complete: () => this.clearAuthState(activeAccount),
-                error: () => this.clearAuthState(activeAccount),
+                complete: () => this.clearAuthState(),
+                error: () => this.clearAuthState(),
             });
     }
 
     /** Called by the interceptor when refresh fails — clears state and redirects once. */
     handleAuthFailure(): void {
-        this.clearAuthState(this.msalService.instance.getActiveAccount());
+        this.clearAuthState();
     }
 
     refreshToken(): Observable<{ accessToken: string; user?: AuthUser }> {
@@ -128,7 +122,7 @@ export class AuthService {
         this.userWsService.connect();
     }
 
-    private clearAuthState(activeEntraAccount?: AccountInfo | null): void {
+    private clearAuthState(): void {
         this.userWsService.disconnect();
         this.tokenService.clearAccessToken();
         this.currentUserSubject.next(null);
@@ -137,25 +131,7 @@ export class AuthService {
         this.deviceStatus.reset();
         this.scannerEvent.reset();
 
-        if (activeEntraAccount) {
-            this.msalService.instance.setActiveAccount(null);
-            // Keep local logout non-blocking and best-effort.
-            void this.msalService.instance.logoutPopup({
-                account: activeEntraAccount,
-                postLogoutRedirectUri:
-                    environment.entra.postLogoutRedirectUri || environment.entra.redirectUri,
-            }).catch(() => undefined);
-        }
-
         this.router.navigate(['/login']);
-    }
-
-    get isEntraEnabled(): boolean {
-        return isEntraConfigured();
-    }
-
-    getEntraConfig(): Observable<EntraClientConfig> {
-        return this.http.get<EntraClientConfig>(`${this.apiUrl}/entra-config`);
     }
 
     getKerberosConfig(): Observable<KerberosClientConfig> {
@@ -173,59 +149,5 @@ export class AuthService {
                     this.setAuthenticatedUser(response.user);
                 }),
             );
-    }
-
-    loginWithEntra(): Observable<LoginResponse> {
-        const scopes = getBackendApiScopes();
-
-        return from(this.msalService.instance.initialize()).pipe(
-            switchMap(() =>
-                this.msalService.loginPopup({
-                    scopes,
-                    prompt: 'select_account',
-                }),
-            ),
-            switchMap((result) => {
-                this.msalService.instance.setActiveAccount(result.account);
-
-                const account = result.account;
-                if (!account) {
-                    throw new Error('No Microsoft account returned from login flow');
-                }
-
-                return this.acquireApiToken(account, scopes).pipe(
-                    switchMap((accessToken) => {
-                        const body: EntraLoginRequest = { accessToken };
-                        return this.http.post<LoginResponse>(
-                            `${this.apiUrl}/entra-login`,
-                            body,
-                            { withCredentials: true },
-                        );
-                    }),
-                );
-            }),
-            tap((response) => {
-                this.tokenService.setAccessToken(response.accessToken);
-                this.setAuthenticatedUser(response.user);
-            }),
-        );
-    }
-
-    private acquireApiToken(account: AccountInfo, scopes: string[]): Observable<string> {
-        return this.msalService.acquireTokenSilent({
-            account,
-            scopes,
-        }).pipe(
-            map((result) => result.accessToken),
-            catchError((error: unknown) => {
-                if (error instanceof InteractionRequiredAuthError) {
-                    return this.msalService.acquireTokenPopup({ account, scopes }).pipe(
-                        map((result) => result.accessToken),
-                    );
-                }
-
-                return throwError(() => error);
-            }),
-        );
     }
 }

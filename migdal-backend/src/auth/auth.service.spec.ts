@@ -4,7 +4,6 @@ import { ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { EntraIdService } from './entra-id.service';
 import { KerberosService } from './kerberos.service';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { AdConfiguration } from '../settings/entities/ad-configuration.entity';
@@ -14,14 +13,6 @@ import { AuditService } from '../audit/audit.service';
 import { ErrorMessages } from '../common/constants/error-messages.constants';
 import * as hashUtil from '../common/utils/hash.util';
 
-jest.mock('jwks-rsa', () => ({
-    JwksClient: jest.fn().mockImplementation(() => ({
-        getSigningKey: jest.fn().mockResolvedValue({
-            getPublicKey: jest.fn().mockReturnValue('mock-key'),
-        }),
-    })),
-}));
-
 describe('AuthService', () => {
     let service: AuthService;
     let mockRefreshTokenRepo: ReturnType<typeof createMockRepository>;
@@ -30,7 +21,6 @@ describe('AuthService', () => {
     let mockJwtService: any;
     let mockConfigService: any;
     let mockAuditService: any;
-    let mockEntraIdService: any;
     let mockKerberosService: any;
 
     beforeEach(async () => {
@@ -57,23 +47,6 @@ describe('AuthService', () => {
         mockAuditService = {
             log: jest.fn().mockResolvedValue(undefined),
         };
-        mockEntraIdService = {
-            validateAccessToken: jest.fn(),
-            getConfig: jest.fn().mockReturnValue({
-                tenantId: 'tid',
-                clientId: 'cid',
-                authority: 'https://login.microsoftonline.com/tid',
-                redirectUri: 'http://localhost:4200',
-                postLogoutRedirectUri: 'http://localhost:4200',
-                apiAudience: 'api://cid',
-                autoProvision: false,
-                defaultRole: 'Viewer',
-                unknownUserMode: 'deny',
-            }),
-            isConfigured: jest.fn().mockReturnValue(true),
-            extractEmail: jest.fn(),
-            extractDisplayName: jest.fn(),
-        };
         mockKerberosService = {
             getConfig: jest.fn().mockReturnValue({
                 enabled: true,
@@ -94,7 +67,6 @@ describe('AuthService', () => {
                 { provide: JwtService, useValue: mockJwtService },
                 { provide: ConfigService, useValue: mockConfigService },
                 { provide: AuditService, useValue: mockAuditService },
-                { provide: EntraIdService, useValue: mockEntraIdService },
                 { provide: KerberosService, useValue: mockKerberosService },
             ],
         }).compile();
@@ -553,167 +525,6 @@ describe('AuthService', () => {
             expect(result.username).toBe('admin');
             expect(result.permissions).toContain('users.read');
             expect(result.permissions).toContain('users.create');
-        });
-    });
-
-    describe('loginWithEntra', () => {
-        const mockClaims = {
-            oid: 'entra-oid-123',
-            upn: 'john@domain.com',
-            email: 'john@domain.com',
-            given_name: 'John',
-            family_name: 'Doe',
-            name: 'John Doe',
-            tid: 'test-tenant',
-        };
-
-        const mockUser = {
-            id: 'user-1',
-            username: 'john',
-            firstName: 'John',
-            lastName: 'Doe',
-            isActive: true,
-            role: { id: 'role-viewer', name: 'Viewer', permissions: [{ key: 'users.read' }] },
-        };
-
-        beforeEach(() => {
-            mockEntraIdService.validateAccessToken.mockResolvedValue(mockClaims);
-            mockEntraIdService.extractEmail.mockReturnValue('john@domain.com');
-            mockEntraIdService.extractDisplayName.mockReturnValue({ firstName: 'John', lastName: 'Doe' });
-        });
-
-        it('should authenticate user found by external identity', async () => {
-            mockUsersService.findByExternalIdentity.mockResolvedValue(mockUser);
-
-            const result = await service.loginWithEntra('valid-token');
-
-            expect(result.accessToken).toBe('mock-access-token');
-            expect(result.user.username).toBe('john');
-            expect(result.user.permissions).toContain('users.read');
-            expect(mockUsersService.updateLastExternalLogin).toHaveBeenCalledWith(
-                'user-1',
-                expect.objectContaining({
-                    displayName: 'John Doe',
-                    email: 'john@domain.com',
-                }),
-            );
-        });
-
-        it('should fallback to email lookup and link external auth', async () => {
-            mockUsersService.findByExternalIdentity.mockResolvedValue(null);
-            mockUsersService.findByEmail.mockResolvedValue(mockUser);
-
-            const result = await service.loginWithEntra('valid-token');
-
-            expect(result.user.username).toBe('john');
-            expect(mockUsersService.linkExternalAuth).toHaveBeenCalledWith(
-                'user-1',
-                expect.objectContaining({
-                    provider: 'entra',
-                    externalId: 'entra-oid-123',
-                    tenantId: 'test-tenant',
-                }),
-            );
-        });
-
-        it('should auto-provision when mode is autoProvision and user not found', async () => {
-            mockUsersService.findByExternalIdentity.mockResolvedValue(null);
-            mockUsersService.findByEmail.mockResolvedValue(null);
-            mockEntraIdService.getConfig.mockReturnValue({
-                tenantId: 'tid',
-                clientId: 'cid',
-                authority: 'https://login.microsoftonline.com/tid',
-                redirectUri: '',
-                postLogoutRedirectUri: '',
-                apiAudience: 'api://cid',
-                autoProvision: true,
-                defaultRole: 'Viewer',
-                unknownUserMode: 'autoProvision',
-            });
-            mockUsersService.createExternalUser.mockResolvedValue(mockUser);
-
-            const result = await service.loginWithEntra('valid-token');
-
-            expect(mockUsersService.createExternalUser).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    externalAuthProvider: 'entra',
-                    externalAuthId: 'entra-oid-123',
-                    externalTenantId: 'test-tenant',
-                    roleNames: ['Viewer'],
-                }),
-            );
-            expect(result.user.username).toBe('john');
-        });
-
-        it('should create pending user when mode is pending and user not found', async () => {
-            mockUsersService.findByExternalIdentity.mockResolvedValue(null);
-            mockUsersService.findByEmail.mockResolvedValue(null);
-            mockEntraIdService.getConfig.mockReturnValue({
-                tenantId: 'tid',
-                clientId: 'cid',
-                authority: 'https://login.microsoftonline.com/tid',
-                redirectUri: '',
-                postLogoutRedirectUri: '',
-                apiAudience: 'api://cid',
-                autoProvision: false,
-                defaultRole: 'Viewer',
-                unknownUserMode: 'pending',
-            });
-
-            await expect(service.loginWithEntra('valid-token'))
-                .rejects.toThrow('pending administrator approval');
-
-            expect(mockUsersService.createPendingExternalUser).toHaveBeenCalled();
-        });
-
-        it('should throw when user not found and mode is deny', async () => {
-            mockUsersService.findByExternalIdentity.mockResolvedValue(null);
-            mockUsersService.findByEmail.mockResolvedValue(null);
-
-            await expect(service.loginWithEntra('valid-token'))
-                .rejects.toThrow('No matching local account found');
-        });
-
-        it('should throw when user is deactivated', async () => {
-            mockUsersService.findByExternalIdentity.mockResolvedValue({
-                ...mockUser,
-                isActive: false,
-            });
-
-            await expect(service.loginWithEntra('valid-token'))
-                .rejects.toThrow(new UnauthorizedException(ErrorMessages.USER_INACTIVE));
-        });
-
-        it('should throw when token validation fails', async () => {
-            mockEntraIdService.validateAccessToken.mockRejectedValue(
-                new UnauthorizedException('Invalid or expired Entra access token'),
-            );
-
-            await expect(service.loginWithEntra('bad-token'))
-                .rejects.toThrow(UnauthorizedException);
-        });
-
-        it('should set refresh token cookie data', async () => {
-            mockUsersService.findByExternalIdentity.mockResolvedValue(mockUser);
-
-            const result = await service.loginWithEntra('valid-token');
-
-            expect(result.refreshToken).toBeDefined();
-            expect(mockRefreshTokenRepo.save).toHaveBeenCalled();
-        });
-
-        it('should log audit event for Entra login', async () => {
-            mockUsersService.findByExternalIdentity.mockResolvedValue(mockUser);
-
-            await service.loginWithEntra('valid-token', 'Mozilla/5.0', '127.0.0.1');
-
-            expect(mockAuditService.log).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    action: 'ENTRA_LOGIN',
-                    module: 'auth',
-                    userId: 'user-1',
-                }),
-            );
         });
     });
 });

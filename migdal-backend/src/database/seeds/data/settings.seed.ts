@@ -62,4 +62,13 @@ export const settingsSeed = [
         description: 'Number of months to keep completed device command logs before automatic deletion',
         isPublic: false,
     },
+    {
+        key: 'visitors.escortPairingWindowSeconds',
+        value: '8',
+        type: 'number',
+        group: 'visitors',
+        label: 'Escort/Guest Pairing Window (seconds)',
+        description: 'How long the system waits after an escort badges in at a forEscort door for the guest to swipe their QR code before the pairing attempt expires',
+        isPublic: false,
+    },
 ];

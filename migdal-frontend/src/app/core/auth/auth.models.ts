@@ -3,10 +3,6 @@ export interface LoginRequest {
     password: string;
 }
 
-export interface EntraLoginRequest {
-    accessToken: string;
-}
-
 export interface LoginResponse {
     accessToken: string;
     user: AuthUser;
@@ -23,16 +19,6 @@ export interface AuthUser {
     sector: { id: string; name: string } | null;
     roles: string[];
     permissions: string[];
-}
-
-export interface EntraClientConfig {
-    enabled: boolean;
-    clientId: string | null;
-    tenantId: string | null;
-    authority: string | null;
-    redirectUri: string | null;
-    postLogoutRedirectUri: string | null;
-    apiAudience: string | null;
 }
 
 export interface KerberosClientConfig {

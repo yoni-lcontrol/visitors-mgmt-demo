@@ -4,7 +4,7 @@
 
 The Angular frontend uses standalone components with lazy-loaded feature routes. No NgModules are used for feature modules — Angular's modern standalone API is preferred.
 
-Authentication supports both local username/password login and Microsoft Entra ID (Azure AD) via MSAL Angular (`@azure/msal-angular`) on top of MSAL Browser (`@azure/msal-browser`). The login page dynamically shows the Microsoft sign-in button when Entra ID is configured. After either authentication method, the user is redirected to `/select-workstation` to choose their workstation for the session. They may skip if no workstation is needed. Once a workstation is selected (or skipped), the user enters the main application.
+Authentication supports both local username/password login and Kerberos/Windows SSO (SPNEGO Negotiate). The login page dynamically shows the Windows sign-in button when Kerberos SSO is configured. After either authentication method, the user is redirected to `/select-workstation` to choose their workstation for the session. They may skip if no workstation is needed. Once a workstation is selected (or skipped), the user enters the main application.
 
 ## Project Layout
 

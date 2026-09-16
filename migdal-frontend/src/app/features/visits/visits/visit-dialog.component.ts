@@ -953,8 +953,6 @@ import { AuthService } from '@core/auth/auth.service';
     /* ── Vehicle toggle + slide animation ── */
     .vehicle-toggle .checkbox-label { gap: 0.45rem; }
     .vehicle-toggle .checkbox-label i.pi-car { font-size: 0.95rem; color: var(--color-accent, #6c63ff); transition: color 0.2s; }
-    .parking-toggle { padding-top: 0.5rem; }
-    .parking-toggle .checkbox-label i.pi-warehouse { font-size: 0.95rem; color: var(--color-accent, #6c63ff); transition: color 0.2s; }
     .requester-toggle .checkbox-label i.pi-user-edit { font-size: 0.95rem; color: var(--color-accent, #6c63ff); transition: color 0.2s; }
     .vehicle-section {
       margin-top: 0.25rem;
@@ -1197,7 +1195,6 @@ export class VisitDialogComponent implements OnDestroy {
   private permissionService = inject(PermissionService);
   private authService = inject(AuthService);
 
-  canRequestParking = false;
   canImportExcel = false;
 
   get escortRequired(): boolean {
@@ -1327,7 +1324,6 @@ export class VisitDialogComponent implements OnDestroy {
     this.buildVehicleTypeOptions();
     this.loadEscortSectorOptions();
     this.resetDialogState();
-    this.canRequestParking = this.permissionService.hasPermission('parking.request');
     this.canImportExcel = this.permissionService.hasPermission('visitors.import');
     this.requesterLockedToOnBehalf = this.permissionService.hasPermission(VisitDialogComponent.ON_BEHALF_ONLY_PERMISSION);
     this.editing = visit ?? null;
@@ -1363,7 +1359,7 @@ export class VisitDialogComponent implements OnDestroy {
       this.form.plannedStartTime = defaultStart;
       this.form.plannedEndTime = defaultEnd;
       this.requesterIsSomeoneElse = this.requesterLockedToOnBehalf;
-      this.inlineVisitors = [{ firstName: '', lastName: '', email: '', phone: '', personId: '', hasVehicle: false, carNumber: '', vehicleType: '', requestParking: false }];
+      this.inlineVisitors = [{ firstName: '', lastName: '', email: '', phone: '', personId: '', hasVehicle: false, carNumber: '', vehicleType: '' }];
     }
     this.visible = true;
     this.visibleChange.emit(true);
@@ -1445,12 +1441,9 @@ export class VisitDialogComponent implements OnDestroy {
   }
 
   onVehicleCheckboxChange(v: InlineVisitor): void {
-    if (v.hasVehicle) {
-      v.requestParking = this.canRequestParking;
-    } else {
+    if (!v.hasVehicle) {
       v.carNumber = '';
       v.vehicleType = '';
-      v.requestParking = false;
     }
   }
 
@@ -1489,7 +1482,7 @@ export class VisitDialogComponent implements OnDestroy {
   // ── Inline visitor/escort management ──
 
   addInlineVisitor(): void {
-    this.inlineVisitors.push({ firstName: '', lastName: '', email: '', phone: '', personId: '', hasVehicle: false, carNumber: '', vehicleType: '', requestParking: false });
+    this.inlineVisitors.push({ firstName: '', lastName: '', email: '', phone: '', personId: '', hasVehicle: false, carNumber: '', vehicleType: '' });
   }
 
   removeInlineVisitor(index: number): void {
@@ -1587,7 +1580,6 @@ export class VisitDialogComponent implements OnDestroy {
         hasVehicle,
         carNumber: hasVehicle ? (row['carNumber'] ?? '') : '',
         vehicleType,
-        requestParking: hasVehicle ? (this.canRequestParking && this.excelImport.parseBoolean(row['requestParking'])) : false,
       });
     }
 
@@ -1802,7 +1794,6 @@ export class VisitDialogComponent implements OnDestroy {
           hasVehicle: v.hasVehicle,
           carNumber: v.hasVehicle ? (v.carNumber || undefined) : undefined,
           vehicleType: v.hasVehicle ? (v.vehicleType || undefined) : undefined,
-          requestParking: v.hasVehicle ? v.requestParking : undefined,
         })),
         escorts: this.inlineEscorts.map(e => ({
           firstName: e.firstName,

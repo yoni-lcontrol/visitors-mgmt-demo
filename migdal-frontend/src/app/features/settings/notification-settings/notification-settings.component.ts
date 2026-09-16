@@ -12,8 +12,8 @@ interface MatrixCell {
   email: boolean;
 }
 
-const TARGET_GROUPS = ['system_users', 'visitors', 'escorts', 'visit_requester'] as const;
-const EVENTS = ['visitor_arrived', 'visit_created', 'visit_updated', 'visit_deleted', 'visitor_blacklisted', 'check_in_code_sent', 'parking_request_decision', 'visitor_checked_out', 'visitor_overstay'] as const;
+const TARGET_GROUPS = ['visit_creator', 'visitors', 'escorts', 'visit_requester'] as const;
+const EVENTS = ['visitor_arrived_with_escort', 'visitor_arrived_without_escort', 'visit_created', 'visit_updated', 'visit_deleted', 'visitor_blacklisted', 'parking_approved', 'parking_rejected', 'visitor_checked_out', 'visitor_overstay'] as const;
 
 @Component({
   selector: 'app-notification-settings',
@@ -1066,13 +1066,14 @@ export class NotificationSettingsComponent implements OnInit, HasUnsavedChanges 
 
   getEventIcon(event: string): string {
     const icons: Record<string, string> = {
-      visitor_arrived: 'pi-sign-in',
+      visitor_arrived_with_escort: 'pi-sign-in',
+      visitor_arrived_without_escort: 'pi-sign-in',
       visit_created: 'pi-plus-circle',
       visit_updated: 'pi-pencil',
       visitor_deleted: 'pi-trash',
       visitor_blacklisted: 'pi-ban',
-      check_in_code_sent: 'pi-key',
-      parking_request_decision: 'pi-car',
+      parking_approved: 'pi-car',
+      parking_rejected: 'pi-ban',
       visitor_checked_out: 'pi-sign-out',
       visitor_overstay: 'pi-clock',
     };
@@ -1081,7 +1082,7 @@ export class NotificationSettingsComponent implements OnInit, HasUnsavedChanges 
 
   getGroupIcon(group: string): string {
     const icons: Record<string, string> = {
-      system_users: 'pi-users',
+      visit_creator: 'pi-users',
       visitors: 'pi-user',
       escorts: 'pi-shield',
       visit_requester: 'pi-briefcase',

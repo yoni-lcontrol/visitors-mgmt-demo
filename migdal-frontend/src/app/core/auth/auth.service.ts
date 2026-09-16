@@ -38,6 +38,8 @@ export class AuthService {
         return this.isAuthenticatedSubject.value;
     }
 
+    private readonly KERBEROS_MANUAL_LOGIN_KEY = 'migdal.kerberosManualLogin';
+
     login(credentials: LoginRequest): Observable<LoginResponse> {
         return this.http
             .post<LoginResponse>(`${this.apiUrl}/login`, credentials, {
@@ -52,6 +54,7 @@ export class AuthService {
     }
 
     logout(): void {
+        this.disableAutoKerberos();
         this.http
             .post(`${this.apiUrl}/logout`, {}, { withCredentials: true })
             .subscribe({
@@ -136,6 +139,18 @@ export class AuthService {
 
     getKerberosConfig(): Observable<KerberosClientConfig> {
         return this.http.get<KerberosClientConfig>(`${this.apiUrl}/kerberos-config`);
+    }
+
+    disableAutoKerberos(): void {
+        sessionStorage.setItem(this.KERBEROS_MANUAL_LOGIN_KEY, '1');
+    }
+
+    enableAutoKerberos(): void {
+        sessionStorage.removeItem(this.KERBEROS_MANUAL_LOGIN_KEY);
+    }
+
+    isAutoKerberosDisabled(): boolean {
+        return sessionStorage.getItem(this.KERBEROS_MANUAL_LOGIN_KEY) === '1';
     }
 
     loginWithKerberos(): Observable<LoginResponse> {

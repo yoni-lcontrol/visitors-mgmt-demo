@@ -203,6 +203,27 @@ describe('AuthService', () => {
         }));
     });
 
+    describe('kerberos manual-login flag', () => {
+        afterEach(() => {
+            sessionStorage.clear();
+        });
+
+        it('should disable auto-kerberos on logout and re-enable it on enableAutoKerberos', fakeAsync(() => {
+            expect(service.isAutoKerberosDisabled()).toBeFalse();
+
+            service.logout();
+            const logoutReq = httpMock.expectOne((r) => r.url.includes('/auth/logout'));
+            logoutReq.flush({});
+            tick();
+
+            expect(service.isAutoKerberosDisabled()).toBeTrue();
+
+            service.enableAutoKerberos();
+
+            expect(service.isAutoKerberosDisabled()).toBeFalse();
+        }));
+    });
+
     describe('handleAuthFailure', () => {
         it('should clear state and redirect to login', () => {
             service.handleAuthFailure();

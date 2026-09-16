@@ -308,7 +308,7 @@ export class LoginComponent {
     this.authService.getKerberosConfig().subscribe({
       next: (config) => {
         this.kerberosEnabled = config.enabled;
-        if (config.enabled) {
+        if (config.enabled && !this.authService.isAutoKerberosDisabled()) {
           this.attemptSilentKerberosLogin();
         } else {
           this.checkingSso = false;
@@ -352,6 +352,7 @@ export class LoginComponent {
   }
 
   onWindowsLogin(): void {
+    this.authService.enableAutoKerberos();
     this.isLoading = true;
     this.errorMessage = '';
 

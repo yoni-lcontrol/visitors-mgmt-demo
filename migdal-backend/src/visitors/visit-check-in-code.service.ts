@@ -29,7 +29,7 @@ import { AmadeusUsersService } from '../amadeus/services/amadeus-users.service';
 import { SyncQueueSource } from '../amadeus/entities/amadeus-sync-queue.entity';
 import { PrintingService } from '../printing/services/printing.service';
 import { Building } from '../buildings/entities/building.entity';
-import { buildSmsData } from './visit.utils';
+import { buildSmsData, resolveVisitorArrivedEvent } from './visit.utils';
 import { ErrorMessages } from '../common/constants/error-messages.constants';
 
 const MAX_CODE_GENERATION_ATTEMPTS = 20;
@@ -434,7 +434,7 @@ export class VisitCheckInCodeService {
 
         const visitVisitor = await this.visitVisitorRepo.findOne({
             where: { visitId, visitorId, isActive: true },
-            relations: ['visit', 'visit.visitRequesterUser'],
+            relations: ['visit', 'visit.visitRequesterUser', 'visit.createdByUser', 'visit.visitEscorts'],
         });
         if (!visitVisitor) throw new BadRequestException('Visitor is not part of this visit');
 
@@ -480,8 +480,9 @@ export class VisitCheckInCodeService {
         // Send arrival notifications to host (fire-and-forget)
         if (visitVisitor.visit) {
             const smsData = buildSmsData(visitVisitor.visit, visitor);
-            this.smsNotification.triggerSms(NotificationEvent.VisitorArrived, smsData).catch(() => {});
-            this.emailNotification.triggerEmail(NotificationEvent.VisitorArrived, smsData).catch(() => {});
+            const event = resolveVisitorArrivedEvent(visitVisitor.visit);
+            this.smsNotification.triggerSms(event, smsData).catch(() => {});
+            this.emailNotification.triggerEmail(event, smsData).catch(() => {});
         }
 
         this.wsGateway.broadcastToAll('visits:visitor:arrived', {
@@ -584,15 +585,16 @@ export class VisitCheckInCodeService {
 
             // Fetch names for response
             const visitor = await this.visitorRepo.findOne({ where: { id: codeRecord.visitorId } });
-            const visit = await this.visitRepo.findOne({ where: { id: codeRecord.visitId }, relations: ['visitRequesterUser'] });
+            const visit = await this.visitRepo.findOne({ where: { id: codeRecord.visitId }, relations: ['visitRequesterUser', 'createdByUser', 'visitEscorts'] });
             const visitorName = visitor ? `${visitor.firstName} ${visitor.lastName}` : 'Unknown';
             const visitTitle = visit?.title ?? 'Unknown';
 
             // Send arrival notifications to host (fire-and-forget)
             if (visit && visitor) {
                 const smsData = buildSmsData(visit, visitor);
-                this.smsNotification.triggerSms(NotificationEvent.VisitorArrived, smsData).catch(() => {});
-                this.emailNotification.triggerEmail(NotificationEvent.VisitorArrived, smsData).catch(() => {});
+                const event = resolveVisitorArrivedEvent(visit);
+                this.smsNotification.triggerSms(event, smsData).catch(() => {});
+                this.emailNotification.triggerEmail(event, smsData).catch(() => {});
             }
 
             // Download visitor to Amadeus

@@ -28,6 +28,14 @@ export interface SmsTemplateData {
         reviewNote?: string;
     };
     requester?: {
+        firstName?: string;
+        lastName?: string;
+        phone?: string;
+        email?: string;
+    };
+    createdBy?: {
+        firstName?: string;
+        lastName?: string;
         phone?: string;
         email?: string;
     };
@@ -96,6 +104,18 @@ export class SmsTemplateRendererService {
             parking: {
                 status: 'approved',
                 reviewNote: 'הערה לדוגמה',
+            },
+            requester: {
+                firstName: 'דנה',
+                lastName: 'לוי',
+                phone: '0501112222',
+                email: 'dana@example.com',
+            },
+            createdBy: {
+                firstName: 'משה',
+                lastName: 'אברהם',
+                phone: '0503334444',
+                email: 'moshe@example.com',
             },
         };
     }

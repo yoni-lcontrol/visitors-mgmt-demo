@@ -202,7 +202,8 @@ GO
 -- =============================================
 INSERT INTO [SmsTemplates] ([id], [event], [template], [recipients], [isActive], [createdAt], [updatedAt])
 VALUES
-  (NEWID(), 'visitor_arrived',     N'שלום {{visitor.firstName}}, הגעת לביקור ב{{visit.siteName}}. המארח שלך: {{visit.hostName}}. קוד כניסה: {{visitor.checkInCode}}', NULL, 1, GETUTCDATE(), GETUTCDATE()),
+  (NEWID(), 'visitor_arrived_with_escort',     N'שלום {{visitor.firstName}}, הגעת לביקור ב{{visit.siteName}} עם ליווי. המארח שלך: {{visit.hostName}}. קוד כניסה: {{visitor.checkInCode}}', NULL, 1, GETUTCDATE(), GETUTCDATE()),
+  (NEWID(), 'visitor_arrived_without_escort',     N'שלום {{visitor.firstName}}, הגעת לביקור ב{{visit.siteName}} ללא ליווי. המארח שלך: {{visit.hostName}}. קוד כניסה: {{visitor.checkInCode}}', NULL, 1, GETUTCDATE(), GETUTCDATE()),
   (NEWID(), 'visit_created',      N'שלום {{visitor.firstName}} {{visitor.lastName}}, נקבע לך ביקור ב{{visit.siteName}} בתאריך {{visit.startTime}}. המארח: {{visit.hostName}}. מטרת הביקור: {{visit.purposeOfVisit}}', NULL, 1, GETUTCDATE(), GETUTCDATE()),
   (NEWID(), 'visit_updated',      N'שלום {{visitor.firstName}}, הביקור שלך ב{{visit.siteName}} עודכן. תאריך: {{visit.startTime}}. המארח: {{visit.hostName}}', NULL, 1, GETUTCDATE(), GETUTCDATE()),
   (NEWID(), 'visitor_deleted',    N'שלום {{visitor.firstName}}, הביקור שלך ב{{visit.siteName}} בתאריך {{visit.startTime}} בוטל', NULL, 1, GETUTCDATE(), GETUTCDATE()),

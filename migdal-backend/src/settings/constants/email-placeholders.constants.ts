@@ -18,6 +18,10 @@ export const EMAIL_PLACEHOLDERS = [
     '{{visitor.checkInCode}}',
     '{{parking.status}}',
     '{{parking.reviewNote}}',
+    '{{requester.firstName}}',
+    '{{requester.lastName}}',
+    '{{createdBy.firstName}}',
+    '{{createdBy.lastName}}',
 ] as const;
 
 export type EmailPlaceholder = (typeof EMAIL_PLACEHOLDERS)[number];

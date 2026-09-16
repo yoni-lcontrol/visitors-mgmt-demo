@@ -181,8 +181,8 @@ export class VisitParticipantService {
                     await qr.manager.save(overrideReq);
                 }
 
-                // Create parking request if requested and user has permission
-                if (v.requestParking && v.hasVehicle && userPermissions?.includes(PermissionKey.ParkingRequest)) {
+                // Create parking request automatically when the visitor has a vehicle and user has permission
+                if (v.hasVehicle && userPermissions?.includes(PermissionKey.ParkingRequest)) {
                     const autoApprove = userPermissions.includes(PermissionKey.ParkingAutoApprove);
                     const parkingReq = qr.manager.create(ParkingRequest, {
                         visitVisitorId: savedVv.id,
@@ -271,11 +271,10 @@ export class VisitParticipantService {
         vv.updatedBy = currentUserId ?? null;
         await this.visitVisitorRepo.save(vv);
 
-        // Handle parking request on update
-        if (dto.requestParking !== undefined && userPermissions?.includes(PermissionKey.ParkingRequest)) {
-            const hasVehicle = dto.hasVehicle ?? !!(visitor.carNumber);
+        // Handle parking request automatically based on vehicle status
+        if (dto.hasVehicle !== undefined && userPermissions?.includes(PermissionKey.ParkingRequest)) {
             const existing = await this.parkingRequestRepo.findOne({ where: { visitVisitorId, isActive: true } });
-            if (dto.requestParking && hasVehicle && !existing) {
+            if (dto.hasVehicle && !existing) {
                 const autoApprove = userPermissions.includes(PermissionKey.ParkingAutoApprove);
                 const parkingReq = this.parkingRequestRepo.create({
                     visitVisitorId,
@@ -288,7 +287,7 @@ export class VisitParticipantService {
                 if (autoApprove) {
                     this.amadeusParkingSync.syncApprovedParkingVisitorToAmadeus(savedParkingReq.id).catch(() => { });
                 }
-            } else if (!dto.requestParking && existing) {
+            } else if (!dto.hasVehicle && existing) {
                 existing.isActive = false;
                 existing.updatedBy = currentUserId ?? null;
                 await this.parkingRequestRepo.save(existing);

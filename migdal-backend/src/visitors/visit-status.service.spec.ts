@@ -551,5 +551,56 @@ describe('VisitStatusService', () => {
                 expect.objectContaining({ now: expect.any(Date) }),
             );
         });
+
+        it('should trigger VisitorOverstay SMS and email for each auto-checked-out visitor', async () => {
+            const openStatuses = [
+                {
+                    visitVisitorId: 'vv1',
+                    visitId: 'visit1',
+                    visitorId: 'vis1',
+                    currentStatus: VisitorStatus.Arrived,
+                    visitVisitor: {
+                        id: 'vv1',
+                        visit: { id: 'visit1', title: 'Overdue Visit', visitRequesterUser: null, createdByUser: null },
+                        visitor: { id: 'vis1', firstName: 'Jane', lastName: 'Doe' },
+                    },
+                },
+            ];
+            const statusQb = createMockQueryBuilder(openStatuses);
+            mockStatusRepo.createQueryBuilder.mockReturnValue(statusQb);
+
+            await service.autoCheckOutExpiredVisitors();
+
+            expect(mockSmsNotification.triggerSms).toHaveBeenCalledWith(
+                NotificationEvent.VisitorOverstay,
+                expect.objectContaining({
+                    visitor: expect.objectContaining({ firstName: 'Jane', lastName: 'Doe' }),
+                }),
+            );
+            expect(mockEmailNotification.triggerEmail).toHaveBeenCalledWith(
+                NotificationEvent.VisitorOverstay,
+                expect.objectContaining({
+                    visitor: expect.objectContaining({ firstName: 'Jane', lastName: 'Doe' }),
+                }),
+            );
+        });
+
+        it('should not throw or trigger notifications when visit/visitor data is unavailable', async () => {
+            const openStatuses = [
+                {
+                    visitVisitorId: 'vv1',
+                    visitId: 'visit1',
+                    visitorId: 'vis1',
+                    currentStatus: VisitorStatus.Arrived,
+                    visitVisitor: { id: 'vv1' },
+                },
+            ];
+            const statusQb = createMockQueryBuilder(openStatuses);
+            mockStatusRepo.createQueryBuilder.mockReturnValue(statusQb);
+
+            await expect(service.autoCheckOutExpiredVisitors()).resolves.toEqual({ checkedOut: 1 });
+            expect(mockSmsNotification.triggerSms).not.toHaveBeenCalled();
+            expect(mockEmailNotification.triggerEmail).not.toHaveBeenCalled();
+        });
     });
 });

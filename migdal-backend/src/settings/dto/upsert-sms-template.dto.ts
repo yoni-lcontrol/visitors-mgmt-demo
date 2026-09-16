@@ -2,7 +2,7 @@ import { IsString, IsNotEmpty, IsIn, IsOptional, IsArray } from 'class-validator
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { NOTIFICATION_EVENTS } from '../enums/notification-event.enum';
 
-const TARGET_GROUPS = ['system_users', 'visitors', 'escorts', 'visit_requester'] as const;
+const TARGET_GROUPS = ['visit_creator', 'visitors', 'escorts', 'visit_requester'] as const;
 
 export class UpsertSmsTemplateDto {
     @ApiProperty({ example: 'visit_created', enum: NOTIFICATION_EVENTS })
@@ -11,7 +11,7 @@ export class UpsertSmsTemplateDto {
     @IsIn(NOTIFICATION_EVENTS)
     event!: string;
 
-    @ApiProperty({ example: 'system_users', enum: TARGET_GROUPS })
+    @ApiProperty({ example: 'visit_creator', enum: TARGET_GROUPS })
     @IsString()
     @IsNotEmpty()
     @IsIn([...TARGET_GROUPS])

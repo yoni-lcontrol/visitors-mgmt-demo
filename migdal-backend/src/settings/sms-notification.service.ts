@@ -36,7 +36,7 @@ export class SmsNotificationService {
 
             this.logger.log(`[SMS] triggerSms event=${event} requester=${JSON.stringify(data.requester)} visitorPhone=${data.visitor?.phone}`);
 
-            const targetGroups = ['system_users', 'visitors', 'escorts', 'visit_requester'];
+            const targetGroups = ['visit_creator', 'visitors', 'escorts', 'visit_requester'];
             const allResults: SmsSendResult[] = [];
 
             for (const group of targetGroups) {
@@ -66,6 +66,11 @@ export class SmsNotificationService {
                 if (group === 'visitors' && data.visitor?.phone) {
                     if (!recipients.includes(data.visitor.phone)) {
                         recipients.push(data.visitor.phone);
+                    }
+                }
+                if (group === 'visit_creator' && data.createdBy?.phone) {
+                    if (!recipients.includes(data.createdBy.phone)) {
+                        recipients.push(data.createdBy.phone);
                     }
                 }
                 if (recipients.length === 0) {

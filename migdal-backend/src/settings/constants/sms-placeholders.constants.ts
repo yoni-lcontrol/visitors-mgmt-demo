@@ -18,6 +18,10 @@ export const SMS_PLACEHOLDERS = [
     '{{visitor.checkInCode}}',
     '{{parking.status}}',
     '{{parking.reviewNote}}',
+    '{{requester.firstName}}',
+    '{{requester.lastName}}',
+    '{{createdBy.firstName}}',
+    '{{createdBy.lastName}}',
 ] as const;
 
 export type SmsPlaceholder = (typeof SMS_PLACEHOLDERS)[number];

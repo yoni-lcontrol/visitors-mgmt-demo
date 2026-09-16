@@ -28,6 +28,14 @@ export interface EmailTemplateData {
         reviewNote?: string;
     };
     requester?: {
+        firstName?: string;
+        lastName?: string;
+        phone?: string;
+        email?: string;
+    };
+    createdBy?: {
+        firstName?: string;
+        lastName?: string;
         phone?: string;
         email?: string;
     };
@@ -84,6 +92,18 @@ export class EmailTemplateRendererService {
             parking: {
                 status: 'אושר',
                 reviewNote: 'הערה לדוגמה',
+            },
+            requester: {
+                firstName: 'דנה',
+                lastName: 'לוי',
+                phone: '0501112222',
+                email: 'dana@example.com',
+            },
+            createdBy: {
+                firstName: 'משה',
+                lastName: 'אברהם',
+                phone: '0503334444',
+                email: 'moshe@example.com',
             },
         };
     }

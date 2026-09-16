@@ -21,7 +21,7 @@ import { SmsNotificationService } from '../settings/sms-notification.service';
 import { EmailNotificationService } from '../settings/email-notification.service';
 import { NotificationEvent } from '../settings/enums/notification-event.enum';
 import { AuditService } from '../audit/audit.service';
-import { resolveVisitRequester, buildSmsData } from './visit.utils';
+import { resolveVisitRequester, buildSmsData, resolveVisitorArrivedEvent } from './visit.utils';
 import { getDayBoundsUtc } from '../common/utils/date.util';
 import { BlacklistOverrideRequest } from './entities/blacklist-override-request.entity';
 import { BlacklistOverrideStatus } from './enums/blacklist-override-status.enum';
@@ -307,13 +307,13 @@ export class VisitStatusService {
             }).catch(() => { });
 
             if (dto.eventType === VisitorAccessEventType.Arrived) {
-                const visit = await this.visitRepo.findOne({ where: { id: vv.visitId } });
+                const visit = await this.visitRepo.findOne({ where: { id: vv.visitId }, relations: ['visitEscorts', 'visitRequesterUser', 'createdByUser'] });
                 const visitor = await this.visitorRepo.findOne({ where: { id: vv.visitorId } });
                 if (visit && visitor) {
                     const blResult = await this.blacklistService.checkBlacklistStatus(visitor.personId).catch(() => ({ isBlacklisted: false }));
                     const event = blResult.isBlacklisted
                         ? NotificationEvent.VisitorBlacklisted
-                        : NotificationEvent.VisitorArrived;
+                        : resolveVisitorArrivedEvent(visit);
                     this.smsNotification.triggerSms(event, buildSmsData(visit, visitor))
                         .catch(() => { });
                     this.emailNotification.triggerEmail(event, buildSmsData(visit, visitor))
@@ -331,7 +331,7 @@ export class VisitStatusService {
                     this.logger.warn(`[Amadeus CheckIn] Skipped — visit or visitor not found (visitId=${vv.visitId}, visitorId=${vv.visitorId})`);
                 }
             } else if (dto.eventType === VisitorAccessEventType.CheckedOut) {
-                const visit = await this.visitRepo.findOne({ where: { id: vv.visitId } });
+                const visit = await this.visitRepo.findOne({ where: { id: vv.visitId }, relations: ['visitRequesterUser', 'createdByUser'] });
                 const visitor = await this.visitorRepo.findOne({ where: { id: vv.visitorId } });
                 if (visit && visitor) {
                     this.smsNotification.triggerSms(NotificationEvent.VisitorCheckedOut, buildSmsData(visit, visitor))
@@ -492,7 +492,10 @@ export class VisitStatusService {
         const openStatuses = await this.statusRepo
             .createQueryBuilder('s')
             .innerJoinAndSelect('s.visitVisitor', 'vv')
-            .innerJoin('vv.visit', 'v')
+            .innerJoinAndSelect('vv.visit', 'v')
+            .innerJoinAndSelect('vv.visitor', 'vis')
+            .leftJoinAndSelect('v.visitRequesterUser', 'requester')
+            .leftJoinAndSelect('v.createdByUser', 'creator')
             .where('s.currentStatus IN (:...statuses)', {
                 statuses: [VisitorStatus.Arrived, VisitorStatus.CheckedIn],
             })
@@ -544,6 +547,14 @@ export class VisitStatusService {
                 description: 'Visitor auto-checked-out by scheduled task (visit ended)',
                 newValue: { visitId: status.visitId, visitVisitorId: status.visitVisitorId },
             }).catch(() => { });
+
+            const visit = status.visitVisitor?.visit;
+            const visitor = status.visitVisitor?.visitor;
+            if (visit && visitor) {
+                const data = buildSmsData(visit, visitor);
+                this.smsNotification.triggerSms(NotificationEvent.VisitorOverstay, data).catch(() => { });
+                this.emailNotification.triggerEmail(NotificationEvent.VisitorOverstay, data).catch(() => { });
+            }
         }
 
         return { checkedOut: openStatuses.length };

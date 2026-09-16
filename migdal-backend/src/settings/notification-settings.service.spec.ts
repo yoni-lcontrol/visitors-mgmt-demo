@@ -27,7 +27,7 @@ describe('NotificationSettingsService', () => {
 
     describe('findAll', () => {
         it('should return all active notification settings', async () => {
-            mockRepo.find.mockResolvedValue([{ targetGroup: 'system_users', event: 'visitor_arrived', channel: 'email', enabled: true }]);
+            mockRepo.find.mockResolvedValue([{ targetGroup: 'visit_creator', event: 'visitor_arrived_with_escort', channel: 'email', enabled: true }]);
             const result = await service.findAll();
             expect(result).toHaveLength(1);
         });
@@ -35,13 +35,13 @@ describe('NotificationSettingsService', () => {
 
     describe('bulkUpsert', () => {
         it('should update existing setting', async () => {
-            const existing = { targetGroup: 'system_users', event: 'visitor_arrived', channel: 'email', enabled: false };
+            const existing = { targetGroup: 'visit_creator', event: 'visitor_arrived_with_escort', channel: 'email', enabled: false };
             mockRepo.findOne.mockResolvedValue(existing);
             mockRepo.find.mockResolvedValue([{ ...existing, enabled: true }]);
             mockRepo.save.mockImplementation((e: any) => Promise.resolve(e));
 
             const result = await service.bulkUpsert([
-                { targetGroup: 'system_users', event: 'visitor_arrived', channel: 'email', enabled: true },
+                { targetGroup: 'visit_creator', event: 'visitor_arrived_with_escort', channel: 'email', enabled: true },
             ], 'admin');
 
             expect(mockRepo.save).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }));
@@ -64,13 +64,13 @@ describe('NotificationSettingsService', () => {
     describe('isEnabled', () => {
         it('should return true when setting is enabled', async () => {
             mockRepo.findOne.mockResolvedValue({ enabled: true });
-            const result = await service.isEnabled('system_users', 'visitor_arrived', 'email');
+            const result = await service.isEnabled('visit_creator', 'visitor_arrived_with_escort', 'email');
             expect(result).toBe(true);
         });
 
         it('should return false when setting not found', async () => {
             mockRepo.findOne.mockResolvedValue(null);
-            const result = await service.isEnabled('system_users', 'unknown', 'sms');
+            const result = await service.isEnabled('visit_creator', 'unknown', 'sms');
             expect(result).toBe(false);
         });
     });

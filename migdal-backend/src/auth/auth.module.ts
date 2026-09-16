@@ -5,7 +5,6 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { EntraIdService } from './entra-id.service';
 import { KerberosService } from './kerberos.service';
 import { KerberosSsoMiddleware } from './middleware/kerberos-sso.middleware';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -30,8 +29,8 @@ import { UsersModule } from '../users/users.module';
         UsersModule,
     ],
     controllers: [AuthController],
-    providers: [AuthService, EntraIdService, KerberosService, JwtStrategy, JwtRefreshStrategy],
-    exports: [AuthService, EntraIdService, KerberosService],
+    providers: [AuthService, KerberosService, JwtStrategy, JwtRefreshStrategy],
+    exports: [AuthService, KerberosService],
 })
 export class AuthModule implements NestModule {
     configure(consumer: MiddlewareConsumer) {

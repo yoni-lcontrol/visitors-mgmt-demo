@@ -783,8 +783,8 @@ export class VisitsService {
                 });
                 await qr.manager.save(status);
 
-                // Create parking request if requested and user has permission
-                if (v.requestParking && v.hasVehicle && userPermissions?.includes(PermissionKey.ParkingRequest)) {
+                // Create parking request automatically when the visitor has a vehicle and user has permission
+                if (v.hasVehicle && userPermissions?.includes(PermissionKey.ParkingRequest)) {
                     const autoApprove = userPermissions.includes(PermissionKey.ParkingAutoApprove);
                     const parkingReq = qr.manager.create(ParkingRequest, {
                         visitVisitorId: savedVv.id,
@@ -855,11 +855,24 @@ export class VisitsService {
                 carNumber: firstVisitor.carNumber ?? '',
             } : undefined;
 
-            // Resolve requester name/contact for notifications from the pre-loaded user
+            // Resolve requester (the person the visit is for) and creator (whoever submitted it) contact info for notifications
             const notifRequester = requesterUser ?? currentUser;
             const requesterName = [notifRequester?.firstName, notifRequester?.lastName].filter(Boolean).join(' ');
             const requesterContact = notifRequester
-                ? { phone: notifRequester.phone || undefined, email: notifRequester.email || undefined }
+                ? {
+                    firstName: notifRequester.firstName || undefined,
+                    lastName: notifRequester.lastName || undefined,
+                    phone: notifRequester.phone || undefined,
+                    email: notifRequester.email || undefined,
+                }
+                : undefined;
+            const createdByContact = currentUser
+                ? {
+                    firstName: currentUser.firstName || undefined,
+                    lastName: currentUser.lastName || undefined,
+                    phone: currentUser.phone || undefined,
+                    email: currentUser.email || undefined,
+                }
                 : undefined;
 
             this.smsNotification.triggerSms(NotificationEvent.VisitCreated, {
@@ -873,6 +886,7 @@ export class VisitsService {
                 },
                 visitor: smsVisitorData,
                 requester: requesterContact,
+                createdBy: createdByContact,
             }).catch(() => { /* SMS failure must not affect the visit flow */ });
 
             // Trigger email for visit created (fire-and-forget)
@@ -887,6 +901,7 @@ export class VisitsService {
                 },
                 visitor: smsVisitorData,
                 requester: requesterContact,
+                createdBy: createdByContact,
             }).catch(() => { /* Email failure must not affect the visit flow */ });
 
             // Generate and send check-in codes (fire-and-forget)
@@ -904,7 +919,7 @@ export class VisitsService {
     }
 
     async updateVisit(id: string, dto: UpdateVisitDto, currentUserId?: string, userPermissions?: string[]): Promise<any> {
-        const visit = await this.visitRepo.findOne({ where: { id, isActive: true } });
+        const visit = await this.visitRepo.findOne({ where: { id, isActive: true }, relations: ['createdByUser'] });
         if (!visit) throw new NotFoundException('Visit not found');
 
         // Determine visitRequester storage strategy
@@ -973,7 +988,7 @@ export class VisitsService {
     }
 
     async removeVisit(id: string, currentUserId?: string, userPermissions?: string[]): Promise<void> {
-        const visit = await this.visitRepo.findOne({ where: { id, isActive: true }, relations: ['visitRequesterUser'] });
+        const visit = await this.visitRepo.findOne({ where: { id, isActive: true }, relations: ['visitRequesterUser', 'createdByUser'] });
         if (!visit) throw new NotFoundException('Visit not found');
 
         if (shouldRestrictDeletionToOwnVisits(userPermissions) && visit.createdByUserId !== currentUserId) {

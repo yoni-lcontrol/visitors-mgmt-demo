@@ -33,7 +33,7 @@ export class EmailNotificationService {
 
             this.logger.log(`[EMAIL] triggerEmail event=${event} requester=${JSON.stringify(data.requester)}`);
 
-            const targetGroups = ['system_users', 'visitors', 'escorts', 'visit_requester'];
+            const targetGroups = ['visit_creator', 'visitors', 'escorts', 'visit_requester'];
             const allResults: EmailSendResult[] = [];
 
             for (const group of targetGroups) {
@@ -56,6 +56,11 @@ export class EmailNotificationService {
                 if (group === 'visit_requester' && data.requester?.email) {
                     if (!recipients.includes(data.requester.email)) {
                         recipients.push(data.requester.email);
+                    }
+                }
+                if (group === 'visit_creator' && data.createdBy?.email) {
+                    if (!recipients.includes(data.createdBy.email)) {
+                        recipients.push(data.createdBy.email);
                     }
                 }
                 if (recipients.length === 0) {

@@ -178,7 +178,10 @@ describe('ParkingRequestService', () => {
                     plannedEndTimeUtc: new Date('2026-01-01T17:00:00Z'),
                     siteId: 'site-1',
                     purposeOfVisit: 'Meeting',
-                    createdByUser: { firstName: 'Admin', lastName: 'User' },
+                    visitRequesterUserId: 'req-user-1',
+                    visitRequesterUser: { firstName: 'Admin', lastName: 'User', phone: '0501110000', email: 'admin@example.com' },
+                    createdByUserId: 'creator-1',
+                    createdByUser: { firstName: 'Creator', lastName: 'Person', phone: '0502220000', email: 'creator@example.com' },
                 },
             },
         };
@@ -232,7 +235,7 @@ describe('ParkingRequestService', () => {
             await new Promise((r) => setTimeout(r, 10));
 
             expect(mockSmsNotification.triggerSms).toHaveBeenCalledWith(
-                NotificationEvent.ParkingRequestDecision,
+                NotificationEvent.ParkingApproved,
                 expect.objectContaining({
                     visitor: expect.objectContaining({ firstName: 'John', lastName: 'Doe', carNumber: '12-345-67' }),
                     parking: expect.objectContaining({ status: ParkingRequestStatus.Approved }),
@@ -249,7 +252,7 @@ describe('ParkingRequestService', () => {
             await new Promise((r) => setTimeout(r, 10));
 
             expect(mockEmailNotification.triggerEmail).toHaveBeenCalledWith(
-                NotificationEvent.ParkingRequestDecision,
+                NotificationEvent.ParkingRejected,
                 expect.objectContaining({
                     parking: expect.objectContaining({ status: ParkingRequestStatus.Denied, reviewNote: 'Full' }),
                 }),
@@ -265,7 +268,7 @@ describe('ParkingRequestService', () => {
             await new Promise((r) => setTimeout(r, 10));
 
             expect(mockSmsNotification.triggerSms).toHaveBeenCalledWith(
-                NotificationEvent.ParkingRequestDecision,
+                NotificationEvent.ParkingApproved,
                 expect.objectContaining({
                     visit: expect.objectContaining({ title: 'Test Visit', hostName: 'Admin User' }),
                     visitor: expect.objectContaining({ firstName: 'John' }),
@@ -336,7 +339,7 @@ describe('ParkingRequestService', () => {
             await new Promise((r) => setTimeout(r, 10));
 
             expect(mockSmsNotification.triggerSms).toHaveBeenCalledWith(
-                NotificationEvent.ParkingRequestDecision,
+                NotificationEvent.ParkingRejected,
                 expect.objectContaining({
                     parking: expect.objectContaining({ status: ParkingRequestStatus.Denied, reviewNote: 'Reversed' }),
                 }),

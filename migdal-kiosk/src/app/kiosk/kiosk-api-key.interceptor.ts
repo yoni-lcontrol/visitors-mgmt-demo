@@ -10,7 +10,13 @@ export class KioskApiKeyInterceptor implements HttpInterceptor {
     intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
         const baseUrl = this.kioskCfg.config?.API_BASE_URL;
         const apiKey = this.kioskCfg.config?.WS_API_KEY;
-        if (apiKey && baseUrl && req.url.startsWith(baseUrl)) {
+        // With API_BASE_URL empty (same-origin deployment behind the reverse proxy) the
+        // backend is reached via relative /api/... paths; assets (config, i18n) must not
+        // get the header. A non-empty base URL (dev override) keeps prefix matching.
+        const isBackendCall = baseUrl
+            ? req.url.startsWith(baseUrl)
+            : req.url.startsWith('/api/');
+        if (apiKey && isBackendCall) {
             const cloned = req.clone({
                 setHeaders: { 'x-kiosk-api-key': apiKey },
             });

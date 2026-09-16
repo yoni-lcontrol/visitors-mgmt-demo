@@ -1,7 +1,7 @@
 import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { NgxSpinnerService } from 'ngx-spinner';
-import { distinctUntilChanged, filter, first, skip } from 'rxjs';
+import { filter, first } from 'rxjs';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { KioskSocketService, ScanResult, ScanStatus, ScannerStatus } from '../../kiosk/kiosk-socket.service';
 import { KioskApiService } from '../../kiosk/kiosk-api.service';

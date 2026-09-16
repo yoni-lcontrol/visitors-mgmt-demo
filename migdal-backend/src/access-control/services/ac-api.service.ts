@@ -319,6 +319,14 @@ export class AccessControlApiService {
         );
     }
 
+    async activateVisitorCardByIdNumber(cardholderIdNumber: string): Promise<{ success: boolean }> {
+        this.logger.log(`Activating visitor card on remote AC server for personId ${cardholderIdNumber}`);
+        return this.post<{ success: boolean }>(
+            `/api/cardholders/by-id-number/${encodeURIComponent(cardholderIdNumber)}/activate`,
+            {},
+        );
+    }
+
     // ───────────────────── Visitor-specific operations ──────────────────────
 
     async createVisitor(visitor: RemoteCardholder): Promise<RemoteCardholderResponse> {

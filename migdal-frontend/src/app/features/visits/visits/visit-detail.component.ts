@@ -332,15 +332,6 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                     }
                   </div>
                 </div>
-                @if (canRequestParking) {
-                <div class="field checkbox-field parking-toggle">
-                  <label class="checkbox-label">
-                    <input type="checkbox" [(ngModel)]="v.requestParking" />
-                    <i class="pi pi-warehouse"></i>
-                    {{ 'VISITORS.REQUEST_PARKING' | translate }}
-                  </label>
-                </div>
-                }
               </div>
             }
           </div>
@@ -629,15 +620,6 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
                   </div>
                 </div>
               </div>
-            }
-            @if (canRequestParking) {
-            <div class="field checkbox-field parking-toggle">
-              <label class="checkbox-label">
-                <input type="checkbox" [(ngModel)]="editingVisitor.requestParking" />
-                <i class="pi pi-warehouse"></i>
-                {{ 'VISITORS.REQUEST_PARKING' | translate }}
-              </label>
-            </div>
             }
           </div>
         </div>
@@ -934,8 +916,6 @@ import { EMAIL_PATTERN } from '@shared/constants/regex.constants';
       /* ── Vehicle & requester toggle + slide animation ── */
       .vehicle-toggle .checkbox-label { gap: 0.45rem; }
       .vehicle-toggle .checkbox-label i.pi-car { font-size: 0.95rem; color: var(--color-accent, #6c63ff); transition: color 0.2s; }
-      .parking-toggle { padding-top: 0.5rem; }
-      .parking-toggle .checkbox-label i.pi-warehouse { font-size: 0.95rem; color: var(--color-accent, #6c63ff); transition: color 0.2s; }
       .vehicle-section {
         margin-top: 0.25rem;
       }
@@ -1079,8 +1059,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   private workstationSession = inject(WorkstationSessionService);
   private permissionService = inject(PermissionService);
 
-  canRequestParking = false;
-
   visitId = '';
   visit: Visit | null = null;
   visitors: VisitVisitor[] = [];
@@ -1190,7 +1168,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
       },
       error: () => this.vehicleTypeOptions = [],
     });
-    this.canRequestParking = this.permissionService.hasPermission('parking.request');
     this.visitId = this.route.snapshot.paramMap.get('visitId') ?? '';
     this.loadEscortSectorOptions();
     this.loadVisit();
@@ -1355,7 +1332,7 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
   }
 
   addNewVisitorRow(): void {
-    this.newVisitors.push({ firstName: '', lastName: '', email: '', phone: '', personId: '', hasVehicle: false, carNumber: '', vehicleType: '', requestParking: false });
+    this.newVisitors.push({ firstName: '', lastName: '', email: '', phone: '', personId: '', hasVehicle: false, carNumber: '', vehicleType: '' });
   }
 
   removeNewVisitor(index: number): void {
@@ -1413,7 +1390,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
           hasVehicle: !!(row['carNumber']),
           carNumber: row['carNumber'] ?? '',
           vehicleType: row['vehicleType'] ?? '',
-          requestParking: false,
         });
       }
 
@@ -1449,7 +1425,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
         hasVehicle: v.hasVehicle,
         carNumber: v.hasVehicle ? (v.carNumber || undefined) : undefined,
         vehicleType: v.hasVehicle ? (v.vehicleType || undefined) : undefined,
-        requestParking: v.hasVehicle ? v.requestParking : undefined,
       })),
     };
     this.visitsApi.addVisitors(this.visitId, body).subscribe({
@@ -1526,7 +1501,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
       hasVehicle: !!(vv.visitor?.carNumber),
       carNumber: vv.visitor?.carNumber ?? '',
       vehicleType: vv.visitor?.vehicleType ?? '',
-      requestParking: !!vv.parkingRequest,
     };
     this.editBlacklistStatus = null;
     this.editBlacklistSub?.unsubscribe();
@@ -1545,7 +1519,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     if (!v.hasVehicle) {
       v.carNumber = '';
       v.vehicleType = '';
-      v.requestParking = false;
     }
   }
 
@@ -1553,7 +1526,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
     if (this.editingVisitor && !this.editingVisitor.hasVehicle) {
       this.editingVisitor.carNumber = '';
       this.editingVisitor.vehicleType = '';
-      this.editingVisitor.requestParking = false;
     }
   }
 
@@ -1571,7 +1543,6 @@ export class VisitDetailComponent implements OnInit, OnDestroy {
       hasVehicle: v.hasVehicle,
       carNumber: v.hasVehicle ? (v.carNumber || undefined) : undefined,
       vehicleType: v.hasVehicle ? (v.vehicleType || undefined) : undefined,
-      requestParking: v.hasVehicle ? v.requestParking : undefined,
     };
     this.visitsApi.updateVisitor(this.visitId, this.editingVisitorVvId, body).subscribe({
       next: () => {

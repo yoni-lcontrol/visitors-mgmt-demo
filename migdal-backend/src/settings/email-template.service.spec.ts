@@ -41,7 +41,7 @@ describe('EmailTemplateService', () => {
     describe('findAll', () => {
         it('should return all active templates', async () => {
             mockRepo.find.mockResolvedValue([
-                { event: 'visit_created', targetGroup: 'system_users', subject: 'Subject', bodyHtml: '<p>Body</p>' },
+                { event: 'visit_created', targetGroup: 'visit_creator', subject: 'Subject', bodyHtml: '<p>Body</p>' },
             ]);
             const result = await service.findAll();
             expect(result).toHaveLength(1);
@@ -53,32 +53,32 @@ describe('EmailTemplateService', () => {
 
     describe('loadTemplate', () => {
         it('should load template by event and targetGroup', async () => {
-            const tpl = { event: 'visit_created', targetGroup: 'system_users', subject: 'Sub', bodyHtml: '<p>B</p>' };
+            const tpl = { event: 'visit_created', targetGroup: 'visit_creator', subject: 'Sub', bodyHtml: '<p>B</p>' };
             mockRepo.findOne.mockResolvedValue(tpl);
 
-            const result = await service.loadTemplate('visit_created', 'system_users');
+            const result = await service.loadTemplate('visit_created', 'visit_creator');
             expect(result).toEqual(tpl);
             expect(mockRepo.findOne).toHaveBeenCalledWith({
-                where: { event: 'visit_created', targetGroup: 'system_users', isActive: true },
+                where: { event: 'visit_created', targetGroup: 'visit_creator', isActive: true },
             });
         });
 
         it('should return null when template not found', async () => {
             mockRepo.findOne.mockResolvedValue(null);
-            const result = await service.loadTemplate('nonexistent', 'system_users');
+            const result = await service.loadTemplate('nonexistent', 'visit_creator');
             expect(result).toBeNull();
         });
     });
 
     describe('bulkUpsert', () => {
         it('should update existing template', async () => {
-            const existing = { event: 'visit_created', targetGroup: 'system_users', subject: 'old', bodyHtml: '<p>old</p>' };
+            const existing = { event: 'visit_created', targetGroup: 'visit_creator', subject: 'old', bodyHtml: '<p>old</p>' };
             mockRepo.findOne.mockResolvedValue(existing);
             mockRepo.find.mockResolvedValue([{ ...existing, subject: 'new' }]);
             mockRepo.save.mockImplementation((e: any) => Promise.resolve(e));
 
             await service.bulkUpsert([
-                { event: 'visit_created', targetGroup: 'system_users', subject: '{{visit.title}}', bodyHtml: '<p>{{visit.title}}</p>' },
+                { event: 'visit_created', targetGroup: 'visit_creator', subject: '{{visit.title}}', bodyHtml: '<p>{{visit.title}}</p>' },
             ], 'admin');
 
             expect(mockRepo.save).toHaveBeenCalled();
@@ -90,7 +90,7 @@ describe('EmailTemplateService', () => {
             mockRepo.save.mockImplementation((e: any) => Promise.resolve(e));
 
             await service.bulkUpsert([
-                { event: 'visit_created', targetGroup: 'system_users', subject: '{{visit.title}}', bodyHtml: '<p>{{visit.title}}</p>' },
+                { event: 'visit_created', targetGroup: 'visit_creator', subject: '{{visit.title}}', bodyHtml: '<p>{{visit.title}}</p>' },
             ], 'admin');
 
             expect(mockRepo.create).toHaveBeenCalled();
@@ -100,7 +100,7 @@ describe('EmailTemplateService', () => {
         it('should reject invalid placeholders in subject', async () => {
             await expect(
                 service.bulkUpsert([
-                    { event: 'visit_created', targetGroup: 'system_users', subject: '{{invalid.field}}', bodyHtml: '<p>ok</p>' },
+                    { event: 'visit_created', targetGroup: 'visit_creator', subject: '{{invalid.field}}', bodyHtml: '<p>ok</p>' },
                 ]),
             ).rejects.toThrow(BadRequestException);
         });
@@ -108,7 +108,7 @@ describe('EmailTemplateService', () => {
         it('should reject invalid placeholders in body', async () => {
             await expect(
                 service.bulkUpsert([
-                    { event: 'visit_created', targetGroup: 'system_users', subject: 'ok', bodyHtml: '<p>{{bad.field}}</p>' },
+                    { event: 'visit_created', targetGroup: 'visit_creator', subject: 'ok', bodyHtml: '<p>{{bad.field}}</p>' },
                 ]),
             ).rejects.toThrow(BadRequestException);
         });
@@ -119,7 +119,7 @@ describe('EmailTemplateService', () => {
             mockRepo.save.mockImplementation((e: any) => Promise.resolve(e));
 
             await service.bulkUpsert([
-                { event: 'visit_created', targetGroup: 'system_users', subject: '{{visit.title}}', bodyHtml: '<p>{{visit.title}}</p>', recipients: ['admin@example.com'] },
+                { event: 'visit_created', targetGroup: 'visit_creator', subject: '{{visit.title}}', bodyHtml: '<p>{{visit.title}}</p>', recipients: ['admin@example.com'] },
             ], 'admin');
 
             expect(mockRepo.create).toHaveBeenCalledWith(
@@ -134,12 +134,12 @@ describe('EmailTemplateService', () => {
         it('should render stored template with sample data when no custom template', async () => {
             mockRepo.findOne.mockResolvedValue({
                 event: 'visit_created',
-                targetGroup: 'system_users',
+                targetGroup: 'visit_creator',
                 subject: 'ביקור: {{visit.title}}',
                 bodyHtml: '<p>{{visit.title}}</p>',
             });
 
-            const result = await service.preview('visit_created', undefined, undefined, 'system_users');
+            const result = await service.preview('visit_created', undefined, undefined, 'visit_creator');
             expect(result.renderedSubject).toContain('ביקור');
             expect(result.renderedBody).toBeDefined();
             expect(result.placeholders.length).toBeGreaterThan(0);

@@ -1,0 +1,1 @@
+בקשת החנייה נדחתה: {{visitor.firstName}} {{visitor.lastName}}

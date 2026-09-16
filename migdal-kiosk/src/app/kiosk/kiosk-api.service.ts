@@ -7,6 +7,13 @@ import { CardTemplate } from '../models/card-template.model';
 import { PrintVisitorCard } from '../models/print-visitor-card';
 import { KioskConfigService } from '../config/kiosk-config.service';
 
+/** Acknowledgement returned when a print job is queued on the backend. */
+export interface PrintJobAck {
+  ok: boolean;
+  correlationId: string;
+  status: 'queued';
+}
+
 @Injectable({ providedIn: 'root' })
 export class KioskApiService {
 
@@ -52,12 +59,12 @@ export class KioskApiService {
   }
 
   /**
-   * Builds the print payload from the backend. The caller is responsible for forwarding
-   * the result to the printer's local WebSocket link via PrinterSocketService.sendPrintJob(...) —
-   * the backend has no connection to the printer itself.
+   * Queues a card print on the backend, which relays it to the printer agent over the
+   * /ws/kiosk Socket.IO namespace. Returns immediately with the correlationId — the caller
+   * waits for the outcome on KioskSocketService.printResult$ filtered by that id.
    */
-  printCard(params: { workstationCode: string; visitId: string; visitorId: string; cardTemplateId?: string; }): Observable<{ correlationId: string; printData: any }> {
-    return this.http.post<{ data: { correlationId: string; printData: any } }>(`${this.baseUrl}/api/visits/kiosk/print-card`, params)
+  printCard(params: { workstationCode: string; visitId: string; visitorId: string; cardTemplateId?: string; }): Observable<PrintJobAck> {
+    return this.http.post<{ data: PrintJobAck }>(`${this.baseUrl}/api/visits/kiosk/print-card`, params)
       .pipe(this.unwrap());
   }
 

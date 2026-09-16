@@ -11,9 +11,9 @@ import { applyTableFilters, parseTableFilters } from '../common/utils/table-filt
 import { SmsNotificationService } from '../settings/sms-notification.service';
 import { EmailNotificationService } from '../settings/email-notification.service';
 import { NotificationEvent } from '../settings/enums/notification-event.enum';
-import { SmsTemplateData } from '../settings/sms-template-renderer.service';
 import { AuditService } from '../audit/audit.service';
 import { AmadeusParkingSyncService } from '../amadeus/services/amadeus-parking-sync.service';
+import { buildSmsData } from './visit.utils';
 
 @Injectable()
 export class ParkingRequestService {
@@ -101,7 +101,7 @@ export class ParkingRequestService {
     async review(id: string, dto: ReviewParkingRequestDto, currentUserId: string): Promise<ParkingRequest> {
         const request = await this.parkingRepo.findOne({
             where: { id, isActive: true },
-            relations: ['visitVisitor', 'visitVisitor.visitor', 'visitVisitor.visit', 'visitVisitor.visit.createdByUser'],
+            relations: ['visitVisitor', 'visitVisitor.visitor', 'visitVisitor.visit', 'visitVisitor.visit.createdByUser', 'visitVisitor.visit.visitRequesterUser'],
         });
         if (!request) {
             throw new NotFoundException('Parking request not found');
@@ -157,35 +157,18 @@ export class ParkingRequestService {
         const visitor = request.visitVisitor?.visitor;
         if (!visit || !visitor) return;
 
-        const requester = visit.createdByUser;
-        const hostName = requester
-            ? [requester.firstName, requester.lastName].filter(Boolean).join(' ')
-            : '';
-
-        const data: SmsTemplateData = {
-            visit: {
-                title: visit.title,
-                startTime: visit.plannedStartTimeUtc?.toLocaleString('he-IL') ?? '',
-                endTime: visit.plannedEndTimeUtc?.toLocaleString('he-IL') ?? '',
-                hostName,
-                siteName: visit.siteId ?? '',
-                purposeOfVisit: visit.purposeOfVisit ?? '',
-            },
-            visitor: {
-                firstName: visitor.firstName,
-                lastName: visitor.lastName,
-                personId: visitor.personId,
-                phone: visitor.phone ?? '',
-                carNumber: visitor.carNumber ?? '',
-            },
-            parking: {
-                status: request.status,
-                reviewNote: request.reviewNote ?? '',
-            },
+        const data = buildSmsData(visit, visitor);
+        data.parking = {
+            status: request.status,
+            reviewNote: request.reviewNote ?? '',
         };
 
-        this.smsNotification.triggerSms(NotificationEvent.ParkingRequestDecision, data).catch(() => { });
-        this.emailNotification.triggerEmail(NotificationEvent.ParkingRequestDecision, data).catch(() => { });
+        const event = request.status === ParkingRequestStatus.Approved
+            ? NotificationEvent.ParkingApproved
+            : NotificationEvent.ParkingRejected;
+
+        this.smsNotification.triggerSms(event, data).catch(() => { });
+        this.emailNotification.triggerEmail(event, data).catch(() => { });
     }
 
     async findByVisitVisitorIds(visitVisitorIds: string[]): Promise<ParkingRequest[]> {

@@ -10,8 +10,9 @@ import { DeviceCommandStatus } from '../enums/device-command-status.enum';
 @Index('IX_DeviceCommandLogs_RequestedBy', ['requestedByUserId'])
 @Index('IX_DeviceCommandLogs_Status', ['status'])
 export class DeviceCommandLog extends BaseEntity {
-    @Column({ type: 'uniqueidentifier' })
-    requestedByUserId!: string;
+    /** Null for anonymous (kiosk-originated) commands. */
+    @Column({ type: 'uniqueidentifier', nullable: true })
+    requestedByUserId!: string | null;
 
     @Column({ type: 'uniqueidentifier' })
     workstationId!: string;

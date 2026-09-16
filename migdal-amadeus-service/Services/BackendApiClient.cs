@@ -23,14 +23,78 @@ public class BackendApiClient : IBackendApiClient
         _logger = logger;
     }
 
-    public async Task<SyncResultDto> TriggerFullSyncAsync(CancellationToken cancellationToken)
+    public Task<SyncResultDto> TriggerFullSyncAsync(CancellationToken cancellationToken)
     {
-        var url = BackendApiDefinitions.BuildUrl(
-            _options.BaseUrl,
+        return PostSyncAsync(
             BackendApiDefinitions.Sync.StartupFull,
-            nameof(BackendApiDefinitions.Sync.StartupFull));
+            nameof(BackendApiDefinitions.Sync.StartupFull),
+            "FullStartup",
+            cancellationToken);
+    }
 
-        _logger.LogInformation("Calling backend full sync endpoint: {Url}", url);
+    public Task<SyncResultDto> SyncControllersAsync(CancellationToken cancellationToken)
+    {
+        return PostSyncAsync(
+            BackendApiDefinitions.Sync.Controllers,
+            nameof(BackendApiDefinitions.Sync.Controllers),
+            "Controllers",
+            cancellationToken);
+    }
+
+    public Task<SyncResultDto> SyncDoorsAsync(CancellationToken cancellationToken)
+    {
+        return PostSyncAsync(
+            BackendApiDefinitions.Sync.Doors,
+            nameof(BackendApiDefinitions.Sync.Doors),
+            "Doors",
+            cancellationToken);
+    }
+
+    public Task<SyncResultDto> SyncExtensionsAsync(CancellationToken cancellationToken)
+    {
+        return PostSyncAsync(
+            BackendApiDefinitions.Sync.Extensions,
+            nameof(BackendApiDefinitions.Sync.Extensions),
+            "Extensions",
+            cancellationToken);
+    }
+
+    public Task<SyncResultDto> SyncAccessGroupsAsync(CancellationToken cancellationToken)
+    {
+        return PostSyncAsync(
+            BackendApiDefinitions.Sync.AccessGroups,
+            nameof(BackendApiDefinitions.Sync.AccessGroups),
+            "AccessGroups",
+            cancellationToken);
+    }
+
+    public Task<SyncResultDto> SyncSecurityGroupsAsync(CancellationToken cancellationToken)
+    {
+        return PostSyncAsync(
+            BackendApiDefinitions.Sync.SecurityGroups,
+            nameof(BackendApiDefinitions.Sync.SecurityGroups),
+            "SecurityGroups",
+            cancellationToken);
+    }
+
+    public Task<SyncResultDto> SyncCardholdersAsync(CancellationToken cancellationToken)
+    {
+        return PostSyncAsync(
+            BackendApiDefinitions.Sync.Cardholders,
+            nameof(BackendApiDefinitions.Sync.Cardholders),
+            "Cardholders",
+            cancellationToken);
+    }
+
+    private async Task<SyncResultDto> PostSyncAsync(
+        string path,
+        string endpointName,
+        string operationName,
+        CancellationToken cancellationToken)
+    {
+        var url = BackendApiDefinitions.BuildUrl(_options.BaseUrl, path, endpointName);
+
+        _logger.LogInformation("Calling backend sync endpoint: {Url}", url);
 
         var client = _httpClientFactory.CreateClient("Backend");
         using var response = await client.PostAsJsonAsync(url, new { }, cancellationToken);
@@ -39,7 +103,7 @@ public class BackendApiClient : IBackendApiClient
         {
             var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
             throw new InvalidOperationException(
-                $"Backend full sync failed with status {(int)response.StatusCode} ({response.StatusCode}). Response: {errorBody}");
+                $"Backend sync '{endpointName}' failed with status {(int)response.StatusCode} ({response.StatusCode}). Response: {errorBody}");
         }
 
         if (response.Content.Headers.ContentLength == 0)
@@ -47,7 +111,7 @@ public class BackendApiClient : IBackendApiClient
             return new SyncResultDto
             {
                 Success = true,
-                Operation = "FullStartup",
+                Operation = operationName,
                 StartedUtc = DateTime.UtcNow,
                 CompletedUtc = DateTime.UtcNow
             };
@@ -57,7 +121,7 @@ public class BackendApiClient : IBackendApiClient
             ?? new SyncResultDto
             {
                 Success = true,
-                Operation = "FullStartup",
+                Operation = operationName,
                 StartedUtc = DateTime.UtcNow,
                 CompletedUtc = DateTime.UtcNow
             };

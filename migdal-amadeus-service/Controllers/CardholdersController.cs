@@ -106,6 +106,26 @@ public class CardholdersController : ControllerBase
         }
     }
 
+    [HttpPost("by-id-number/{cardholderIdNumber}/activate")]
+    public async Task<IActionResult> ActivateByIdNumber(string cardholderIdNumber, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Activating visitor card by CardholderIdNumber {IdNumber} via API", cardholderIdNumber);
+        try
+        {
+            var activated = await _commandService.ActivateCardholderByIdNumberAsync(cardholderIdNumber, cancellationToken);
+            if (!activated)
+            {
+                return NotFound(new { success = false, message = "Cardholder not found" });
+            }
+            return Ok(new { success = true });
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Failed to activate cardholder {IdNumber} in Amadeus", cardholderIdNumber);
+            return StatusCode(502, new { success = false, error = "Failed to activate cardholder in Amadeus", detail = ex.Message });
+        }
+    }
+
     [HttpPost("visitors")]
     public async Task<IActionResult> CreateVisitor([FromBody] CreateAmadeusVisitorDto dto, CancellationToken cancellationToken)
     {

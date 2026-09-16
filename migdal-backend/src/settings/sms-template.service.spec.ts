@@ -53,13 +53,13 @@ describe('SmsTemplateService', () => {
 
     describe('bulkUpsert', () => {
         it('should update existing template', async () => {
-            const existing = { event: 'visit_created', targetGroup: 'system_users', template: 'old' };
+            const existing = { event: 'visit_created', targetGroup: 'visit_creator', template: 'old' };
             mockRepo.findOne.mockResolvedValue(existing);
             mockRepo.find.mockResolvedValue([{ ...existing, template: 'new' }]);
             mockRepo.save.mockImplementation((e: any) => Promise.resolve(e));
 
             await service.bulkUpsert([
-                { event: 'visit_created', targetGroup: 'system_users', template: '{{visit.title}}' },
+                { event: 'visit_created', targetGroup: 'visit_creator', template: '{{visit.title}}' },
             ], 'admin');
 
             expect(mockRepo.save).toHaveBeenCalled();
@@ -71,7 +71,7 @@ describe('SmsTemplateService', () => {
             mockRepo.save.mockImplementation((e: any) => Promise.resolve(e));
 
             await service.bulkUpsert([
-                { event: 'visit_created', targetGroup: 'system_users', template: '{{visit.title}}' },
+                { event: 'visit_created', targetGroup: 'visit_creator', template: '{{visit.title}}' },
             ], 'admin');
 
             expect(mockRepo.create).toHaveBeenCalled();
@@ -81,7 +81,7 @@ describe('SmsTemplateService', () => {
         it('should reject invalid placeholders', async () => {
             await expect(
                 service.bulkUpsert([
-                    { event: 'visit_created', targetGroup: 'system_users', template: '{{invalid.field}}' },
+                    { event: 'visit_created', targetGroup: 'visit_creator', template: '{{invalid.field}}' },
                 ]),
             ).rejects.toThrow(BadRequestException);
         });
@@ -92,7 +92,7 @@ describe('SmsTemplateService', () => {
             mockRepo.save.mockImplementation((e: any) => Promise.resolve(e));
 
             await service.bulkUpsert([
-                { event: 'visit_created', targetGroup: 'system_users', template: '{{visit.title}}', recipients: ['+972501234567'] },
+                { event: 'visit_created', targetGroup: 'visit_creator', template: '{{visit.title}}', recipients: ['+972501234567'] },
             ], 'admin');
 
             expect(mockRepo.create).toHaveBeenCalledWith(
@@ -107,11 +107,11 @@ describe('SmsTemplateService', () => {
         it('should render stored template with sample data when no custom template', async () => {
             mockRepo.findOne.mockResolvedValue({
                 event: 'visit_created',
-                targetGroup: 'system_users',
+                targetGroup: 'visit_creator',
                 template: 'ביקור: {{visit.title}}',
             });
 
-            const result = await service.preview('visit_created', undefined, 'system_users');
+            const result = await service.preview('visit_created', undefined, 'visit_creator');
             expect(result.rendered).toContain('ביקור');
             expect(result.placeholders.length).toBeGreaterThan(0);
         });

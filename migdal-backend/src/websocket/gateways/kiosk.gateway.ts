@@ -19,6 +19,9 @@ import { WsEvent } from '../enums/ws-events.enum';
 import {
     KioskRegisterPayload,
     KioskRequestScanPayload,
+    KioskPrinterStatusPayload,
+    KioskPrintStatusPayload,
+    KioskPrintResultPayload,
 } from '../interfaces/ws-payloads.interface';
 
 @WebSocketGateway({
@@ -46,6 +49,26 @@ export class KioskGateway
 
     afterInit(): void {
         this.logger.log('Kiosk WebSocket Gateway initialized (/ws/kiosk)');
+
+        // A kiosk-originated command that times out never produces an agent result —
+        // tell the kiosk directly so it doesn't spin forever.
+        this.commandRouting.onCommandTimeout((info) => {
+            if (info.origin !== 'kiosk') return;
+
+            if (info.providerType === IntegrationProvider.Printer) {
+                this.emitPrintResultToWorkstation(info.workstationId, {
+                    correlationId: info.correlationId,
+                    success: false,
+                    errorMessage: 'Printer did not respond in time',
+                });
+            } else if (info.providerType === IntegrationProvider.Scanner) {
+                this.emitScanResultToWorkstation(info.workstationId, {
+                    correlationId: info.correlationId,
+                    success: false,
+                    errorMessage: 'Scanner did not respond in time',
+                });
+            }
+        });
     }
 
     handleConnection(client: Socket): void {
@@ -163,6 +186,37 @@ export class KioskGateway
         }
     }
 
+    @SubscribeMessage(WsEvent.KioskCheckPrinter)
+    async handleCheckPrinter(
+        @ConnectedSocket() client: Socket,
+    ): Promise<void> {
+        if (!(client as any).kioskRegistered) {
+            client.emit(WsEvent.KioskError, { reason: 'Not registered' });
+            return;
+        }
+
+        const workstationId = (client as any).workstationId as string;
+
+        try {
+            const agent = await this.agentRegistry.findActiveConnection(
+                workstationId,
+                IntegrationProvider.Printer,
+            );
+            const status: KioskPrinterStatusPayload = {
+                connected: !!agent && !!agent.socketId,
+                deviceConnected: !!agent?.deviceConnected,
+            };
+            client.emit(WsEvent.KioskPrinterStatus, status);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to check printer status';
+            this.logger.error(`Printer status check failed: ${message}`);
+            client.emit(WsEvent.KioskPrinterStatus, {
+                connected: false,
+                deviceConnected: false,
+            } as KioskPrinterStatusPayload);
+        }
+    }
+
     @SubscribeMessage(WsEvent.KioskRequestScan)
     async handleRequestScan(
         @ConnectedSocket() client: Socket,
@@ -208,10 +262,7 @@ export class KioskGateway
      * Called from AgentsGateway when a scanner command result arrives.
      */
     emitScanResultToWorkstation(workstationId: string, data: unknown): void {
-        const room = `workstation:${workstationId}`;
-        const sockets = this.server.adapter.rooms?.get(room);
-        console.log(`[KIOSK-DEBUG] emitScanResult to room=${room}, socketsInRoom=${sockets?.size ?? 0}`);
-        this.server.to(room).emit(WsEvent.KioskScanResult, data);
+        this.server.to(`workstation:${workstationId}`).emit(WsEvent.KioskScanResult, data);
     }
 
     /**
@@ -219,5 +270,19 @@ export class KioskGateway
      */
     emitScanStatusToWorkstation(workstationId: string, data: unknown): void {
         this.server.to(`workstation:${workstationId}`).emit(WsEvent.KioskScanStatus, data);
+    }
+
+    /**
+     * Emit print status (queued/printing/completed/failed) to all kiosks on a workstation.
+     */
+    emitPrintStatusToWorkstation(workstationId: string, data: KioskPrintStatusPayload): void {
+        this.server.to(`workstation:${workstationId}`).emit(WsEvent.KioskPrintStatus, data);
+    }
+
+    /**
+     * Emit the terminal print result to all kiosks on a workstation.
+     */
+    emitPrintResultToWorkstation(workstationId: string, data: KioskPrintResultPayload): void {
+        this.server.to(`workstation:${workstationId}`).emit(WsEvent.KioskPrintResult, data);
     }
 }

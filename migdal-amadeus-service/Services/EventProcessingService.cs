@@ -44,6 +44,15 @@ public class EventProcessingService : IEventProcessingService
     {
         _logger.LogDebug("Received Amadeus event from {Method}", signalRMethodName);
 
+        if (string.Equals(signalRMethodName, "StatusUpdate", StringComparison.OrdinalIgnoreCase))
+        {
+            // StatusUpdate carries no readerUID/controllerUID/etc., so it can never resolve
+            // to equipment. Short-circuit here instead of running it through the full
+            // parse/dedupe/resolve pipeline just to log the same "skipping" line every time.
+            _logger.LogDebug("Ignoring StatusUpdate event (no equipment identifiers to resolve)");
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(rawPayloadJson))
         {
             _logger.LogWarning("Empty event payload received from {Method}, skipping", signalRMethodName);

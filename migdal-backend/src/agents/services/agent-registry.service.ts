@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, OnApplicationBootstrap } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DeviceAgent } from '../entities/device-agent.entity';
@@ -7,7 +7,7 @@ import { IntegrationProvider } from '../../integrations/common/enums/integration
 import { AgentRegisterPayload } from '../../websocket/interfaces/ws-payloads.interface';
 
 @Injectable()
-export class AgentRegistryService {
+export class AgentRegistryService implements OnApplicationBootstrap {
     private readonly logger = new Logger(AgentRegistryService.name);
 
     constructor(
@@ -16,6 +16,36 @@ export class AgentRegistryService {
         @InjectRepository(Workstation)
         private readonly workstationRepo: Repository<Workstation>,
     ) { }
+
+    async onApplicationBootstrap(): Promise<void> {
+        // Socket ids never survive a restart — any row still flagged connected is stale.
+        try {
+            await this.resetAllConnectionState();
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.error(`Failed to reset agent connection state on bootstrap: ${message}`);
+        }
+    }
+
+    /**
+     * Clear the connection state of every agent still marked connected.
+     * Called on bootstrap so stale rows can't shadow a live agent.
+     */
+    async resetAllConnectionState(): Promise<void> {
+        const result = await this.deviceAgentRepo.update(
+            { isConnected: true },
+            {
+                isConnected: false,
+                socketId: null,
+                deviceConnected: null,
+                disconnectedAt: new Date(),
+            },
+        );
+
+        if (result?.affected) {
+            this.logger.log(`Reset stale connection state for ${result.affected} device agent(s)`);
+        }
+    }
 
     async registerAgent(
         payload: AgentRegisterPayload,
@@ -149,6 +179,8 @@ export class AgentRegistryService {
                 isActive: true,
                 isEnabled: true,
             },
+            // Prefer the most recent connection so a stale duplicate row can't shadow a live one
+            order: { connectedAt: 'DESC' },
         });
     }
 

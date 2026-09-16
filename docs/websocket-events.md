@@ -16,12 +16,13 @@ WebSocket communication uses socket.io via NestJS `@nestjs/platform-socket.io`. 
 | `/` (root) | Legacy push notifications (backward compat) | JWT |
 | `/ws/users` | User realtime commands + notifications | JWT |
 | `/ws/agents` | Printer/scanner agent connections | HMAC-SHA256 |
+| `/ws/kiosk` | Kiosk SPA connection (device status + scan/print push) | API key (`KIOSK_API_KEY`) |
 
 ### Key Principles
-- Angular never calls printer/scanner services directly
-- Angular sends commands only to backend via `/ws/users`
-- Agents connect only to `/ws/agents` with HMAC authentication
-- Backend resolves user → workstation → agent routing
+- Angular (Admin SPA) never calls printer/scanner services directly — it sends commands only to backend via `/ws/users`
+- The kiosk SPA never calls printer/scanner services directly either — it connects to `/ws/kiosk` for status/results, and triggers prints over REST (`POST /visits/kiosk/print-card`, `POST /visits/kiosk/arrive`)
+- Agents connect only to `/ws/agents` with HMAC authentication — printer and scanner agents are independent connections, and a single workstation may have both connected simultaneously
+- Backend resolves user/kiosk → workstation → agent routing; there is no direct kiosk↔agent or Admin SPA↔agent connection
 - Access control remains API-based (no WebSocket agent)
 
 ## Connection
@@ -53,6 +54,20 @@ socket.emit('agent:register', {
   capabilities: ['card-print', 'badge-print'],
 });
 ```
+
+> **In production, this URL is the front server's public origin, not the backend's own address.** The agent host has no network route to the backend directly — it's only ever configured with the front server's origin (`FrontServerUrl` in `appsettings.json`/`App.config`), and the front server's IIS reverse proxy (`migdal-kiosk/web.config`) forwards `/socket.io/*` on to the backend from there. `http://localhost:3000` above is a local-dev shorthand where the agent runs directly against a bare backend with no proxy in front of it.
+
+### Kiosk Connection (/ws/kiosk)
+
+```typescript
+const socket = io('http://localhost:3000/ws/kiosk', {
+  auth: { apiKey: '<KIOSK_API_KEY>' },
+});
+// On every connect (including reconnects — the backend keeps no state across sockets):
+socket.emit('kiosk:register', { kioskId: 'WS-01', workstationCode: 'WS-01' });
+```
+
+A kiosk that doesn't send `kiosk:register` within 15s of connecting is disconnected. Registration joins the socket to `workstation:{id}` (same room naming as agent connections), so command results/status pushed to that workstation reach every registered kiosk on it.
 
 ### Rooms
 
@@ -251,6 +266,29 @@ POST /api/visits/:visitId/visitors/:visitorId/print-card
 | `visits:visitor:print-failed` | Backend → User | `{ correlationId, visitId, visitorId, reason }` |
 
 > **Note:** The `visits:visitor:print-request` WebSocket event (User → Backend) has been removed. Print card requests must use the HTTP API endpoint above.
+
+> **Kiosk print card:** `POST /visits/kiosk/print-card` (API key auth, not JWT) follows the identical backend-mediated dispatch to `agent:execute-print`, but pushes progress over `/ws/kiosk` (`kiosk:print-status`/`kiosk:print-result`) instead of `/ws/users`, and persists its `DeviceCommandLog` row with `requestedByUserId: null`. See "Kiosk Events" below.
+
+## Kiosk Events (Kiosk ↔ Backend)
+
+| Event | Direction | Payload |
+|-------|-----------|---------|
+| `kiosk:register` | Kiosk → Backend | `{ kioskId, workstationCode }` |
+| `kiosk:registered` | Backend → Kiosk | `{ kioskId, workstationCode }` |
+| `kiosk:error` | Backend → Kiosk | `{ reason }` — fatal reasons (`Invalid API key`, `Unknown workstation`, `Missing kioskId or workstationCode`, a registration exception message) force-disconnect the socket; soft reasons (`Not registered`, `No scanner agent connected on this workstation`) do not |
+| `kiosk:check-scanner` | Kiosk → Backend | `{}` |
+| `kiosk:scanner-status` | Backend → Kiosk | `{ connected, deviceConnected }` |
+| `kiosk:check-printer` | Kiosk → Backend | `{}` |
+| `kiosk:printer-status` | Backend → Kiosk | `{ connected, deviceConnected }` |
+| `kiosk:request-scan` | Kiosk → Backend | `{ kioskId }` |
+| `kiosk:scan-status` | Backend → Kiosk | `{ state, message, scanning, processing, progress, serverTimeUtc }` |
+| `kiosk:scan-result` | Backend → Kiosk | `{ correlationId, success, result?, errorMessage? }` — `result.image` is **not** stripped on this path (unlike the DB-persisted copy), since the kiosk uses it to capture the visitor photo |
+| `kiosk:print-status` | Backend → Kiosk | `{ correlationId, state: 'queued'\|'printing'\|'completed'\|'failed', message?, serverTimeUtc }` |
+| `kiosk:print-result` | Backend → Kiosk | `{ correlationId, success, errorMessage? }` |
+
+> **No `kiosk:request-print` event exists.** Printing is triggered over REST (`POST /visits/kiosk/print-card`, or implicitly via `POST /visits/kiosk/arrive`'s auto-print-on-checkin), which returns `{ ok, correlationId, status: 'queued' }`. The kiosk then correlates `kiosk:print-status`/`kiosk:print-result` by that `correlationId`. This keeps the printed payload (built server-side from the Visitor entity and card template) authoritative — an anonymous, device-authenticated kiosk never hands back its own `printData`.
+
+> **Command timeout / agent disconnect:** a kiosk-originated command (`origin: 'kiosk'` on the `DeviceCommandLog`/pending-command record) that times out (30s) or whose agent disconnects mid-flight produces a `kiosk:print-result`/`kiosk:scan-result` with `success: false`, the same as the user-originated path produces `visits:visitor:print-failed`/`scanner:action:failed`.
 
 ## Scanner Events (User ↔ Backend)
 

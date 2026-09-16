@@ -77,11 +77,6 @@ const VISITOR_COLUMN_MAP: Record<string, string> = {
     'has vehicle': 'hasVehicle',
     'has_vehicle': 'hasVehicle',
     'מגיע עם רכב': 'hasVehicle',
-
-    'requestparking': 'requestParking',
-    'request parking': 'requestParking',
-    'request_parking': 'requestParking',
-    'בקשת חניה': 'requestParking',
 };
 
 /** Column name aliases (case-insensitive) mapped to InlineEscort field names. */

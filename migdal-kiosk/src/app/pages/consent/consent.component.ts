@@ -7,10 +7,13 @@ import { KioskApiService } from '../../kiosk/kiosk-api.service';
 import { KioskFlowService } from '../../kiosk/kiosk-flow-state.service';
 import { KioskConfigService } from '../../config/kiosk-config.service';
 import { IdleService } from '../../kiosk/idle.service';
-import { PrinterSocketService } from '../../kiosk/printer-socket.service';
-import { firstValueFrom } from 'rxjs';
+import { KioskSocketService } from '../../kiosk/kiosk-socket.service';
+import { filter, firstValueFrom, timeout } from 'rxjs';
 import { ToasterService } from '../../kiosk/toaster.service';
 import { NgxSpinnerService } from 'ngx-spinner';
+
+/** The round trip now goes kiosk -> backend -> printer agent and back, so allow more slack. */
+const PRINT_RESULT_TIMEOUT_MS = 25000;
 
 @Component({
   selector: 'app-consent',
@@ -45,7 +48,7 @@ export class ConsentComponent implements OnInit {
     private kioskFlowService: KioskFlowService,
     private kioskCfg: KioskConfigService,
     private idle: IdleService,
-    private printerSocket: PrinterSocketService,
+    private kioskSocket: KioskSocketService,
   ) { }
 
   ngOnInit() {
@@ -145,9 +148,14 @@ export class ConsentComponent implements OnInit {
         return;
       }
 
-      // 6) forward the print job to the paired printer directly (fire-and-forget, don't block success)
-      if (result.print) {
-        this.printerSocket.sendPrintJob(result.print.correlationId, result.print.printData);
+      // the backend already queued the card print towards the printer agent — wait for its outcome
+      if (result.print?.correlationId) {
+        const printSucceeded = await this.waitForPrintResult(result.print.correlationId);
+        if (!printSucceeded) {
+          this.toasterService.showError('ERROR.CHECKIN_PRINT_FAILED');
+          await this.router.navigateByUrl('/error');
+          return;
+        }
       }
 
       await this.router.navigateByUrl('/success');
@@ -158,6 +166,27 @@ export class ConsentComponent implements OnInit {
       this.spinner.hide();
       this.idle.resume();
     }
+  }
+
+  /**
+   * Waits for the print result matching a job the backend already queued: the backend
+   * relays the job to the printer agent over /ws/kiosk and pushes the outcome back on
+   * kiosk:print-result. Resolves false on failure or on timeout — the agent may be
+   * offline entirely, so we can't wait forever.
+   */
+  private async waitForPrintResult(correlationId: string): Promise<boolean> {
+    // The result may already have landed while the REST call was still in flight.
+    const buffered = this.kioskSocket.consumePrintResult(correlationId);
+    if (buffered) return buffered.success === true;
+
+    const result = await firstValueFrom(
+      this.kioskSocket.printResult$.pipe(
+        filter((printResult) => printResult.correlationId === correlationId),
+        timeout(PRINT_RESULT_TIMEOUT_MS),
+      )
+    ).catch(() => null);
+
+    return result?.success === true;
   }
 
   private buildPdfFile(pdfBytes: Uint8Array, filename: string): File {

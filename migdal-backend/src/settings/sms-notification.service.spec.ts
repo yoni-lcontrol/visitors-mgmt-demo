@@ -93,7 +93,7 @@ describe('SmsNotificationService', () => {
         it('should check all four target groups for SMS settings', async () => {
             await service.triggerSms(NotificationEvent.VisitCreated, eventData);
 
-            expect(mockNotificationSettings.isEnabled).toHaveBeenCalledWith('system_users', NotificationEvent.VisitCreated, 'sms');
+            expect(mockNotificationSettings.isEnabled).toHaveBeenCalledWith('visit_creator', NotificationEvent.VisitCreated, 'sms');
             expect(mockNotificationSettings.isEnabled).toHaveBeenCalledWith('visitors', NotificationEvent.VisitCreated, 'sms');
             expect(mockNotificationSettings.isEnabled).toHaveBeenCalledWith('escorts', NotificationEvent.VisitCreated, 'sms');
             expect(mockNotificationSettings.isEnabled).toHaveBeenCalledWith('visit_requester', NotificationEvent.VisitCreated, 'sms');
@@ -149,7 +149,7 @@ describe('SmsNotificationService', () => {
             enableAllGroups();
             mockTemplateRepo.findOne.mockResolvedValue({
                 event: 'visit_created',
-                targetGroup: 'system_users',
+                targetGroup: 'visit_creator',
                 template: '{{visit.title}}',
                 recipients: JSON.stringify(['+972501234567']),
             });
@@ -162,8 +162,8 @@ describe('SmsNotificationService', () => {
         });
 
         it('should log successful sends via audit service', async () => {
-            enableGroup('system_users');
-            mockTemplateForGroup('visit_created', 'system_users');
+            enableGroup('visit_creator');
+            mockTemplateForGroup('visit_created', 'visit_creator');
 
             await service.triggerSms(NotificationEvent.VisitCreated, eventData);
 
@@ -184,32 +184,32 @@ describe('SmsNotificationService', () => {
         });
 
         it('should handle visitor_arrived event', async () => {
-            enableGroup('system_users');
-            mockTemplateForGroup('visitor_arrived', 'system_users', '{{visitor.firstName}} arrived');
+            enableGroup('visit_creator');
+            mockTemplateForGroup('visitor_arrived_with_escort','visit_creator', '{{visitor.firstName}} arrived');
 
-            await service.triggerSms(NotificationEvent.VisitorArrived, eventData);
+            await service.triggerSms(NotificationEvent.VisitorArrivedWithEscort, eventData);
             expect(mockRenderer.render).toHaveBeenCalled();
             expect(mockProvider.sendBulk).toHaveBeenCalled();
         });
 
         it('should handle visitor_blacklisted event', async () => {
-            enableGroup('system_users');
-            mockTemplateForGroup('visitor_blacklisted', 'system_users', 'WARNING: {{visitor.firstName}} is blacklisted');
+            enableGroup('visit_creator');
+            mockTemplateForGroup('visitor_blacklisted', 'visit_creator', 'WARNING: {{visitor.firstName}} is blacklisted');
 
             await service.triggerSms(NotificationEvent.VisitorBlacklisted, eventData);
             expect(mockRenderer.render).toHaveBeenCalled();
         });
 
-        it('should handle parking_request_decision event with parking data', async () => {
+        it('should handle parking_approved event with parking data', async () => {
             enableGroup('visitors');
             const parkingTemplate = '{{visitor.firstName}} parking {{parking.status}}';
-            mockTemplateForGroup('parking_request_decision', 'visitors', parkingTemplate);
+            mockTemplateForGroup('parking_approved', 'visitors', parkingTemplate);
 
             const parkingData = {
                 ...eventData,
                 parking: { status: 'approved', reviewNote: 'OK' },
             };
-            await service.triggerSms(NotificationEvent.ParkingRequestDecision, parkingData);
+            await service.triggerSms(NotificationEvent.ParkingApproved, parkingData);
             expect(mockRenderer.render).toHaveBeenCalledWith(parkingTemplate, parkingData);
             expect(mockProvider.sendBulk).toHaveBeenCalled();
         });
@@ -224,8 +224,8 @@ describe('SmsNotificationService', () => {
         });
 
         it('should handle visitor_overstay event', async () => {
-            enableGroup('system_users');
-            mockTemplateForGroup('visitor_overstay', 'system_users', '{{visitor.firstName}} overstay at {{visit.siteName}} past {{visit.endTime}}');
+            enableGroup('visit_creator');
+            mockTemplateForGroup('visitor_overstay', 'visit_creator', '{{visitor.firstName}} overstay at {{visit.siteName}} past {{visit.endTime}}');
 
             await service.triggerSms(NotificationEvent.VisitorOverstay, eventData);
             expect(mockRenderer.render).toHaveBeenCalled();
@@ -234,14 +234,14 @@ describe('SmsNotificationService', () => {
 
         it('should dynamically add requester phone for visit_requester group', async () => {
             enableGroup('visit_requester');
-            mockTemplateForGroup('visitor_arrived', 'visit_requester', '{{visitor.firstName}} arrived', []);
+            mockTemplateForGroup('visitor_arrived_with_escort','visit_requester', '{{visitor.firstName}} arrived', []);
 
             const dataWithRequester = {
                 ...eventData,
                 requester: { phone: '+972509999999', email: 'host@example.com' },
             };
 
-            await service.triggerSms(NotificationEvent.VisitorArrived, dataWithRequester);
+            await service.triggerSms(NotificationEvent.VisitorArrivedWithEscort, dataWithRequester);
 
             expect(mockProvider.sendBulk).toHaveBeenCalledWith([
                 { to: '+972509999999', message: 'Rendered message' },
@@ -250,14 +250,14 @@ describe('SmsNotificationService', () => {
 
         it('should not duplicate requester phone if already in static recipients', async () => {
             enableGroup('visit_requester');
-            mockTemplateForGroup('visitor_arrived', 'visit_requester', '{{visitor.firstName}} arrived', ['+972509999999']);
+            mockTemplateForGroup('visitor_arrived_with_escort','visit_requester', '{{visitor.firstName}} arrived', ['+972509999999']);
 
             const dataWithRequester = {
                 ...eventData,
                 requester: { phone: '+972509999999' },
             };
 
-            await service.triggerSms(NotificationEvent.VisitorArrived, dataWithRequester);
+            await service.triggerSms(NotificationEvent.VisitorArrivedWithEscort, dataWithRequester);
 
             expect(mockProvider.sendBulk).toHaveBeenCalledWith([
                 { to: '+972509999999', message: 'Rendered message' },
@@ -265,17 +265,17 @@ describe('SmsNotificationService', () => {
         });
 
         it('should not add requester phone for non-visit_requester groups', async () => {
-            enableGroup('system_users');
-            mockTemplateForGroup('visitor_arrived', 'system_users', '{{visitor.firstName}} arrived', []);
+            enableGroup('visit_creator');
+            mockTemplateForGroup('visitor_arrived_with_escort','visit_creator', '{{visitor.firstName}} arrived', []);
 
             const dataWithRequester = {
                 ...eventData,
                 requester: { phone: '+972509999999' },
             };
 
-            await service.triggerSms(NotificationEvent.VisitorArrived, dataWithRequester);
+            await service.triggerSms(NotificationEvent.VisitorArrivedWithEscort, dataWithRequester);
 
-            // No static recipients and phone should NOT be added for system_users
+            // No static recipients and phone should NOT be added for visit_creator
             expect(mockProvider.sendBulk).not.toHaveBeenCalled();
         });
     });

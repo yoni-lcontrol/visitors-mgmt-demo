@@ -1,41 +1,56 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { PrintingService } from './printing.service';
 import { DeviceCommandRoutingService } from '../../device-commands/services/device-command-routing.service';
 import { WorkstationSessionService } from '../../workstations/services/workstation-session.service';
+import { WorkstationsService } from '../../workstations/services/workstations.service';
 import { IntegrationProvider } from '../../integrations/common/enums/integration-provider.enum';
 import { CardTemplate } from '../../settings/entities/card-template.entity';
 import { Visitor } from '../../visitors/entities/visitor.entity';
 import { Visit } from '../../visitors/entities/visit.entity';
 import { UsersGateway } from '../../websocket/gateways/users.gateway';
+import { AgentsGateway } from '../../websocket/gateways/agents.gateway';
+import { KioskGateway } from '../../websocket/gateways/kiosk.gateway';
 
 describe('PrintingService', () => {
     let service: PrintingService;
-    let commandRouting: { routeCommand: jest.Mock };
+    let commandRouting: { routeCommand: jest.Mock; routeKioskCommand: jest.Mock };
     let workstationSession: { getActiveSession: jest.Mock };
+    let workstationsService: { findByCode: jest.Mock };
     let cardTemplateRepo: { findOne: jest.Mock };
     let visitorRepo: { findOne: jest.Mock };
     let visitRepo: { findOne: jest.Mock };
     let mockUsersGateway: { broadcastToRoom: jest.Mock; emitToAgentNamespace: jest.Mock };
+    let mockAgentsGateway: { emitToAgent: jest.Mock };
+    let mockKioskGateway: { emitPrintStatusToWorkstation: jest.Mock; emitPrintResultToWorkstation: jest.Mock };
 
     beforeEach(async () => {
-        commandRouting = { routeCommand: jest.fn() };
+        commandRouting = { routeCommand: jest.fn(), routeKioskCommand: jest.fn() };
         workstationSession = { getActiveSession: jest.fn().mockResolvedValue(null) };
+        workstationsService = { findByCode: jest.fn().mockResolvedValue(null) };
         cardTemplateRepo = { findOne: jest.fn().mockResolvedValue(null) };
         visitorRepo = { findOne: jest.fn().mockResolvedValue(null) };
         visitRepo = { findOne: jest.fn().mockResolvedValue(null) };
         mockUsersGateway = { broadcastToRoom: jest.fn(), emitToAgentNamespace: jest.fn() };
+        mockAgentsGateway = { emitToAgent: jest.fn() };
+        mockKioskGateway = {
+            emitPrintStatusToWorkstation: jest.fn(),
+            emitPrintResultToWorkstation: jest.fn(),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 PrintingService,
                 { provide: DeviceCommandRoutingService, useValue: commandRouting },
                 { provide: WorkstationSessionService, useValue: workstationSession },
+                { provide: WorkstationsService, useValue: workstationsService },
                 { provide: getRepositoryToken(CardTemplate), useValue: cardTemplateRepo },
                 { provide: getRepositoryToken(Visitor), useValue: visitorRepo },
                 { provide: getRepositoryToken(Visit), useValue: visitRepo },
                 { provide: UsersGateway, useValue: mockUsersGateway },
+                { provide: AgentsGateway, useValue: mockAgentsGateway },
+                { provide: KioskGateway, useValue: mockKioskGateway },
             ],
         }).compile();
 
@@ -437,6 +452,74 @@ describe('PrintingService', () => {
             await expect(
                 service.requestTestPrintTemplate('user-1', { cardTemplateId: '' }),
             ).rejects.toThrow(BadRequestException);
+        });
+    });
+
+    describe('requestKioskPrintCard', () => {
+        it('should dispatch to the printer agent and notify the kiosk', async () => {
+            workstationsService.findByCode.mockResolvedValue({
+                id: 'ws-uuid-1',
+                code: 'KIOSK-1',
+                defaultCardTemplateId: 'ws-default-template',
+            });
+            commandRouting.routeKioskCommand.mockResolvedValue({
+                commandLog: { id: 'log-1' },
+                agentSocketId: 'printer-socket-1',
+                correlationId: 'corr-kiosk-1',
+            });
+
+            const result = await service.requestKioskPrintCard('KIOSK-1', 'visit-1', 'visitor-1');
+
+            expect(result).toEqual({ ok: true, correlationId: 'corr-kiosk-1', status: 'queued' });
+            expect(commandRouting.routeKioskCommand).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    workstationId: 'ws-uuid-1',
+                    providerType: IntegrationProvider.Printer,
+                    commandType: 'print-card',
+                    requestPayload: expect.objectContaining({
+                        source: 'kiosk',
+                        workstationCode: 'KIOSK-1',
+                        visitId: 'visit-1',
+                        visitorId: 'visitor-1',
+                        cardTemplateId: 'ws-default-template',
+                    }),
+                }),
+            );
+            expect(mockKioskGateway.emitPrintStatusToWorkstation).toHaveBeenCalledWith(
+                'ws-uuid-1',
+                expect.objectContaining({ correlationId: 'corr-kiosk-1', state: 'queued' }),
+            );
+            expect(mockAgentsGateway.emitToAgent).toHaveBeenCalledWith(
+                'printer-socket-1',
+                expect.any(String),
+                expect.objectContaining({
+                    correlationId: 'corr-kiosk-1',
+                    visitId: 'visit-1',
+                    visitorId: 'visitor-1',
+                    cardTemplateId: 'ws-default-template',
+                }),
+            );
+        });
+
+        it('should throw when the workstation code is unknown', async () => {
+            workstationsService.findByCode.mockResolvedValue(null);
+
+            await expect(
+                service.requestKioskPrintCard('NOPE', 'visit-1', 'visitor-1'),
+            ).rejects.toThrow(BadRequestException);
+            expect(commandRouting.routeKioskCommand).not.toHaveBeenCalled();
+        });
+
+        it('should propagate the routing error when no printer agent is connected', async () => {
+            workstationsService.findByCode.mockResolvedValue({ id: 'ws-uuid-1', code: 'KIOSK-1' });
+            commandRouting.routeKioskCommand.mockRejectedValue(
+                new ServiceUnavailableException('No active printer agent'),
+            );
+
+            await expect(
+                service.requestKioskPrintCard('KIOSK-1', 'visit-1', 'visitor-1'),
+            ).rejects.toThrow(ServiceUnavailableException);
+            expect(mockAgentsGateway.emitToAgent).not.toHaveBeenCalled();
         });
     });
 

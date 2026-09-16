@@ -326,14 +326,14 @@ describe('VisitCheckInCodeService', () => {
             await service.consumeCodeAndArrive('012345');
 
             expect(mockSms.triggerSms).toHaveBeenCalledWith(
-                NotificationEvent.VisitorArrived,
+                NotificationEvent.VisitorArrivedWithoutEscort,
                 expect.objectContaining({
                     visit: expect.objectContaining({ title: 'Meeting' }),
                     visitor: expect.objectContaining({ firstName: 'Jane', lastName: 'Doe' }),
                 }),
             );
             expect(mockEmail.triggerEmail).toHaveBeenCalledWith(
-                NotificationEvent.VisitorArrived,
+                NotificationEvent.VisitorArrivedWithoutEscort,
                 expect.objectContaining({
                     visit: expect.objectContaining({ title: 'Meeting' }),
                     visitor: expect.objectContaining({ firstName: 'Jane', lastName: 'Doe' }),
@@ -504,14 +504,14 @@ describe('VisitCheckInCodeService', () => {
 
             expect(result.ok).toBe(true);
             expect(mockSms.triggerSms).toHaveBeenCalledWith(
-                NotificationEvent.VisitorArrived,
+                NotificationEvent.VisitorArrivedWithoutEscort,
                 expect.objectContaining({
                     visit: expect.objectContaining({ title: 'Meeting' }),
                     visitor: expect.objectContaining({ firstName: 'Jane', lastName: 'Doe' }),
                 }),
             );
             expect(mockEmail.triggerEmail).toHaveBeenCalledWith(
-                NotificationEvent.VisitorArrived,
+                NotificationEvent.VisitorArrivedWithoutEscort,
                 expect.objectContaining({
                     visit: expect.objectContaining({ title: 'Meeting' }),
                     visitor: expect.objectContaining({ firstName: 'Jane', lastName: 'Doe' }),

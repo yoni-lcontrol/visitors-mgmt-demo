@@ -5,6 +5,8 @@ using Amadeus8.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using Microsoft.Extensions.Logging.EventLog;
+using Microsoft.Extensions.Options;
+using System.Security.Cryptography.X509Certificates;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -47,6 +49,23 @@ builder.Services.AddDbContext<AmadeusDbContext>(options =>
 builder.Services.AddHttpClient("Amadeus", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(60);
+})
+.ConfigurePrimaryHttpMessageHandler(sp =>
+{
+    var options = sp.GetRequiredService<IOptions<AmadeusOptions>>().Value;
+    var clientCertificate = X509CertificateLoader.LoadPkcs12FromFile(options.ClientCertificatePath, options.ClientCertificatePassword);
+    var serverCertificate = X509CertificateLoader.LoadPkcs12FromFile(options.ServerCertificatePath, options.ServerCertificatePassword);
+    var handler = new HttpClientHandler
+    {
+        ClientCertificateOptions = ClientCertificateOption.Manual,
+        // The Amadeus gateway presents a certificate from a private/internal CA that
+        // isn't in the OS trust store, so we pin the expected server certificate by
+        // thumbprint instead of relying on chain-of-trust validation.
+        ServerCertificateCustomValidationCallback = (_, presentedCertificate, _, _) =>
+            presentedCertificate is not null && presentedCertificate.GetCertHash().AsSpan().SequenceEqual(serverCertificate.GetCertHash())
+    };
+    handler.ClientCertificates.Add(clientCertificate);
+    return handler;
 });
 builder.Services.AddHttpClient("Backend", client =>
 {

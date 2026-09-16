@@ -18,8 +18,6 @@ import { apiUnwrapInterceptor } from './core/auth/api-unwrap.interceptor';
 import { errorInterceptor } from './core/interceptors/error.interceptor';
 import { AuthService } from './core/auth/auth.service';
 import { firstValueFrom } from 'rxjs';
-import { MSAL_INSTANCE, MsalBroadcastService, MsalService } from '@azure/msal-angular';
-import { createMsalInstance } from './core/auth/msal.config';
 
 const MigdalPreset = definePreset(Lara, {
     semantic: {
@@ -59,12 +57,6 @@ export const appConfig: ApplicationConfig = {
         }),
         MessageService,
         ConfirmationService,
-        {
-            provide: MSAL_INSTANCE,
-            useFactory: createMsalInstance,
-        },
-        MsalService,
-        MsalBroadcastService,
         ...TranslateModule.forRoot({
             defaultLanguage: 'en',
         }).providers!,

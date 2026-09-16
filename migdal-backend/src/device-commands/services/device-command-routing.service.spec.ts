@@ -150,4 +150,80 @@ describe('DeviceCommandRoutingService', () => {
             );
         });
     });
+
+    describe('routeKioskCommand', () => {
+        it('should route without a user session and log a null requester', async () => {
+            agentRegistry.findActiveConnection.mockResolvedValue({
+                id: 'device-1',
+                socketId: 'printer-socket-1',
+            });
+            commandLogRepo.save.mockResolvedValue({ id: 'log-1' });
+
+            const result = await service.routeKioskCommand({
+                workstationId: 'ws-1',
+                providerType: IntegrationProvider.Printer,
+                commandType: 'print-card',
+                requestPayload: { source: 'kiosk' },
+            });
+
+            expect(workstationSession.getActiveSession).not.toHaveBeenCalled();
+            expect(result.agentSocketId).toBe('printer-socket-1');
+            expect(commandLogRepo.create).toHaveBeenCalledWith(
+                expect.objectContaining({ requestedByUserId: null, workstationId: 'ws-1' }),
+            );
+            expect(service.getPendingCommand(result.correlationId)?.origin).toBe('kiosk');
+        });
+
+        it('should throw when no agent is connected for the workstation', async () => {
+            agentRegistry.findActiveConnection.mockResolvedValue(null);
+
+            await expect(
+                service.routeKioskCommand({
+                    workstationId: 'ws-1',
+                    providerType: IntegrationProvider.Printer,
+                    commandType: 'print-card',
+                    requestPayload: {},
+                }),
+            ).rejects.toThrow(ServiceUnavailableException);
+        });
+    });
+
+    describe('handleAgentDisconnect', () => {
+        it('should only fail commands dispatched to the disconnected agent socket', async () => {
+            commandLogRepo.save.mockResolvedValue({ id: 'log-1' });
+
+            agentRegistry.findActiveConnection.mockResolvedValue({ id: 'd1', socketId: 'socket-a' });
+            const onSocketA = await service.routeKioskCommand({
+                workstationId: 'ws-1',
+                providerType: IntegrationProvider.Printer,
+                commandType: 'print-card',
+                requestPayload: {},
+            });
+
+            agentRegistry.findActiveConnection.mockResolvedValue({ id: 'd2', socketId: 'socket-b' });
+            const onSocketB = await service.routeKioskCommand({
+                workstationId: 'ws-2',
+                providerType: IntegrationProvider.Scanner,
+                commandType: 'scan',
+                requestPayload: {},
+            });
+
+            const failed = await service.handleAgentDisconnect('socket-a');
+
+            expect(failed).toHaveLength(1);
+            expect(failed[0].correlationId).toBe(onSocketA.correlationId);
+            expect(failed[0].workstationId).toBe('ws-1');
+            expect(service.getPendingCommand(onSocketA.correlationId)).toBeUndefined();
+            // The unrelated agent's command must survive
+            expect(service.getPendingCommand(onSocketB.correlationId)).toBeDefined();
+
+            // Settle it so its timeout handle doesn't outlive the test
+            await service.handleCommandResult(onSocketB.correlationId, true);
+        });
+
+        it('should return an empty list when no command targeted that socket', async () => {
+            const failed = await service.handleAgentDisconnect('unknown-socket');
+            expect(failed).toEqual([]);
+        });
+    });
 });

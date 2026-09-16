@@ -28,6 +28,12 @@ export class Door extends BaseEntity {
     @Column({ type: 'bit', default: false })
     forEscort!: boolean;
 
+    @Column({ type: 'nvarchar', length: 200, nullable: true })
+    badgeReaderExternalId!: string | null;
+
+    @Column({ type: 'nvarchar', length: 200, nullable: true })
+    qrReaderExternalId!: string | null;
+
     @ManyToOne(() => AcController, (controller) => controller.doors, {
         onDelete: 'CASCADE',
     })

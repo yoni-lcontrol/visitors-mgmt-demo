@@ -2,12 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { TokenCleanupTask } from './token-cleanup.task';
 import { AuthService } from '../auth/auth.service';
 
-jest.mock('jwks-rsa', () => ({
-    JwksClient: jest.fn().mockImplementation(() => ({
-        getSigningKey: jest.fn(),
-    })),
-}));
-
 describe('TokenCleanupTask', () => {
     let task: TokenCleanupTask;
     let mockAuthService: Record<string, jest.Mock>;

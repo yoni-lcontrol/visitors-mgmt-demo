@@ -25,6 +25,17 @@ public class AmadeusOptions
     [Required]
     public string Password { get; set; } = string.Empty;
 
+    [Required]
+    public string ClientCertificatePath { get; set; } = string.Empty;
+
+    [Required]
+    public string ClientCertificatePassword { get; set; } = string.Empty;
+
+    [Required]
+    public string ServerCertificatePath { get; set; } = string.Empty;
+
+    public string ServerCertificatePassword { get; set; } = string.Empty;
+
     [Range(1, 1440)]
     public int FullSyncIntervalMinutes { get; set; } = 60;
 

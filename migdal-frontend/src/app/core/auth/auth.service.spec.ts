@@ -9,7 +9,6 @@ import { UserWebSocketService } from '../websocket/user-websocket.service';
 import { WorkstationSessionService } from '../services/workstation-session.service';
 import { DeviceStatusService } from '../services/device-status.service';
 import { ScannerEventService } from '../services/scanner-event.service';
-import { MsalService } from '@azure/msal-angular';
 
 describe('AuthService', () => {
     let service: AuthService;
@@ -20,7 +19,6 @@ describe('AuthService', () => {
     let wsSession: jasmine.SpyObj<WorkstationSessionService>;
     let deviceStatus: jasmine.SpyObj<DeviceStatusService>;
     let scannerEvent: jasmine.SpyObj<ScannerEventService>;
-    let msalService: { instance: { getActiveAccount: jasmine.Spy; setActiveAccount: jasmine.Spy; logoutPopup: jasmine.Spy } };
 
     beforeEach(() => {
         tokenService = jasmine.createSpyObj('TokenService', [
@@ -34,13 +32,6 @@ describe('AuthService', () => {
         wsSession = jasmine.createSpyObj('WorkstationSessionService', ['reset']);
         deviceStatus = jasmine.createSpyObj('DeviceStatusService', ['reset']);
         scannerEvent = jasmine.createSpyObj('ScannerEventService', ['reset']);
-        msalService = {
-            instance: {
-                getActiveAccount: jasmine.createSpy('getActiveAccount').and.returnValue(null),
-                setActiveAccount: jasmine.createSpy('setActiveAccount'),
-                logoutPopup: jasmine.createSpy('logoutPopup').and.returnValue(Promise.resolve()),
-            },
-        };
 
         TestBed.configureTestingModule({
             providers: [
@@ -53,7 +44,6 @@ describe('AuthService', () => {
                 { provide: WorkstationSessionService, useValue: wsSession },
                 { provide: DeviceStatusService, useValue: deviceStatus },
                 { provide: ScannerEventService, useValue: scannerEvent },
-                { provide: MsalService, useValue: msalService },
             ],
         });
 
@@ -210,6 +200,27 @@ describe('AuthService', () => {
             expect(deviceStatus.reset).toHaveBeenCalled();
             expect(scannerEvent.reset).toHaveBeenCalled();
             expect(router.navigate).toHaveBeenCalledWith(['/login']);
+        }));
+    });
+
+    describe('kerberos manual-login flag', () => {
+        afterEach(() => {
+            sessionStorage.clear();
+        });
+
+        it('should disable auto-kerberos on logout and re-enable it on enableAutoKerberos', fakeAsync(() => {
+            expect(service.isAutoKerberosDisabled()).toBeFalse();
+
+            service.logout();
+            const logoutReq = httpMock.expectOne((r) => r.url.includes('/auth/logout'));
+            logoutReq.flush({});
+            tick();
+
+            expect(service.isAutoKerberosDisabled()).toBeTrue();
+
+            service.enableAutoKerberos();
+
+            expect(service.isAutoKerberosDisabled()).toBeFalse();
         }));
     });
 

@@ -40,6 +40,11 @@ export enum WsEvent {
     VisitorsVisitorCheckedOut = 'visitors:visitor:checked-out',
     VisitorsVisitorDeleted = 'visitors:visitor:deleted',
 
+    // Escort/guest pairing
+    VisitsEscortGuestPaired = 'visits:escort-guest:paired',
+    VisitsGuestCardActivated = 'visits:guest:card-activated',
+    VisitsEscortReleased = 'visits:escort:released',
+
     // Settings
     SettingsSettingUpdated = 'settings:setting:updated',
 
@@ -100,11 +105,15 @@ export enum WsEvent {
     KioskRegister = 'kiosk:register',
     KioskRequestScan = 'kiosk:request-scan',
     KioskCheckScanner = 'kiosk:check-scanner',
+    KioskCheckPrinter = 'kiosk:check-printer',
 
     // Kiosk events (Backend -> Kiosk)
     KioskRegistered = 'kiosk:registered',
     KioskScannerStatus = 'kiosk:scanner-status',
     KioskScanStatus = 'kiosk:scan-status',
     KioskScanResult = 'kiosk:scan-result',
+    KioskPrinterStatus = 'kiosk:printer-status',
+    KioskPrintStatus = 'kiosk:print-status',
+    KioskPrintResult = 'kiosk:print-result',
     KioskError = 'kiosk:error',
 }

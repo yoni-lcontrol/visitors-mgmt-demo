@@ -27,11 +27,17 @@
             "inlineStyleLanguage": "scss",
             "allowedCommonJsDependencies": [
               "pako",
-              "@pdf-lib/fontkit"
+              "@pdf-lib/fontkit",
+              "debug"
             ],
             "assets": [
               "src/favicon.ico",
-              "src/assets"
+              "src/assets",
+              {
+                "glob": "web.config",
+                "input": ".",
+                "output": "/"
+              }
             ],
             "styles": [
               "src/styles.scss",
@@ -69,6 +75,9 @@
         },
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
+          "options": {
+            "proxyConfig": "proxy.conf.json"
+          },
           "configurations": {
             "production": {
               "browserTarget": "migdal-kiosk:build:production"

@@ -19,7 +19,7 @@ describe('EmailNotificationService', () => {
         mockTemplateService = {
             loadTemplate: jest.fn().mockResolvedValue({
                 event: 'visit_created',
-                targetGroup: 'system_users',
+                targetGroup: 'visit_creator',
                 subject: 'Subject: {{visit.title}}',
                 bodyHtml: '<p>{{visit.title}}</p>',
                 recipients: JSON.stringify(['test@example.com']),
@@ -80,7 +80,7 @@ describe('EmailNotificationService', () => {
         it('should skip when template has no recipients', async () => {
             (mockTemplateService.loadTemplate as jest.Mock).mockResolvedValue({
                 event: 'visit_created',
-                targetGroup: 'system_users',
+                targetGroup: 'visit_creator',
                 subject: 'Sub',
                 bodyHtml: '<p>Body</p>',
                 recipients: null,
@@ -90,9 +90,9 @@ describe('EmailNotificationService', () => {
         });
 
         it('should render subject and body, then send per target group', async () => {
-            // Only system_users enabled
+            // Only visit_creator enabled
             (mockNotificationSettings.isEnabled as jest.Mock).mockImplementation(
-                async (group: string) => group === 'system_users',
+                async (group: string) => group === 'visit_creator',
             );
             (mockRenderer.render as jest.Mock)
                 .mockReturnValueOnce('Rendered Subject')
@@ -102,7 +102,7 @@ describe('EmailNotificationService', () => {
 
             expect(mockTemplateService.loadTemplate).toHaveBeenCalledWith(
                 NotificationEvent.VisitCreated,
-                'system_users',
+                'visit_creator',
             );
             expect(mockRenderer.render).toHaveBeenCalledTimes(2);
             expect(mockProvider.sendBulk).toHaveBeenCalledWith([
@@ -130,7 +130,7 @@ describe('EmailNotificationService', () => {
 
         it('should log successful sends via audit service', async () => {
             (mockNotificationSettings.isEnabled as jest.Mock).mockImplementation(
-                async (group: string) => group === 'system_users',
+                async (group: string) => group === 'visit_creator',
             );
             await service.triggerEmail(NotificationEvent.VisitCreated, eventData);
 
@@ -164,16 +164,16 @@ describe('EmailNotificationService', () => {
                 async (group: string) => group === 'visitors',
             );
             (mockTemplateService.loadTemplate as jest.Mock).mockResolvedValue({
-                event: 'visitor_arrived',
+                event: 'visitor_arrived_with_escort',
                 targetGroup: 'visitors',
                 subject: 'Arrived: {{visitor.firstName}}',
                 bodyHtml: '<p>{{visitor.firstName}} arrived</p>',
                 recipients: JSON.stringify(['visitor@example.com']),
             });
 
-            await service.triggerEmail(NotificationEvent.VisitorArrived, eventData);
+            await service.triggerEmail(NotificationEvent.VisitorArrivedWithEscort, eventData);
             expect(mockTemplateService.loadTemplate).toHaveBeenCalledWith(
-                NotificationEvent.VisitorArrived,
+                NotificationEvent.VisitorArrivedWithEscort,
                 'visitors',
             );
             expect(mockProvider.sendBulk).toHaveBeenCalled();
@@ -184,7 +184,7 @@ describe('EmailNotificationService', () => {
 
             await service.triggerEmail(NotificationEvent.VisitCreated, eventData);
 
-            expect(mockNotificationSettings.isEnabled).toHaveBeenCalledWith('system_users', NotificationEvent.VisitCreated, 'email');
+            expect(mockNotificationSettings.isEnabled).toHaveBeenCalledWith('visit_creator', NotificationEvent.VisitCreated, 'email');
             expect(mockNotificationSettings.isEnabled).toHaveBeenCalledWith('visitors', NotificationEvent.VisitCreated, 'email');
             expect(mockNotificationSettings.isEnabled).toHaveBeenCalledWith('escorts', NotificationEvent.VisitCreated, 'email');
             expect(mockNotificationSettings.isEnabled).toHaveBeenCalledWith('visit_requester', NotificationEvent.VisitCreated, 'email');
@@ -205,10 +205,10 @@ describe('EmailNotificationService', () => {
                 NotificationEvent.VisitCreated,
                 'escorts',
             );
-            // Should NOT have been called for system_users and visit_requester
+            // Should NOT have been called for visit_creator and visit_requester
             expect(mockTemplateService.loadTemplate).not.toHaveBeenCalledWith(
                 NotificationEvent.VisitCreated,
-                'system_users',
+                'visit_creator',
             );
             expect(mockTemplateService.loadTemplate).not.toHaveBeenCalledWith(
                 NotificationEvent.VisitCreated,
@@ -218,11 +218,11 @@ describe('EmailNotificationService', () => {
 
         it('should handle invalid recipients JSON gracefully', async () => {
             (mockNotificationSettings.isEnabled as jest.Mock).mockImplementation(
-                async (group: string) => group === 'system_users',
+                async (group: string) => group === 'visit_creator',
             );
             (mockTemplateService.loadTemplate as jest.Mock).mockResolvedValue({
                 event: 'visit_created',
-                targetGroup: 'system_users',
+                targetGroup: 'visit_creator',
                 subject: 'Sub',
                 bodyHtml: '<p>Body</p>',
                 recipients: 'invalid-json',
@@ -237,7 +237,7 @@ describe('EmailNotificationService', () => {
                 async (group: string) => group === 'visit_requester',
             );
             (mockTemplateService.loadTemplate as jest.Mock).mockResolvedValue({
-                event: 'visitor_arrived',
+                event: 'visitor_arrived_with_escort',
                 targetGroup: 'visit_requester',
                 subject: '{{visitor.firstName}} arrived',
                 bodyHtml: '<p>{{visitor.firstName}} arrived</p>',
@@ -249,7 +249,7 @@ describe('EmailNotificationService', () => {
                 requester: { phone: '+972509999999', email: 'host@example.com' },
             };
 
-            await service.triggerEmail(NotificationEvent.VisitorArrived, dataWithRequester);
+            await service.triggerEmail(NotificationEvent.VisitorArrivedWithEscort, dataWithRequester);
 
             expect(mockProvider.sendBulk).toHaveBeenCalledWith([
                 { to: 'host@example.com', subject: 'Rendered', html: 'Rendered' },
@@ -261,7 +261,7 @@ describe('EmailNotificationService', () => {
                 async (group: string) => group === 'visit_requester',
             );
             (mockTemplateService.loadTemplate as jest.Mock).mockResolvedValue({
-                event: 'visitor_arrived',
+                event: 'visitor_arrived_with_escort',
                 targetGroup: 'visit_requester',
                 subject: 'Arrived',
                 bodyHtml: '<p>Arrived</p>',
@@ -273,7 +273,7 @@ describe('EmailNotificationService', () => {
                 requester: { email: 'host@example.com' },
             };
 
-            await service.triggerEmail(NotificationEvent.VisitorArrived, dataWithRequester);
+            await service.triggerEmail(NotificationEvent.VisitorArrivedWithEscort, dataWithRequester);
 
             expect(mockProvider.sendBulk).toHaveBeenCalledWith([
                 { to: 'host@example.com', subject: 'Rendered', html: 'Rendered' },
@@ -282,11 +282,11 @@ describe('EmailNotificationService', () => {
 
         it('should not add requester email for non-visit_requester groups', async () => {
             (mockNotificationSettings.isEnabled as jest.Mock).mockImplementation(
-                async (group: string) => group === 'system_users',
+                async (group: string) => group === 'visit_creator',
             );
             (mockTemplateService.loadTemplate as jest.Mock).mockResolvedValue({
-                event: 'visitor_arrived',
-                targetGroup: 'system_users',
+                event: 'visitor_arrived_with_escort',
+                targetGroup: 'visit_creator',
                 subject: 'Arrived',
                 bodyHtml: '<p>Arrived</p>',
                 recipients: JSON.stringify([]),
@@ -297,9 +297,9 @@ describe('EmailNotificationService', () => {
                 requester: { email: 'host@example.com' },
             };
 
-            await service.triggerEmail(NotificationEvent.VisitorArrived, dataWithRequester);
+            await service.triggerEmail(NotificationEvent.VisitorArrivedWithEscort, dataWithRequester);
 
-            // No static recipients and email should NOT be added for system_users
+            // No static recipients and email should NOT be added for visit_creator
             expect(mockProvider.sendBulk).not.toHaveBeenCalled();
         });
     });

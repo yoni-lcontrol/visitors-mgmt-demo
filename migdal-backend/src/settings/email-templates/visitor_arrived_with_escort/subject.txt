@@ -1,0 +1,1 @@
+מבקר הגיע עם ליווי: {{visitor.firstName}} {{visitor.lastName}}

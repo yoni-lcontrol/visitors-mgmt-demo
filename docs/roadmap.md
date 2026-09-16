@@ -58,14 +58,12 @@ Phase 7: Deployment Ready    ← CI/CD, Docker, production
 - [ ] Role-permission assignment endpoints
 - [ ] Permission guard implementation
 - [ ] Audit logging for auth actions
-- [x] Microsoft Entra ID authentication support
-  - [x] Backend: EntraIdService (token validation, user mapping, auto-provision)
-  - [x] Backend: POST /auth/entra-login + GET /auth/entra-config endpoints
+- [x] Kerberos / Windows SSO authentication support
+  - [x] Backend: KerberosService (SPNEGO identity resolution, user mapping, auto-provision)
+  - [x] Backend: GET /auth/kerberos-login + GET /auth/kerberos-config endpoints
   - [x] Backend: User entity fields (externalAuthProvider, externalAuthId, lastExternalLoginAt)
   - [x] Backend: Migration for external auth fields
-  - [x] Frontend: MSAL.js integration with popup login flow
-  - [x] Frontend: Microsoft sign-in button on login page
-  - [x] Tests: EntraIdService (21 tests), AuthService Entra flow (8 tests)
+  - [x] Frontend: Windows sign-in button on login page
 
 ### Frontend
 - [ ] Login page + form

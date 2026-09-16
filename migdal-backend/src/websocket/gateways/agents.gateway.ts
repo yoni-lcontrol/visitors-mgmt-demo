@@ -13,9 +13,13 @@ import { Logger, Inject, forwardRef } from '@nestjs/common';
 import { Namespace, Socket } from 'socket.io';
 import { AgentHmacAuthService } from '../../agents/services/agent-hmac-auth.service';
 import { AgentRegistryService } from '../../agents/services/agent-registry.service';
-import { DeviceCommandRoutingService } from '../../device-commands/services/device-command-routing.service';
+import {
+    DeviceCommandRoutingService,
+    PendingCommandInfo,
+} from '../../device-commands/services/device-command-routing.service';
 import { WorkstationSessionService } from '../../workstations/services/workstation-session.service';
 import { WorkstationsService } from '../../workstations/services/workstations.service';
+import { IntegrationProvider } from '../../integrations/common/enums/integration-provider.enum';
 import { KioskGateway } from './kiosk.gateway';
 import { WsEvent } from '../enums/ws-events.enum';
 import {
@@ -85,9 +89,13 @@ export class AgentsGateway
                 false,
                 null,
             );
+        }
 
-            // Handle any pending commands that were targeting this agent
-            await this.commandRouting.handleAgentDisconnect(client.id);
+        // Fail only the commands that were in flight on *this* agent socket, and
+        // notify each command's own originator (kiosk or user).
+        const failedCommands = await this.commandRouting.handleAgentDisconnect(client.id);
+        for (const info of failedCommands) {
+            this.notifyCommandFailure(info, 'Agent disconnected during execution');
         }
     }
 
@@ -125,6 +133,7 @@ export class AgentsGateway
             (client as any).agentRegistered = true;
             (client as any).agentClientId = payload.clientId;
             (client as any).workstationId = workstationId;
+            (client as any).providerType = payload.providerType;
 
             // Clear the registration timeout
             const timeout = (client as any)._registrationTimeout;
@@ -255,8 +264,19 @@ export class AgentsGateway
                 deviceConnected,
             );
 
-            // Forward "scanning" status to kiosks on this workstation
-            if (payload?.status === 'scanning') {
+            const providerType = this.getProviderType(client) ?? agent.providerType;
+
+            // Forward in-progress device status to kiosks on this workstation
+            if (providerType === IntegrationProvider.Printer) {
+                if (payload?.status === 'printing') {
+                    this.kioskGateway.emitPrintStatusToWorkstation(agent.workstationId, {
+                        correlationId: (payload as any)?.correlationId ?? '',
+                        state: 'printing',
+                        message: 'Printing card…',
+                        serverTimeUtc: new Date().toISOString(),
+                    });
+                }
+            } else if (payload?.status === 'scanning') {
                 this.kioskGateway.emitScanStatusToWorkstation(agent.workstationId, {
                     state: 'scanning',
                     message: 'Scanning document...',
@@ -277,23 +297,28 @@ export class AgentsGateway
         if (!(client as any).agentRegistered || !payload?.correlationId) return;
         await this.commandRouting.handleCommandAck(payload.correlationId);
 
-        // Notify user that command has started (provider-aware)
-        const pending = this.commandRouting.getPendingCommand(payload.correlationId);
-        if (pending) {
-            const event = pending.providerType === 'scanner'
-                ? WsEvent.ScannerActionCompleted  // scanner ack is informational only
-                : WsEvent.VisitsVisitorPrintStarted;
+        const providerType = this.getProviderType(client);
 
-            if (pending.providerType !== 'scanner') {
-                this.emitToUser(pending.userSocketId, pending.userId, event, {
-                    correlationId: payload.correlationId,
-                });
-            }
+        // Notify the requesting user that the print has started (staff/Admin-SPA flow)
+        const pending = this.commandRouting.getPendingCommand(payload.correlationId);
+        if (pending && pending.origin === 'user' && pending.providerType === IntegrationProvider.Printer) {
+            this.emitToUser(pending.userSocketId, pending.userId, WsEvent.VisitsVisitorPrintStarted, {
+                correlationId: payload.correlationId,
+            });
         }
 
-        // Notify kiosks on this workstation that scanning has started
+        // Notify kiosks on this workstation that the device has started working
         const workstationId = (client as any).workstationId;
-        if (workstationId) {
+        if (!workstationId) return;
+
+        if (providerType === IntegrationProvider.Printer) {
+            this.kioskGateway.emitPrintStatusToWorkstation(workstationId, {
+                correlationId: payload.correlationId,
+                state: 'printing',
+                message: 'Printing card…',
+                serverTimeUtc: new Date().toISOString(),
+            });
+        } else {
             this.kioskGateway.emitScanStatusToWorkstation(workstationId, {
                 state: 'scanning',
                 message: 'Scanning document...',
@@ -313,77 +338,101 @@ export class AgentsGateway
     ): Promise<void> {
         if (!(client as any).agentRegistered || !payload?.correlationId) return;
 
-        const workstationId = (client as any).workstationId;
-        console.log('[KIOSK-DEBUG] handleCommandResult:', { correlationId: payload.correlationId, success: payload.success, workstationId, hasResult: !!payload.result, personId: (payload.result as any)?.personId });
+        const workstationId = (client as any).workstationId as string | undefined;
+        const providerType = this.getProviderType(client);
+        this.logger.debug(
+            `Agent command result: correlationId=${payload.correlationId}, success=${payload.success}, workstation=${workstationId}, provider=${providerType}`,
+        );
 
-        // Strip image from the result before storing to DB (can be multi-MB)
+        // Strip image from the result before storing to DB (can be multi-MB).
+        // Only the DB copy is stripped — the kiosk/user copies keep the full image.
         const resultForDb = payload.result ? { ...payload.result } : undefined;
         if (resultForDb && 'image' in resultForDb) {
             (resultForDb as any).image = resultForDb.image ? '[base64_stripped]' : '';
         }
 
-        let userInfo: any = null;
+        let pending: PendingCommandInfo | null = null;
         try {
-            userInfo = await this.commandRouting.handleCommandResult(
+            pending = await this.commandRouting.handleCommandResult(
                 payload.correlationId,
                 payload.success,
                 resultForDb,
                 payload.errorMessage,
             );
-        } catch (err) {
-            console.error('[KIOSK-DEBUG] commandRouting.handleCommandResult failed:', err);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.error(`commandRouting.handleCommandResult failed: ${message}`);
         }
 
-        // Scanner results: broadcast to all users bound to this workstation
-        // (covers both auto-scan from tray and user-initiated scans)
-        const isKioskPrint = payload.correlationId?.startsWith('kiosk-print-');
-        if (workstationId && !isKioskPrint && (!userInfo || userInfo.providerType === 'scanner')) {
-            // Forward scan results to kiosk FIRST (highest priority for kiosk flow)
-            // Strip image to keep WebSocket message small (kiosk only needs personId for API call)
-            const kioskResult = payload.result ? { ...payload.result } : undefined;
-            if (kioskResult && 'image' in kioskResult) {
-                delete (kioskResult as any).image;
-            }
-            console.log('[KIOSK-DEBUG] Emitting scan result to kiosk workstation:', workstationId, 'resultKeys:', kioskResult ? Object.keys(kioskResult) : 'none');
-            this.kioskGateway.emitScanResultToWorkstation(workstationId, {
-                correlationId: payload.correlationId,
-                success: payload.success,
-                result: kioskResult,
-                errorMessage: payload.errorMessage,
-            });
-
-            // Then broadcast to user sessions (non-critical for kiosk flow)
-            try {
-                const event = payload.success
-                    ? WsEvent.ScannerActionCompleted
-                    : WsEvent.ScannerActionFailed;
-                const data = payload.success
-                    ? { correlationId: payload.correlationId, result: payload.result || {} }
-                    : { correlationId: payload.correlationId, reason: payload.errorMessage || 'Scan failed' };
-
-                const sessions = await this.workstationSession.findActiveSessionsByWorkstation(workstationId);
-                for (const session of sessions) {
-                    this.emitToUser(session.userSocketId, session.userId, event, data);
+        if (providerType === IntegrationProvider.Printer) {
+            // A missing pending entry means the command was already evicted (timeout) —
+            // treat it like a kiosk print so the kiosk still gets a terminal event.
+            if (!pending || pending.origin === 'kiosk') {
+                const targetWorkstationId = pending?.workstationId ?? workstationId;
+                if (targetWorkstationId) {
+                    this.kioskGateway.emitPrintStatusToWorkstation(targetWorkstationId, {
+                        correlationId: payload.correlationId,
+                        state: payload.success ? 'completed' : 'failed',
+                        message: payload.success
+                            ? 'Card printed'
+                            : payload.errorMessage || 'Print failed',
+                        serverTimeUtc: new Date().toISOString(),
+                    });
+                    this.kioskGateway.emitPrintResultToWorkstation(targetWorkstationId, {
+                        correlationId: payload.correlationId,
+                        success: payload.success,
+                        errorMessage: payload.errorMessage,
+                    });
                 }
-            } catch (err) {
-                console.error('[KIOSK-DEBUG] Error broadcasting to user sessions:', err);
+                return;
             }
-        } else if (userInfo) {
-            // Route printer results to print-specific events
+
+            // User-originated (Admin-SPA staff print) — notify the requesting user
             if (payload.success) {
-                this.emitToUser(userInfo.userSocketId, userInfo.userId, WsEvent.VisitsVisitorPrintCompleted, {
+                this.emitToUser(pending.userSocketId, pending.userId, WsEvent.VisitsVisitorPrintCompleted, {
                     correlationId: payload.correlationId,
                     visitId: '',
                     visitorId: '',
                 });
             } else {
-                this.emitToUser(userInfo.userSocketId, userInfo.userId, WsEvent.VisitsVisitorPrintFailed, {
+                this.emitToUser(pending.userSocketId, pending.userId, WsEvent.VisitsVisitorPrintFailed, {
                     correlationId: payload.correlationId,
                     reason: payload.errorMessage || 'Print failed',
                     visitId: '',
                     visitorId: '',
                 });
             }
+            return;
+        }
+
+        // Scanner results: broadcast to all kiosks + users bound to this workstation
+        // (covers both auto-scan from tray and user-initiated scans)
+        if (!workstationId) return;
+
+        // Forward scan results to kiosk FIRST (highest priority for kiosk flow)
+        this.kioskGateway.emitScanResultToWorkstation(workstationId, {
+            correlationId: payload.correlationId,
+            success: payload.success,
+            result: payload.result,
+            errorMessage: payload.errorMessage,
+        });
+
+        // Then broadcast to user sessions (non-critical for kiosk flow)
+        try {
+            const event = payload.success
+                ? WsEvent.ScannerActionCompleted
+                : WsEvent.ScannerActionFailed;
+            const data = payload.success
+                ? { correlationId: payload.correlationId, result: payload.result || {} }
+                : { correlationId: payload.correlationId, reason: payload.errorMessage || 'Scan failed' };
+
+            const sessions = await this.workstationSession.findActiveSessionsByWorkstation(workstationId);
+            for (const session of sessions) {
+                this.emitToUser(session.userSocketId, session.userId, event, data);
+            }
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
+            this.logger.error(`Error broadcasting scan result to user sessions: ${message}`);
         }
     }
 
@@ -392,6 +441,55 @@ export class AgentsGateway
      */
     emitToAgent(socketId: string, event: string, data: unknown): void {
         this.server.to(socketId).emit(event, data);
+    }
+
+    /**
+     * Provider type stamped on the socket during agent:register.
+     */
+    private getProviderType(client: Socket): IntegrationProvider | undefined {
+        return (client as any).providerType as IntegrationProvider | undefined;
+    }
+
+    /**
+     * Notify the originator (kiosk or user) that an in-flight command will never complete.
+     */
+    private notifyCommandFailure(info: PendingCommandInfo, reason: string): void {
+        if (info.origin === 'kiosk') {
+            if (info.providerType === IntegrationProvider.Printer) {
+                this.kioskGateway.emitPrintStatusToWorkstation(info.workstationId, {
+                    correlationId: info.correlationId,
+                    state: 'failed',
+                    message: reason,
+                    serverTimeUtc: new Date().toISOString(),
+                });
+                this.kioskGateway.emitPrintResultToWorkstation(info.workstationId, {
+                    correlationId: info.correlationId,
+                    success: false,
+                    errorMessage: reason,
+                });
+            } else {
+                this.kioskGateway.emitScanResultToWorkstation(info.workstationId, {
+                    correlationId: info.correlationId,
+                    success: false,
+                    errorMessage: reason,
+                });
+            }
+            return;
+        }
+
+        if (info.providerType === IntegrationProvider.Printer) {
+            this.emitToUser(info.userSocketId, info.userId, WsEvent.VisitsVisitorPrintFailed, {
+                correlationId: info.correlationId,
+                reason,
+                visitId: '',
+                visitorId: '',
+            });
+        } else {
+            this.emitToUser(info.userSocketId, info.userId, WsEvent.ScannerActionFailed, {
+                correlationId: info.correlationId,
+                reason,
+            });
+        }
     }
 
     /**

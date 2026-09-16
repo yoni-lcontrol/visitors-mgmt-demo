@@ -59,9 +59,4 @@ export class VisitVisitorItemDto {
     @IsOptional()
     @IsString()
     notes?: string;
-
-    @ApiPropertyOptional({ example: false, description: 'Request a parking space (only when hasVehicle is true)' })
-    @IsOptional()
-    @IsBoolean()
-    requestParking?: boolean;
 }

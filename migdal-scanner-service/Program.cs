@@ -11,7 +11,7 @@ namespace ScannerService
     {
         public const string ServiceName = "!ScannerService";
         private static CancellationTokenSource _cts;
-        private static KioskSocketServer _kioskServer;
+        private static AgentSocketClient _agentClient;
         private static ScannerLifecycleManager _lifecycle;
         private static AgentConfig _config;
 
@@ -63,29 +63,29 @@ namespace ScannerService
                 Log.Warning("Scanner not available at startup. The lifecycle manager will retry automatically.");
             }
 
-            // Wire up scan-started event: notify the kiosk when scanning begins
+            // Wire up scan-started event: notify backend when scanning begins
             Action onScanStarted = async () =>
             {
-                if (_kioskServer?.IsKioskConnected == true)
+                if (_agentClient?.IsRegistered == true)
                 {
-                    await _kioskServer.BroadcastScanStarted();
+                    await _agentClient.SendScanStarted();
                 }
             };
 
             // Wire up auto-scan events: when a document is auto-detected in tray,
-            // send the result to the kiosk via the local socket server.
+            // send the result to the backend via the socket client.
             Action<ScanResult> onScanCompleted = async (scanResult) =>
             {
-                if (_kioskServer?.IsKioskConnected == true)
+                if (_agentClient?.IsRegistered == true)
                 {
-                    await _kioskServer.BroadcastScanResultFromDevice(
+                    await _agentClient.SendScanResult(
                         string.Format("auto-{0:N}", Guid.NewGuid()),
                         scanResult
                     );
                 }
                 else
                 {
-                    Log.Warning("Scan completed but no kiosk connected - result discarded");
+                    Log.Warning("Scan completed but agent not connected - result discarded");
                 }
             };
 
@@ -109,16 +109,19 @@ namespace ScannerService
                 }
             };
 
-            // Start the local WebSocket server the paired kiosk connects to
-            _kioskServer = new KioskSocketServer(_config, _lifecycle);
-            try
+            // Connect to backend via WebSocket (/ws/agents) with reconnect loop
+            _agentClient = new AgentSocketClient(_config, _lifecycle);
+            Task.Run(async () =>
             {
-                _kioskServer.Start();
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Failed to start kiosk socket server");
-            }
+                try
+                {
+                    await _agentClient.RunAsync(_cts.Token);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Agent socket run loop failed");
+                }
+            });
 
             // Start scanner lifecycle run loop (polling + disconnect detection + reconnect)
             Task.Run(() =>
@@ -141,11 +144,11 @@ namespace ScannerService
                 Log.Information("Stopping scanner service...");
                 _cts?.Cancel();
 
-                if (_kioskServer != null)
+                if (_agentClient != null)
                 {
-                    _kioskServer.StopAsync().GetAwaiter().GetResult();
-                    _kioskServer.Dispose();
-                    _kioskServer = null;
+                    _agentClient.DisconnectAsync().GetAwaiter().GetResult();
+                    _agentClient.Dispose();
+                    _agentClient = null;
                 }
 
                 if (_lifecycle != null)

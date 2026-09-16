@@ -13,17 +13,23 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
   template: `
     <div class="login-container">
       <div class="login-card">
-        <div class="login-header">
+        @if (checkingSso) {
+          <div class="sso-checking">
+            <div class="spinner"></div>
+            <p>{{ 'AUTH.CHECKING_WINDOWS_SIGN_IN' | translate }}</p>
+          </div>
+        }
+        <div class="login-header" [class.hidden]="checkingSso">
           <img src="images/logo.png" alt="Migdal" class="login-logo" />
           <h1>{{ 'APP.NAME' | translate }}</h1>
           <p>{{ 'AUTH.LOGIN_SUBTITLE' | translate }}</p>
         </div>
-        <div class="lang-toggle">
+        <div class="lang-toggle" [class.hidden]="checkingSso">
           <button type="button" class="btn-lang" (click)="translation.toggleLanguage()">
             {{ translation.currentLang === 'en' ? 'עברית' : 'English' }}
           </button>
         </div>
-        <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+        <form [class.hidden]="checkingSso" [formGroup]="loginForm" (ngSubmit)="onSubmit()">
           <div class="field">
             <label for="username">{{ 'AUTH.USERNAME' | translate }} <span class="required">*</span></label>
             <input
@@ -59,21 +65,10 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
             {{ isLoading ? ('APP.LOADING' | translate) : ('AUTH.LOGIN' | translate) }}
           </button>
         </form>
-        @if (entraEnabled || kerberosEnabled) {
+        @if (kerberosEnabled) {
           <div class="divider">
             <span>{{ 'AUTH.OR' | translate }}</span>
           </div>
-        }
-        @if (entraEnabled) {
-          <button type="button" class="btn-microsoft" (click)="onMicrosoftLogin()" [disabled]="isLoading">
-            <svg class="ms-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21" width="21" height="21">
-              <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-              <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-              <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-              <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-            </svg>
-            {{ 'AUTH.LOGIN_WITH_MICROSOFT' | translate }}
-          </button>
         }
         @if (kerberosEnabled) {
           <button type="button" class="btn-windows" (click)="onWindowsLogin()" [disabled]="isLoading">
@@ -239,29 +234,6 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
         color: var(--color-text-muted, #9896ad);
         font-weight: 500;
       }
-      .btn-microsoft {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.6rem;
-        padding: 0.7rem;
-        border: 1.5px solid var(--color-border, #e4e2f0);
-        background: var(--color-surface, #fff);
-        border-radius: 8px;
-        font-size: 0.95rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s;
-        font-family: inherit;
-        color: var(--color-text-primary, #333);
-      }
-      .btn-microsoft:hover:not(:disabled) {
-        background: var(--color-primary-wash, #f4f3fc);
-        border-color: var(--color-accent, #6c63ff);
-      }
-      .btn-microsoft:disabled { opacity: 0.55; cursor: not-allowed; }
-      .ms-icon { flex-shrink: 0; }
       .btn-windows {
         width: 100%;
         display: flex;
@@ -286,6 +258,30 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
       }
       .btn-windows:disabled { opacity: 0.55; cursor: not-allowed; }
       .win-icon { flex-shrink: 0; }
+      .hidden { display: none; }
+      .sso-checking {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+        padding: 2rem 0;
+      }
+      .sso-checking p {
+        color: var(--color-text-muted, #9896ad);
+        font-size: 0.9rem;
+        margin: 0;
+      }
+      .spinner {
+        width: 32px;
+        height: 32px;
+        border: 3px solid var(--color-border, #e4e2f0);
+        border-top-color: var(--color-accent, #6c63ff);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
     `],
 })
 export class LoginComponent {
@@ -293,8 +289,8 @@ export class LoginComponent {
   loginForm: FormGroup;
   isLoading = false;
   errorMessage = '';
-  entraEnabled = false;
   kerberosEnabled = false;
+  checkingSso = true;
 
   constructor(
     private fb: FormBuilder,
@@ -308,23 +304,32 @@ export class LoginComponent {
       password: ['', [Validators.required, Validators.minLength(6)]],
     });
 
-    // Check if Entra ID login is available
-    this.authService.getEntraConfig().subscribe({
-      next: (config) => {
-        this.entraEnabled = config.enabled;
-      },
-      error: () => {
-        this.entraEnabled = false;
-      },
-    });
-
-    // Check if Kerberos/Windows SSO login is available
+    // Check if Kerberos/Windows SSO login is available, and if so, try it silently first
     this.authService.getKerberosConfig().subscribe({
       next: (config) => {
         this.kerberosEnabled = config.enabled;
+        if (config.enabled && !this.authService.isAutoKerberosDisabled()) {
+          this.attemptSilentKerberosLogin();
+        } else {
+          this.checkingSso = false;
+        }
       },
       error: () => {
         this.kerberosEnabled = false;
+        this.checkingSso = false;
+      },
+    });
+  }
+
+  private attemptSilentKerberosLogin(): void {
+    this.authService.loginWithKerberos().subscribe({
+      next: () => {
+        this.postLoginNavigate();
+      },
+      error: () => {
+        // Silent attempt failed (not domain-joined, no matching account, etc.) —
+        // fall back to the normal login form without surfacing an error.
+        this.checkingSso = false;
       },
     });
   }
@@ -346,26 +351,8 @@ export class LoginComponent {
     });
   }
 
-  onMicrosoftLogin(): void {
-    this.isLoading = true;
-    this.errorMessage = '';
-
-    this.authService.loginWithEntra().subscribe({
-      next: () => {
-        this.postLoginNavigate();
-      },
-      error: (err) => {
-        this.isLoading = false;
-        if (err.errorCode === 'user_cancelled') {
-          this.errorMessage = '';
-        } else {
-          this.errorMessage = this.resolveLoginError(err);
-        }
-      },
-    });
-  }
-
   onWindowsLogin(): void {
+    this.authService.enableAutoKerberos();
     this.isLoading = true;
     this.errorMessage = '';
 

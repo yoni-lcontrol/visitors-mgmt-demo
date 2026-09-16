@@ -214,32 +214,4 @@ describe('VisitDetailComponent', () => {
             expect(mockPrintService.requestPrint).not.toHaveBeenCalled();
         });
     });
-
-    describe('parking request — edit visitor', () => {
-        it('openEditVisitorDialog should pre-populate requestParking when parkingRequest exists', () => {
-            const vv = {
-                id: 'vv-1',
-                visitor: { firstName: 'A', lastName: 'B', email: '', phone: '', personId: '123', carNumber: 'ABC', vehicleType: 'car' },
-                parkingRequest: { status: 'Pending' },
-            } as any;
-            component.openEditVisitorDialog(vv);
-            expect(component.editingVisitor!.requestParking).toBeTrue();
-        });
-
-        it('openEditVisitorDialog should set requestParking false when no parkingRequest', () => {
-            const vv = {
-                id: 'vv-2',
-                visitor: { firstName: 'A', lastName: 'B', email: '', phone: '', personId: '456', carNumber: null, vehicleType: null },
-                parkingRequest: null,
-            } as any;
-            component.openEditVisitorDialog(vv);
-            expect(component.editingVisitor!.requestParking).toBeFalse();
-        });
-
-        it('onEditVehicleCheckboxChange should reset requestParking when vehicle unchecked', () => {
-            component.editingVisitor = { hasVehicle: false, carNumber: 'X', vehicleType: 'car', requestParking: true } as any;
-            component.onEditVehicleCheckboxChange();
-            expect(component.editingVisitor!.requestParking).toBeFalse();
-        });
-    });
 });

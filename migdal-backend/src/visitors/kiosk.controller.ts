@@ -4,6 +4,8 @@ import {
     Body,
     UseInterceptors,
     UploadedFile,
+    HttpCode,
+    HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiConsumes } from '@nestjs/swagger';
@@ -48,7 +50,11 @@ export class KioskController {
     }
 
     @Post('print-card')
-    @ApiOperation({ summary: 'Build a print payload for the kiosk to send to its paired printer directly' })
+    @HttpCode(HttpStatus.ACCEPTED)
+    @ApiOperation({
+        summary:
+            'Dispatch a card print to the printer agent bound to the kiosk workstation (progress/result arrive over /ws/kiosk)',
+    })
     printCard(@Body() dto: KioskPrintCardDto) {
         return this.printingService.requestKioskPrintCard(
             dto.workstationCode,

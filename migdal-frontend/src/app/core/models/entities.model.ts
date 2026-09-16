@@ -315,7 +315,6 @@ export interface InlineVisitor {
     hasVehicle: boolean;
     carNumber: string;
     vehicleType: string;
-    requestParking: boolean;
 }
 
 export interface InlineEscort {

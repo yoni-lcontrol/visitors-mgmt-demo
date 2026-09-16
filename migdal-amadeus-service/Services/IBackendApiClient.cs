@@ -5,6 +5,12 @@ namespace Amadeus8.Services;
 public interface IBackendApiClient
 {
     Task<SyncResultDto> TriggerFullSyncAsync(CancellationToken cancellationToken);
+    Task<SyncResultDto> SyncControllersAsync(CancellationToken cancellationToken);
+    Task<SyncResultDto> SyncDoorsAsync(CancellationToken cancellationToken);
+    Task<SyncResultDto> SyncExtensionsAsync(CancellationToken cancellationToken);
+    Task<SyncResultDto> SyncAccessGroupsAsync(CancellationToken cancellationToken);
+    Task<SyncResultDto> SyncSecurityGroupsAsync(CancellationToken cancellationToken);
+    Task<SyncResultDto> SyncCardholdersAsync(CancellationToken cancellationToken);
 
     Task<List<BackendControllerDto>> GetControllersAsync(CancellationToken cancellationToken);
     Task<List<BackendDoorDto>> GetDoorsAsync(CancellationToken cancellationToken);

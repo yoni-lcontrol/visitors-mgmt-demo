@@ -182,6 +182,36 @@ public sealed class EventProcessingServiceTests : IDisposable
             return Task.FromResult(new SyncResultDto());
         }
 
+        public Task<SyncResultDto> SyncControllersAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new SyncResultDto());
+        }
+
+        public Task<SyncResultDto> SyncDoorsAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new SyncResultDto());
+        }
+
+        public Task<SyncResultDto> SyncExtensionsAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new SyncResultDto());
+        }
+
+        public Task<SyncResultDto> SyncAccessGroupsAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new SyncResultDto());
+        }
+
+        public Task<SyncResultDto> SyncSecurityGroupsAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new SyncResultDto());
+        }
+
+        public Task<SyncResultDto> SyncCardholdersAsync(CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new SyncResultDto());
+        }
+
         public Task<List<BackendControllerDto>> GetControllersAsync(CancellationToken cancellationToken)
         {
             return Task.FromResult(new List<BackendControllerDto>());

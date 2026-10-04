@@ -39,10 +39,13 @@ export enum PermissionKey {
     VisitsApproveEntry = 'visits.approve-entry',
     VisitsEscortRequired = 'visits.escort.required',
     VisitsEscortRequiredSelfRequester = 'visits.escort.required.self-requester',
+    VisitsEscortRequiredAsRequester = 'visits.escort.required.as-requester',
     VisitsScopeOwn = 'visits.scope.own',
     VisitsScopeAll = 'visits.scope.all',
     VisitsScopeTrainingCenter = 'visits.scope.training-center',
+    VisitsScopeDomain = 'visits.scope.domain',
     VisitsDeleteOwnOnly = 'visits.delete.own-only',
+    VisitsImport = 'visits.import',
 
     // Visitors
     VisitorsCreate = 'visitors.create',

@@ -68,8 +68,10 @@ public class AmadeusAuthService : IAmadeusAuthService
         var tokenUrl = AmadeusApiDefinitions.TokenUrl(_options);
 
         HttpResponseMessage response;
+        var attempt = 0;
         while (true)
         {
+            attempt++;
             try
             {
                 response = await client.PostAsJsonAsync(tokenUrl, requestBody, cancellationToken);
@@ -80,21 +82,45 @@ public class AmadeusAuthService : IAmadeusAuthService
                 _logger.LogInformation("Amadeus token request canceled by application request");
                 throw;
             }
-            catch (HttpRequestException ex)
+            catch (HttpRequestException ex) when (attempt < _options.TokenAcquisitionMaxAttempts)
             {
                 _logger.LogWarning(
-                    "Amadeus server unreachable at {TokenUrl}. Retrying in {Delay} seconds... Error: {Error}",
+                    "Amadeus server unreachable at {TokenUrl} (attempt {Attempt}/{MaxAttempts}). Retrying in {Delay} seconds... Error: {Error}",
                     tokenUrl,
+                    attempt,
+                    _options.TokenAcquisitionMaxAttempts,
                     _options.ListenerReconnectDelaySeconds,
                     ex.Message);
                 await Task.Delay(TimeSpan.FromSeconds(_options.ListenerReconnectDelaySeconds), cancellationToken);
             }
-            catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            catch (HttpRequestException ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Amadeus server unreachable at {TokenUrl} after {Attempt} attempts. Giving up.",
+                    tokenUrl,
+                    attempt);
+                throw new InvalidOperationException(
+                    $"Amadeus server unreachable at {tokenUrl} after {attempt} attempts: {ex.Message}", ex);
+            }
+            catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested && attempt < _options.TokenAcquisitionMaxAttempts)
             {
                 _logger.LogWarning(
-                    "Amadeus token request timed out. Retrying in {Delay} seconds...",
+                    "Amadeus token request timed out (attempt {Attempt}/{MaxAttempts}). Retrying in {Delay} seconds...",
+                    attempt,
+                    _options.TokenAcquisitionMaxAttempts,
                     _options.ListenerReconnectDelaySeconds);
                 await Task.Delay(TimeSpan.FromSeconds(_options.ListenerReconnectDelaySeconds), cancellationToken);
+            }
+            catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                _logger.LogError(
+                    ex,
+                    "Amadeus token request timed out at {TokenUrl} after {Attempt} attempts. Giving up.",
+                    tokenUrl,
+                    attempt);
+                throw new InvalidOperationException(
+                    $"Amadeus token request timed out at {tokenUrl} after {attempt} attempts.", ex);
             }
         }
 

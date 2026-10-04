@@ -37,7 +37,6 @@ export class VehicleModelsController {
     }
 
     @Get('manufacturers')
-    @RequirePermissions(PermissionKey.VehicleModelsView)
     @ApiOperation({ summary: 'Get all seeded vehicle manufacturers' })
     getManufacturers() {
         return this.vehicleModelsService.getManufacturers();

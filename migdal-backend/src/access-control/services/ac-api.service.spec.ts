@@ -64,7 +64,7 @@ describe('AccessControlApiService', () => {
 
             expect(mockHttpService.post).toHaveBeenCalledTimes(1);
             const [url, , config] = mockHttpService.post.mock.calls[0];
-            expect(url).toBe('http://ac-server:8080/api/cardholders');
+            expect(url).toBe('http://ac-server:8080/cardholders');
             expect(config.headers['x-client-id']).toBe('migdal-backend');
             expect(config.headers['x-timestamp']).toBeDefined();
             expect(config.headers['x-signature']).toMatch(/^[a-f0-9]{64}$/);
@@ -93,7 +93,7 @@ describe('AccessControlApiService', () => {
     });
 
     describe('triggerFullImport', () => {
-        it('should POST to /api/import, poll status, and return payload', async () => {
+        it('should POST to /import, poll status, and return payload', async () => {
             jest.useFakeTimers();
             const mockPayload = { controllers: [{ name: 'C1' }] };
 
@@ -110,11 +110,11 @@ describe('AccessControlApiService', () => {
             jest.useRealTimers();
 
             const [url, body] = mockHttpService.post.mock.calls[0];
-            expect(url).toBe('http://ac-server:8080/api/import');
+            expect(url).toBe('http://ac-server:8080/import');
             expect(body).toEqual({ action: 'import' });
 
             const [getUrl] = mockHttpService.get.mock.calls[0];
-            expect(getUrl).toBe('http://ac-server:8080/api/import/status/job-1');
+            expect(getUrl).toBe('http://ac-server:8080/import/status/job-1');
 
             expect(result).toEqual(mockPayload);
         });
@@ -129,7 +129,7 @@ describe('AccessControlApiService', () => {
     });
 
     describe('triggerAccessLevelImport', () => {
-        it('should POST to /api/import/access-levels, poll status, and return accessLevelPayload', async () => {
+        it('should POST to /import/access-levels, poll status, and return accessLevelPayload', async () => {
             jest.useFakeTimers();
             const mockPayload = { accessLevels: [{ name: 'VIP' }] };
 
@@ -146,11 +146,11 @@ describe('AccessControlApiService', () => {
             jest.useRealTimers();
 
             const [postUrl, postBody] = mockHttpService.post.mock.calls[0];
-            expect(postUrl).toBe('http://ac-server:8080/api/import/access-levels');
+            expect(postUrl).toBe('http://ac-server:8080/import/access-levels');
             expect(postBody).toEqual({ action: 'import-access-levels' });
 
             const [getUrl] = mockHttpService.get.mock.calls[0];
-            expect(getUrl).toBe('http://ac-server:8080/api/import/status/job-al-1');
+            expect(getUrl).toBe('http://ac-server:8080/import/status/job-al-1');
 
             expect(result).toEqual(mockPayload);
         });
@@ -200,7 +200,7 @@ describe('AccessControlApiService', () => {
     });
 
     describe('downloadCardholders', () => {
-        it('should GET /api/cardholders with query params', async () => {
+        it('should GET /cardholders with query params', async () => {
             const mockData = { cardholders: [{ personId: '1' }], totalCount: 1 };
             mockHttpService.get.mockReturnValue(of(mockAxiosResponse(mockData)));
 
@@ -213,19 +213,19 @@ describe('AccessControlApiService', () => {
     });
 
     describe('getCardholder', () => {
-        it('should GET /api/cardholders/:id', async () => {
+        it('should GET /cardholders/:id', async () => {
             const mockCardholder = { firstName: 'John', lastName: 'Doe', personId: '123' };
             mockHttpService.get.mockReturnValue(of(mockAxiosResponse(mockCardholder)));
 
             const result = await service.getCardholder('ch-1');
 
             expect(result).toEqual(mockCardholder);
-            expect(mockHttpService.get.mock.calls[0][0]).toBe('http://ac-server:8080/api/cardholders/ch-1');
+            expect(mockHttpService.get.mock.calls[0][0]).toBe('http://ac-server:8080/cardholders/ch-1');
         });
     });
 
     describe('createCardholder', () => {
-        it('should POST /api/cardholders', async () => {
+        it('should POST /cardholders', async () => {
             const mockResponse = { success: true, cardholderId: 'new-1' };
             mockHttpService.post.mockReturnValue(of(mockAxiosResponse(mockResponse)));
 
@@ -237,38 +237,38 @@ describe('AccessControlApiService', () => {
 
             expect(result).toEqual(mockResponse);
             const [url, body] = mockHttpService.post.mock.calls[0];
-            expect(url).toBe('http://ac-server:8080/api/cardholders');
+            expect(url).toBe('http://ac-server:8080/cardholders');
             expect(body).toEqual({ firstName: 'Jane', lastName: 'Doe', personId: '456' });
         });
     });
 
     describe('updateCardholder', () => {
-        it('should PUT /api/cardholders/:id', async () => {
+        it('should PUT /cardholders/:id', async () => {
             const mockResponse = { success: true };
             mockHttpService.put.mockReturnValue(of(mockAxiosResponse(mockResponse)));
 
             const result = await service.updateCardholder('ch-1', { firstName: 'Updated' });
 
             expect(result).toEqual(mockResponse);
-            expect(mockHttpService.put.mock.calls[0][0]).toBe('http://ac-server:8080/api/cardholders/ch-1');
+            expect(mockHttpService.put.mock.calls[0][0]).toBe('http://ac-server:8080/cardholders/ch-1');
             expect(mockHttpService.put.mock.calls[0][1]).toEqual({ firstName: 'Updated' });
         });
     });
 
     describe('deleteCardholder', () => {
-        it('should DELETE /api/cardholders/:id', async () => {
+        it('should DELETE /cardholders/:id', async () => {
             const mockResponse = { success: true };
             mockHttpService.delete.mockReturnValue(of(mockAxiosResponse(mockResponse)));
 
             const result = await service.deleteCardholder('ch-1');
 
             expect(result).toEqual(mockResponse);
-            expect(mockHttpService.delete.mock.calls[0][0]).toBe('http://ac-server:8080/api/cardholders/ch-1');
+            expect(mockHttpService.delete.mock.calls[0][0]).toBe('http://ac-server:8080/cardholders/ch-1');
         });
     });
 
     describe('createCardholderBatch', () => {
-        it('should POST /api/cardholders/batch', async () => {
+        it('should POST /cardholders/batch', async () => {
             const mockResponse = { succeeded: 2, failed: 0, errors: [] };
             mockHttpService.post.mockReturnValue(of(mockAxiosResponse(mockResponse)));
 
@@ -279,13 +279,13 @@ describe('AccessControlApiService', () => {
 
             expect(result).toEqual(mockResponse);
             const [url, body] = mockHttpService.post.mock.calls[0];
-            expect(url).toBe('http://ac-server:8080/api/cardholders/batch');
+            expect(url).toBe('http://ac-server:8080/cardholders/batch');
             expect(body.cardholders).toHaveLength(2);
         });
     });
 
     describe('deleteCardholderBatch', () => {
-        it('should POST /api/cardholders/batch-delete', async () => {
+        it('should POST /cardholders/batch-delete', async () => {
             const mockResponse = { succeeded: 2, failed: 0, errors: [] };
             mockHttpService.post.mockReturnValue(of(mockAxiosResponse(mockResponse)));
 
@@ -293,7 +293,7 @@ describe('AccessControlApiService', () => {
 
             expect(result).toEqual(mockResponse);
             const [url, body] = mockHttpService.post.mock.calls[0];
-            expect(url).toBe('http://ac-server:8080/api/cardholders/batch-delete');
+            expect(url).toBe('http://ac-server:8080/cardholders/batch-delete');
             expect(body.ids).toEqual(['ch-1', 'ch-2']);
         });
     });

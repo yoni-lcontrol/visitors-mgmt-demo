@@ -6,6 +6,7 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 import cookieParser from 'cookie-parser';
 import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
+import { requestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 
 class LargePayloadIoAdapter extends IoAdapter {
     createIOServer(port: number, options?: any) {
@@ -24,6 +25,10 @@ async function bootstrap() {
 
     // Structured logging
     app.useLogger(app.get(Logger));
+
+    // Log every inbound HTTP request (success, failure, or unmatched route) —
+    // runs before routing, so it also catches requests to paths that don't exist.
+    app.use(requestLoggerMiddleware);
 
     // WebSocket adapter with increased buffer size for scan images
     app.useWebSocketAdapter(new LargePayloadIoAdapter(app));

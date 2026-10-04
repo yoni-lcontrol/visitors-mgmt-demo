@@ -21,6 +21,24 @@ describe('visit-role-policy', () => {
         it('does not require escort without matching permissions', () => {
             expect(isEscortRequiredForVisit([PermissionKey.VisitsCreate], true)).toBe(false);
         });
+
+        it('requires escort on behalf of a requester whose own permissions demand it', () => {
+            expect(
+                isEscortRequiredForVisit([PermissionKey.VisitsCreate], false, [PermissionKey.VisitsEscortRequiredAsRequester]),
+            ).toBe(true);
+        });
+
+        it('does not require escort from as-requester permission for a self requester', () => {
+            expect(
+                isEscortRequiredForVisit([PermissionKey.VisitsCreate], true, [PermissionKey.VisitsEscortRequiredAsRequester]),
+            ).toBe(false);
+        });
+
+        it('does not require escort when requester lacks the as-requester permission', () => {
+            expect(
+                isEscortRequiredForVisit([PermissionKey.VisitsCreate], false, [PermissionKey.VisitsRead]),
+            ).toBe(false);
+        });
     });
 
     describe('isOnBehalfOnlyRole', () => {
@@ -38,6 +56,7 @@ describe('visit-role-policy', () => {
             expect(resolveCreatorScopeRequirements([PermissionKey.VisitsScopeOwn])).toEqual({
                 includeCurrentUser: true,
                 includeTrainingCenterUsers: false,
+                includeOwnDomain: false,
             });
         });
 
@@ -45,6 +64,7 @@ describe('visit-role-policy', () => {
             expect(resolveCreatorScopeRequirements([PermissionKey.VisitsScopeTrainingCenter])).toEqual({
                 includeCurrentUser: false,
                 includeTrainingCenterUsers: true,
+                includeOwnDomain: false,
             });
         });
 
@@ -52,6 +72,15 @@ describe('visit-role-policy', () => {
             expect(resolveCreatorScopeRequirements([PermissionKey.VisitsScopeOwn, PermissionKey.VisitsScopeTrainingCenter])).toEqual({
                 includeCurrentUser: true,
                 includeTrainingCenterUsers: true,
+                includeOwnDomain: false,
+            });
+        });
+
+        it('returns domain scope when domain-scope permission exists', () => {
+            expect(resolveCreatorScopeRequirements([PermissionKey.VisitsScopeDomain])).toEqual({
+                includeCurrentUser: false,
+                includeTrainingCenterUsers: false,
+                includeOwnDomain: true,
             });
         });
 

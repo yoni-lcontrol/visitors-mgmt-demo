@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, Brackets } from 'typeorm';
 import { VisitsService } from './visits.service';
 import { Visit } from './entities/visit.entity';
 import { VisitVisitor } from './entities/visit-visitor.entity';
@@ -27,6 +27,16 @@ import {
     createMockDataSource,
     createMockAuditService,
 } from '../test-utils/mock.factory';
+
+function extractBracketsConditions(brackets: Brackets): { where: [string, any][]; orWhere: [string, any][] } {
+    const calls: { where: [string, any][]; orWhere: [string, any][] } = { where: [], orWhere: [] };
+    const fakeWhereBuilder: any = {
+        where: (cond: string, params?: any) => { calls.where.push([cond, params]); return fakeWhereBuilder; },
+        orWhere: (cond: string, params?: any) => { calls.orWhere.push([cond, params]); return fakeWhereBuilder; },
+    };
+    (brackets as any).whereFactory(fakeWhereBuilder);
+    return calls;
+}
 
 describe('VisitsService', () => {
     let service: VisitsService;
@@ -200,10 +210,13 @@ describe('VisitsService', () => {
 
             await service.findAllVisits({ page: 1, limit: 10 }, 'user-1', [PermissionKey.VisitsScopeOwn]);
 
-            expect(visitQb.andWhere).toHaveBeenCalledWith(
-                'v.createdByUserId IN (:...creatorUserIds)',
-                { creatorUserIds: ['user-1'] },
-            );
+            const scopeCall = visitQb.andWhere.mock.calls.find(([arg]: [unknown]) => arg instanceof Brackets);
+            expect(scopeCall).toBeDefined();
+            const conditions = extractBracketsConditions(scopeCall[0]);
+            expect(conditions.where).toContainEqual([
+                'v.createdByUserId IN (:...scopeCreatorUserIds)',
+                { scopeCreatorUserIds: ['user-1'] },
+            ]);
         });
 
         it('should scope visits list to creators with training-center scope permission', async () => {
@@ -214,10 +227,29 @@ describe('VisitsService', () => {
 
             await service.findAllVisits({ page: 1, limit: 10 }, 'user-1', [PermissionKey.VisitsScopeTrainingCenter]);
 
-            expect(visitQb.andWhere).toHaveBeenCalledWith(
-                'v.createdByUserId IN (:...creatorUserIds)',
-                { creatorUserIds: ['user-2', 'user-3'] },
-            );
+            const scopeCall = visitQb.andWhere.mock.calls.find(([arg]: [unknown]) => arg instanceof Brackets);
+            expect(scopeCall).toBeDefined();
+            const conditions = extractBracketsConditions(scopeCall[0]);
+            expect(conditions.where).toContainEqual([
+                'v.createdByUserId IN (:...scopeCreatorUserIds)',
+                { scopeCreatorUserIds: ['user-2', 'user-3'] },
+            ]);
+        });
+
+        it('should scope visits list to the current user\'s domain for domain-scope permission', async () => {
+            const visitQb = createMockQueryBuilder([], 0);
+            mockVisitRepo.createQueryBuilder.mockReturnValue(visitQb);
+            mockUserRepo.findOne.mockResolvedValue({ id: 'user-1', sectorId: 'sector-9' });
+
+            await service.findAllVisits({ page: 1, limit: 10 }, 'user-1', [PermissionKey.VisitsScopeDomain]);
+
+            const scopeCall = visitQb.andWhere.mock.calls.find(([arg]: [unknown]) => arg instanceof Brackets);
+            expect(scopeCall).toBeDefined();
+            const conditions = extractBracketsConditions(scopeCall[0]);
+            expect(conditions.where).toContainEqual([
+                'v.sectorId = :scopeDomainSectorId',
+                { scopeDomainSectorId: 'sector-9' },
+            ]);
         });
     });
 
@@ -586,6 +618,23 @@ describe('VisitsService', () => {
                     email: 'j@d.com',
                 }),
             );
+        });
+
+        it('requires an escort on create when the visit requester\'s role demands it', async () => {
+            mockUserRepo.findOne.mockImplementation(({ where }: any) => {
+                if (where?.id === 'req-user-1') {
+                    return Promise.resolve({
+                        ...requesterUserMock,
+                        role: { permissions: [{ key: PermissionKey.VisitsEscortRequiredAsRequester }] },
+                    });
+                }
+                return Promise.resolve(currentUserMock);
+            });
+
+            const dtoWithoutEscort = { ...validDto, escorts: [] };
+
+            await expect(service.createVisit(dtoWithoutEscort as any, 'user-1'))
+                .rejects.toThrow(BadRequestException);
         });
 
         it('should not override explicitly provided escorts on create', async () => {

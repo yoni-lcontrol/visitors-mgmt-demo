@@ -474,14 +474,20 @@ export class RoleListComponent implements OnInit {
         return 'PERMISSIONS.NAMES.visits.escort.required.label';
       case 'visits.escort.required.self-requester':
         return 'PERMISSIONS.NAMES.visits.escort.required.self-requester';
+      case 'visits.escort.required.as-requester':
+        return 'PERMISSIONS.NAMES.visits.escort.required.as-requester';
       case 'visits.scope.own':
         return 'PERMISSIONS.NAMES.visits.scope.own';
       case 'visits.scope.all':
         return 'PERMISSIONS.NAMES.visits.scope.all';
       case 'visits.scope.training-center':
         return 'PERMISSIONS.NAMES.visits.scope.training-center';
+      case 'visits.scope.domain':
+        return 'PERMISSIONS.NAMES.visits.scope.domain';
       case 'visits.delete.own-only':
         return 'PERMISSIONS.NAMES.visits.delete-own-only';
+      case 'visits.import':
+        return 'PERMISSIONS.NAMES.visits.import';
       case 'visitors.scope.own':
         return 'PERMISSIONS.NAMES.visitors.scope.own';
       default:
@@ -497,14 +503,20 @@ export class RoleListComponent implements OnInit {
         return 'PERMISSIONS.DESCRIPTIONS.visits.escort.required.label';
       case 'visits.escort.required.self-requester':
         return 'PERMISSIONS.DESCRIPTIONS.visits.escort.required.self-requester';
+      case 'visits.escort.required.as-requester':
+        return 'PERMISSIONS.DESCRIPTIONS.visits.escort.required.as-requester';
       case 'visits.scope.own':
         return 'PERMISSIONS.DESCRIPTIONS.visits.scope.own';
       case 'visits.scope.all':
         return 'PERMISSIONS.DESCRIPTIONS.visits.scope.all';
       case 'visits.scope.training-center':
         return 'PERMISSIONS.DESCRIPTIONS.visits.scope.training-center';
+      case 'visits.scope.domain':
+        return 'PERMISSIONS.DESCRIPTIONS.visits.scope.domain';
       case 'visits.delete.own-only':
         return 'PERMISSIONS.DESCRIPTIONS.visits.delete-own-only';
+      case 'visits.import':
+        return 'PERMISSIONS.DESCRIPTIONS.visits.import';
       case 'visitors.scope.own':
         return 'PERMISSIONS.DESCRIPTIONS.visitors.scope.own';
       default:

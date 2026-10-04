@@ -67,7 +67,10 @@ export class EscortGuestPairingService {
      */
     async handleAmadeusEvent(payload: Record<string, unknown>): Promise<void> {
         const readerUid = this.asString(payload.readerUid) ?? this.asString(payload.objectExternalId);
-        if (!readerUid) return;
+        if (!readerUid) {
+            this.logger.debug('Amadeus event received with no readerUid/objectExternalId on payload — ignoring');
+            return;
+        }
 
         const door = await this.doorRepo.findOne({
             where: [
@@ -75,37 +78,59 @@ export class EscortGuestPairingService {
                 { qrReaderExternalId: readerUid, isActive: true },
             ],
         });
-        if (!door || !door.forEscort) return;
+        if (!door) {
+            this.logger.debug(`No active door found for reader ${readerUid} — ignoring`);
+            return;
+        }
+        if (!door.forEscort) {
+            this.logger.debug(`Door ${door.id} (reader ${readerUid}) is not escort-designated — ignoring`);
+            return;
+        }
 
         const isBadgeReader = door.badgeReaderExternalId === readerUid;
         const isQrReader = !isBadgeReader && door.qrReaderExternalId === readerUid;
 
         if (isBadgeReader) {
+            this.logger.debug(`Badge reader event at escort door ${door.id}`);
             await this.handleBadgeEvent(door, payload);
         } else if (isQrReader) {
+            this.logger.debug(`QR reader event at escort door ${door.id}`);
             await this.handleQrEvent(door, payload);
         }
     }
 
     private async handleBadgeEvent(door: Door, payload: Record<string, unknown>): Promise<void> {
         const cardholderUid = this.asString(payload.cardholderUid);
-        if (!cardholderUid) return;
+        if (!cardholderUid) {
+            this.logger.debug(`Badge event at door ${door.id} missing cardholderUid — ignoring`);
+            return;
+        }
 
         const badge = await this.userBadgeRepo.findOne({
             where: { amadeusCardholderUid: cardholderUid, isActive: true },
         });
-        if (!badge) return;
+        if (!badge) {
+            this.logger.debug(`No active user badge found for cardholder ${cardholderUid} at door ${door.id} — ignoring`);
+            return;
+        }
 
         // Coarse gate: this person must be *some* kind of escort (permanent, or
         // named on at least one visit) before we bother opening a pairing window.
         // Whether they're the right escort *for this guest's visit* is checked
         // once the guest's QR swipe resolves which visit is involved.
-        if (!(await this.isEscortCandidate(badge.userId))) return;
+        if (!(await this.isEscortCandidate(badge.userId))) {
+            this.logger.debug(`User ${badge.userId} is not a permanent escort or active visit escort — ignoring badge at door ${door.id}`);
+            return;
+        }
 
         if (door.entryType === EntryType.IN) {
+            this.logger.debug(`Escort ${badge.userId} badge-in at door ${door.id} — opening pairing window`);
             await this.openPairingWindow(door.id, badge.userId);
         } else if (door.entryType === EntryType.OUT) {
+            this.logger.debug(`Escort ${badge.userId} badge-out at door ${door.id} — attempting pairing release`);
             await this.releasePairing(badge.userId);
+        } else {
+            this.logger.debug(`Escort ${badge.userId} badged at door ${door.id} with unhandled entryType ${door.entryType} — ignoring`);
         }
     }
 
@@ -168,10 +193,16 @@ export class EscortGuestPairingService {
         }
 
         const personId = this.asString(payload.cardCode);
-        if (!personId) return;
+        if (!personId) {
+            this.logger.debug(`Guest QR swipe at door ${door.id} missing cardCode — ignoring`);
+            return;
+        }
 
         const visitor = await this.visitorRepo.findOne({ where: { personId, isActive: true } });
-        if (!visitor) return;
+        if (!visitor) {
+            this.logger.warn(`No active visitor found for personId ${personId} at door ${door.id} — pairing aborted`);
+            return;
+        }
 
         const visitVisitor = await this.visitVisitorRepo
             .createQueryBuilder('vv')
@@ -184,7 +215,16 @@ export class EscortGuestPairingService {
             })
             .orderBy('status.arrivedAtUtc', 'DESC')
             .getOne();
-        if (!visitVisitor) return;
+        if (!visitVisitor) {
+            this.logger.warn(
+                `No visit found with status Arrived/CheckedIn for visitor ${visitor.personId} at door ${door.id} — pairing aborted`,
+            );
+            return;
+        }
+
+        this.logger.debug(
+            `Matched guest ${visitor.personId} on visit ${visitVisitor.visit.id} to pending escort ${pending.escortUserId} — checking authorization`,
+        );
 
         const authorized = await this.isEscortAuthorizedForVisit(pending.escortUserId, visitVisitor.visit);
         if (!authorized) {
@@ -222,7 +262,22 @@ export class EscortGuestPairingService {
 
         const activation = await this.cardholderService.activateVisitorCard(visitor.personId);
         if (activation.success) {
+            const status = visitVisitor.status;
+            status.currentStatus = VisitorStatus.CheckedIn;
+            status.checkedInAtUtc = status.checkedInAtUtc ?? now;
+            status.lastEventTimeUtc = now;
+            status.updatedAt = now;
+            await this.statusRepo.save(status);
+
+            this.logger.log(
+                `Visitor ${visitor.personId} status set to CheckedIn after successful escort pairing (visitVisitor ${visitVisitor.id})`,
+            );
+
             this.wsGateway.broadcastToAll(WsEvent.VisitsGuestCardActivated, {
+                visitVisitorId: visitVisitor.id,
+                personId: visitor.personId,
+            });
+            this.wsGateway.broadcastToAll(WsEvent.VisitorsVisitorCheckedIn, {
                 visitVisitorId: visitVisitor.id,
                 personId: visitor.personId,
             });
@@ -238,7 +293,10 @@ export class EscortGuestPairingService {
             where: { escortUserId, status: EscortGuestPairingStatus.CardActivated, isActive: true },
             order: { pairedAtUtc: 'DESC' },
         });
-        if (!pairing) return;
+        if (!pairing) {
+            this.logger.debug(`Escort ${escortUserId} badged out but has no active pairing — nothing to release`);
+            return;
+        }
 
         const now = new Date();
         pairing.status = EscortGuestPairingStatus.Released;

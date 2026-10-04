@@ -5,6 +5,7 @@ import {
     IsArray,
     IsInt,
     IsDateString,
+    IsIn,
     ValidateNested,
     Matches,
     ArrayMinSize,
@@ -77,4 +78,9 @@ export class CreateVisitDto {
     @ValidateNested({ each: true })
     @Type(() => VisitEscortItemDto)
     escorts!: VisitEscortItemDto[];
+
+    @ApiPropertyOptional({ example: 'excel-import', enum: ['manual', 'excel-import'], description: 'How this visit was submitted. excel-import requires the visits.import permission.' })
+    @IsOptional()
+    @IsIn(['manual', 'excel-import'])
+    source?: 'manual' | 'excel-import';
 }

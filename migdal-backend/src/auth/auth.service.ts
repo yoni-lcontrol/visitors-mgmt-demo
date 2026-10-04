@@ -14,6 +14,7 @@ import { LoginResponseDto } from './dto/login-response.dto';
 import { JwtPayload } from '../common/interfaces/jwt-payload.interface';
 import { hashPassword, comparePassword } from '../common/utils/hash.util';
 import { ErrorMessages } from '../common/constants/error-messages.constants';
+import { extractPermissionsFromUser } from '../common/utils/user-permissions.util';
 import { v4 as uuidv4 } from 'uuid';
 import * as crypto from 'crypto';
 
@@ -277,19 +278,7 @@ export class AuthService {
             roles?: Array<{ permissions?: { key: string }[] }>;
         },
     ): string[] {
-        const permSet = new Set<string>();
-
-        const roles = user.roles && user.roles.length > 0
-            ? user.roles
-            : (user.role ? [user.role] : []);
-
-        for (const role of roles) {
-            for (const perm of role.permissions ?? []) {
-                permSet.add(perm.key);
-            }
-        }
-
-        return [...permSet];
+        return extractPermissionsFromUser(user);
     }
 
     private extractRoleNames(

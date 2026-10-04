@@ -3,18 +3,27 @@ import { PermissionKey } from '../common/enums/permission-key.enum';
 interface CreatorScopeRequirements {
     includeCurrentUser: boolean;
     includeTrainingCenterUsers: boolean;
+    includeOwnDomain: boolean;
 }
 
 function hasPermission(userPermissions: string[] | undefined, permission: PermissionKey): boolean {
     return (userPermissions ?? []).includes(permission);
 }
 
-export function isEscortRequiredForVisit(userPermissions: string[] | undefined, isSelfRequester: boolean): boolean {
+export function isEscortRequiredForVisit(
+    userPermissions: string[] | undefined,
+    isSelfRequester: boolean,
+    requesterPermissions?: string[],
+): boolean {
     if (hasPermission(userPermissions, PermissionKey.VisitsEscortRequired)) {
         return true;
     }
 
     if (hasPermission(userPermissions, PermissionKey.VisitsEscortRequiredSelfRequester) && isSelfRequester) {
+        return true;
+    }
+
+    if (!isSelfRequester && hasPermission(requesterPermissions, PermissionKey.VisitsEscortRequiredAsRequester)) {
         return true;
     }
 
@@ -32,14 +41,16 @@ export function resolveCreatorScopeRequirements(userPermissions: string[] | unde
 
     const includeCurrentUser = hasPermission(userPermissions, PermissionKey.VisitsScopeOwn);
     const includeTrainingCenterUsers = hasPermission(userPermissions, PermissionKey.VisitsScopeTrainingCenter);
+    const includeOwnDomain = hasPermission(userPermissions, PermissionKey.VisitsScopeDomain);
 
-    if (!includeCurrentUser && !includeTrainingCenterUsers) {
+    if (!includeCurrentUser && !includeTrainingCenterUsers && !includeOwnDomain) {
         return null;
     }
 
     return {
         includeCurrentUser,
         includeTrainingCenterUsers,
+        includeOwnDomain,
     };
 }
 

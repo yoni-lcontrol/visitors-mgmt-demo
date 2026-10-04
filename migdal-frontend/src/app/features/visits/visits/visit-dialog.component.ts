@@ -479,9 +479,9 @@ import { AuthService } from '@core/auth/auth.service';
               <button class="btn btn-secondary btn-add-inline" (click)="addInlineVisitor()">
                 <i class="pi pi-plus"></i> {{ 'VISITS.ADD_VISITOR' | translate }}
               </button>
-              @if (canImportExcel) {
+              @if (canImportZimunExcel) {
               <button class="btn btn-secondary btn-add-inline" (click)="visitorFileInput.click()">
-                <i class="pi pi-file-excel"></i> {{ 'VISITS.IMPORT_VISITORS' | translate }}
+                <i class="pi pi-file-excel"></i> {{ 'VISITS.IMPORT_ZIMUN_EXCEL' | translate }}
               </button>
               }
             </div>
@@ -1195,7 +1195,8 @@ export class VisitDialogComponent implements OnDestroy {
   private permissionService = inject(PermissionService);
   private authService = inject(AuthService);
 
-  canImportExcel = false;
+  canImportZimunExcel = false;
+  importedFromExcel = false;
 
   get escortRequired(): boolean {
     if (this.permissionService.hasPermission('visits.escort.required')) return true;
@@ -1324,7 +1325,7 @@ export class VisitDialogComponent implements OnDestroy {
     this.buildVehicleTypeOptions();
     this.loadEscortSectorOptions();
     this.resetDialogState();
-    this.canImportExcel = this.permissionService.hasPermission('visitors.import');
+    this.canImportZimunExcel = this.permissionService.hasPermission('visits.import');
     this.requesterLockedToOnBehalf = this.permissionService.hasPermission(VisitDialogComponent.ON_BEHALF_ONLY_PERMISSION);
     this.editing = visit ?? null;
     if (visit) {
@@ -1384,6 +1385,7 @@ export class VisitDialogComponent implements OnDestroy {
     this.inlineVisitors = [];
     this.inlineEscorts = [];
     this.importErrors = [];
+    this.importedFromExcel = false;
     this.pendingFiles = [];
     this.existingFiles = [];
     this.saving = false;
@@ -1532,6 +1534,8 @@ export class VisitDialogComponent implements OnDestroy {
       this.notify.error('VISITS.IMPORT_EMPTY_FILE');
       return;
     }
+
+    this.importedFromExcel = true;
 
     const errors: string[] = [];
 
@@ -1802,6 +1806,7 @@ export class VisitDialogComponent implements OnDestroy {
           email: e.email,
           sector: e.sector || undefined,
         })),
+        ...(this.importedFromExcel ? { source: 'excel-import' as const } : {}),
       };
       this.visitsApi.createVisit(body).subscribe({
         next: (visit) => { this.uploadPendingFiles(visit.id); this.close(); this.notify.success('COMMON.SUCCESS'); this.saved.emit(); },

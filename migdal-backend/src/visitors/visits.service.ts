@@ -2,6 +2,7 @@
     Injectable,
     NotFoundException,
     BadRequestException,
+    ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, SelectQueryBuilder, Brackets } from 'typeorm';
@@ -17,6 +18,7 @@ import { VisitsQueryDto, TimeFilter } from './dto/visits-query.dto';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
 import { applyTableFilters, parseTableFilters } from '../common/utils/table-filter.util';
 import { toExcelBuffer } from '../common/utils/excel.util';
+import { extractPermissionsFromUser } from '../common/utils/user-permissions.util';
 import { UsersGateway } from '../websocket/gateways/users.gateway';
 import { User } from '../users/entities/user.entity';
 import { SmsNotificationService } from '../settings/sms-notification.service';
@@ -40,6 +42,11 @@ import {
     shouldRestrictDeletionToOwnVisits,
 } from './visit-role-policy';
 import { AmadeusParkingSyncService } from '../amadeus/services/amadeus-parking-sync.service';
+
+interface VisitsScopeContext {
+    creatorUserIds: string[];
+    domainSectorId: string | null;
+}
 
 @Injectable()
 export class VisitsService {
@@ -219,15 +226,20 @@ export class VisitsService {
         await this.escortRepo.save(escort);
     }
 
-    private async resolveScopedCreatorUserIds(currentUserId?: string, userPermissions?: string[]): Promise<string[] | null> {
-        const creatorIds = new Set<string>();
+    private async resolveVisitsScopeContext(currentUserId?: string, userPermissions?: string[]): Promise<VisitsScopeContext | null> {
         const scopeRequirements = resolveCreatorScopeRequirements(userPermissions);
 
-        if (scopeRequirements?.includeCurrentUser && currentUserId) {
+        if (scopeRequirements === null) {
+            return null;
+        }
+
+        const creatorIds = new Set<string>();
+
+        if (scopeRequirements.includeCurrentUser && currentUserId) {
             creatorIds.add(currentUserId);
         }
 
-        if (scopeRequirements?.includeTrainingCenterUsers) {
+        if (scopeRequirements.includeTrainingCenterUsers) {
             const trainingCenterUsers = await this.userRepo
                 .createQueryBuilder('user')
                 .leftJoin('user.role', 'primaryRole')
@@ -250,27 +262,45 @@ export class VisitsService {
             }
         }
 
-        if (scopeRequirements === null) {
-            return null;
+        let domainSectorId: string | null = null;
+        if (scopeRequirements.includeOwnDomain && currentUserId) {
+            const currentUser = await this.userRepo.findOne({ where: { id: currentUserId } });
+            domainSectorId = currentUser?.sectorId ?? null;
         }
 
-        return [...creatorIds];
+        return { creatorUserIds: [...creatorIds], domainSectorId };
     }
 
-    private applyCreatorScopeToVisitsQuery(
+    private applyVisitsScopeToQuery(
         qb: SelectQueryBuilder<any>,
-        creatorUserIds: string[] | null,
+        scope: VisitsScopeContext | null,
     ): void {
-        if (creatorUserIds === null) {
+        if (scope === null) {
             return;
         }
 
-        if (creatorUserIds.length === 0) {
+        const hasCreatorMatch = scope.creatorUserIds.length > 0;
+        const hasDomainMatch = scope.domainSectorId !== null;
+
+        if (!hasCreatorMatch && !hasDomainMatch) {
             qb.andWhere('1 = 0');
             return;
         }
 
-        qb.andWhere('v.createdByUserId IN (:...creatorUserIds)', { creatorUserIds });
+        qb.andWhere(new Brackets((wb) => {
+            if (hasCreatorMatch) {
+                wb.where('v.createdByUserId IN (:...scopeCreatorUserIds)', { scopeCreatorUserIds: scope.creatorUserIds });
+            }
+            if (hasDomainMatch) {
+                const domainCondition = 'v.sectorId = :scopeDomainSectorId';
+                const params = { scopeDomainSectorId: scope.domainSectorId };
+                if (hasCreatorMatch) {
+                    wb.orWhere(domainCondition, params);
+                } else {
+                    wb.where(domainCondition, params);
+                }
+            }
+        }));
     }
 
     // â”€â”€ Today Summary â”€â”€
@@ -282,7 +312,7 @@ export class VisitsService {
         completedToday: number;
     }> {
         const { dayStart, dayEnd } = getDayBoundsUtc();
-        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userPermissions);
+        const scopeContext = await this.resolveVisitsScopeContext(currentUserId, userPermissions);
 
         // Count today's visits
         const totalVisitsToday = this.visitRepo
@@ -294,7 +324,7 @@ export class VisitsService {
                 { dayStart, dayStartBound: dayStart },
             );
 
-        this.applyCreatorScopeToVisitsQuery(totalVisitsToday, creatorUserIds);
+        this.applyVisitsScopeToQuery(totalVisitsToday, scopeContext);
 
         const totalVisitsTodayCount = await totalVisitsToday
             .getCount();
@@ -314,7 +344,7 @@ export class VisitsService {
                 { dayStart, dayStartBound: dayStart },
             );
 
-        this.applyCreatorScopeToVisitsQuery(rows, creatorUserIds);
+        this.applyVisitsScopeToQuery(rows, scopeContext);
 
         const statusRows = await rows
             .groupBy('s.currentStatus')
@@ -536,7 +566,7 @@ export class VisitsService {
 
     private async buildVisitsQuery(query: VisitsQueryDto, currentUserId?: string, userPermissions?: string[]) {
         const { search, sortBy, sortOrder, filters, timeFilter, searchField } = query;
-        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userPermissions);
+        const scopeContext = await this.resolveVisitsScopeContext(currentUserId, userPermissions);
         const qb = this.visitRepo
             .createQueryBuilder('v')
             .leftJoinAndSelect('v.sector', 'sector')
@@ -544,7 +574,7 @@ export class VisitsService {
             .leftJoinAndSelect('v.visitRequesterUser', 'reqUser')
             .where('v.isActive = :active', { active: true });
 
-        this.applyCreatorScopeToVisitsQuery(qb, creatorUserIds);
+        this.applyVisitsScopeToQuery(qb, scopeContext);
 
         if (timeFilter) {
             this.applyTimeFilter(qb, timeFilter);
@@ -670,15 +700,19 @@ export class VisitsService {
     }
 
     async findVisitById(id: string, currentUserId?: string, userPermissions?: string[]): Promise<any> {
-        const creatorUserIds = await this.resolveScopedCreatorUserIds(currentUserId, userPermissions);
+        const scopeContext = await this.resolveVisitsScopeContext(currentUserId, userPermissions);
         const visit = await this.visitRepo.findOne({
             where: { id, isActive: true },
             relations: ['sector', 'building', 'visitRequesterUser'],
         });
         if (!visit) throw new NotFoundException('Visit not found');
 
-        if (creatorUserIds !== null && !creatorUserIds.includes(visit.createdByUserId ?? '')) {
-            throw new NotFoundException('Visit not found');
+        if (scopeContext !== null) {
+            const matchesCreator = scopeContext.creatorUserIds.includes(visit.createdByUserId ?? '');
+            const matchesDomain = scopeContext.domainSectorId !== null && visit.sectorId === scopeContext.domainSectorId;
+            if (!matchesCreator && !matchesDomain) {
+                throw new NotFoundException('Visit not found');
+            }
         }
 
         const summary = await this.getStatusSummaries([id]);
@@ -700,6 +734,10 @@ export class VisitsService {
             throw new BadRequestException('A visit must have at least one visitor');
         }
 
+        if (dto.source === 'excel-import' && !(userPermissions ?? []).includes(PermissionKey.VisitsImport)) {
+            throw new ForbiddenException('Missing permission to create a visit from an Excel import');
+        }
+
         const isSelfRequester = !dto.visitRequester;
         if (isSelfRequester && !currentUserId) {
             throw new BadRequestException('visitRequester is required');
@@ -709,17 +747,22 @@ export class VisitsService {
             throw new BadRequestException('This role must create visits on behalf of another requester');
         }
 
-        const escortRequired = isEscortRequiredForVisit(userPermissions, isSelfRequester);
-        if (escortRequired && (!dto.escorts || dto.escorts.length === 0)) {
-            throw new BadRequestException('At least one escort is required for the current user');
-        }
-
         const currentUser = currentUserId
             ? await this.userRepo.findOne({ where: { id: currentUserId }, relations: ['sector'] })
             : null;
         const requesterUser = !isSelfRequester && dto.visitRequester
-            ? await this.userRepo.findOne({ where: { id: dto.visitRequester.userId }, relations: ['sector'] })
+            ? await this.userRepo.findOne({
+                where: { id: dto.visitRequester.userId },
+                relations: ['sector', 'role', 'role.permissions', 'roles', 'roles.permissions'],
+            })
             : null;
+        const requesterPermissions = requesterUser ? extractPermissionsFromUser(requesterUser) : undefined;
+
+        const escortRequired = isEscortRequiredForVisit(userPermissions, isSelfRequester, requesterPermissions);
+        if (escortRequired && (!dto.escorts || dto.escorts.length === 0)) {
+            throw new BadRequestException('At least one escort is required for the current user');
+        }
+
         const escortsToCreate = this.getCreateEscorts(dto, isSelfRequester, currentUser, escortRequired, requesterUser);
 
         // Check blacklist for all visitors (returns map of blacklisted personIds)
@@ -956,7 +999,17 @@ export class VisitsService {
         await this.visitRepo.save(visit);
 
         const isSelfRequesterOnUpdate = isSwitchToSelf || (!isSwitchToManual && visit.visitRequesterUserId === currentUserId);
-        const escortRequired = isEscortRequiredForVisit(userPermissions, isSelfRequesterOnUpdate);
+
+        let requesterPermissionsOnUpdate: string[] | undefined;
+        if (!isSelfRequesterOnUpdate && visit.visitRequesterUserId) {
+            const requesterUserForUpdate = await this.userRepo.findOne({
+                where: { id: visit.visitRequesterUserId },
+                relations: ['role', 'role.permissions', 'roles', 'roles.permissions'],
+            });
+            requesterPermissionsOnUpdate = requesterUserForUpdate ? extractPermissionsFromUser(requesterUserForUpdate) : undefined;
+        }
+
+        const escortRequired = isEscortRequiredForVisit(userPermissions, isSelfRequesterOnUpdate, requesterPermissionsOnUpdate);
         await this.ensureAutoEscortForUpdate(visit, dto, currentUserId, escortRequired);
 
         // Reload with visitRequesterUser for SMS/email hostName resolution

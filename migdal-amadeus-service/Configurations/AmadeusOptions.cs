@@ -26,12 +26,6 @@ public class AmadeusOptions
     public string Password { get; set; } = string.Empty;
 
     [Required]
-    public string ClientCertificatePath { get; set; } = string.Empty;
-
-    [Required]
-    public string ClientCertificatePassword { get; set; } = string.Empty;
-
-    [Required]
     public string ServerCertificatePath { get; set; } = string.Empty;
 
     public string ServerCertificatePassword { get; set; } = string.Empty;
@@ -43,6 +37,16 @@ public class AmadeusOptions
 
     [Range(1, 300)]
     public int ListenerReconnectDelaySeconds { get; set; } = 15;
+
+    /// <summary>
+    /// Upper bound for the exponential backoff applied to repeated SignalR reconnect failures.
+    /// The delay doubles after each consecutive failed reconnect attempt, capped at this value.
+    /// </summary>
+    [Range(1, 3600)]
+    public int ListenerReconnectMaxDelaySeconds { get; set; } = 300;
+
+    [Range(1, 100)]
+    public int TokenAcquisitionMaxAttempts { get; set; } = 3;
 
     [Range(1, 5000)]
     public int InfrastructureImportBatchSize { get; set; } = 200;

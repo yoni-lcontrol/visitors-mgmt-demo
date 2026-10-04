@@ -89,10 +89,12 @@ export class AccessControlApiService {
         const body = JSON.stringify(data);
         const config = this.buildConfig(body, extraConfig);
 
+        this.logger.log(`AC server POST ${url} - request`);
         try {
             const response = await firstValueFrom(
                 this.httpService.post<T>(url, data, config),
             );
+            this.logger.log(`AC server POST ${url} - success (${response.status})`);
             return response.data;
         } catch (err: any) {
             this.handleHttpError(err, 'POST', path);
@@ -104,10 +106,12 @@ export class AccessControlApiService {
         const body = JSON.stringify(params ?? {});
         const config = this.buildConfig(body, { params });
 
+        this.logger.log(`AC server GET ${url} - request`);
         try {
             const response = await firstValueFrom(
                 this.httpService.get<T>(url, config),
             );
+            this.logger.log(`AC server GET ${url} - success (${response.status})`);
             return response.data;
         } catch (err: any) {
             this.handleHttpError(err, 'GET', path);
@@ -119,10 +123,12 @@ export class AccessControlApiService {
         const body = JSON.stringify(data);
         const config = this.buildConfig(body);
 
+        this.logger.log(`AC server PUT ${url} - request`);
         try {
             const response = await firstValueFrom(
                 this.httpService.put<T>(url, data, config),
             );
+            this.logger.log(`AC server PUT ${url} - success (${response.status})`);
             return response.data;
         } catch (err: any) {
             this.handleHttpError(err, 'PUT', path);
@@ -135,10 +141,12 @@ export class AccessControlApiService {
         const body = JSON.stringify(data);
         const config = this.buildConfig(body, { data });
 
+        this.logger.log(`AC server DELETE ${url} - request`);
         try {
             const response = await firstValueFrom(
                 this.httpService.delete<T>(url, config),
             );
+            this.logger.log(`AC server DELETE ${url} - success (${response.status})`);
             return response.data;
         } catch (err: any) {
             this.handleHttpError(err, 'DELETE', path);

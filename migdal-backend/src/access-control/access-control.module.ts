@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HttpModule } from '@nestjs/axios';
-import * as https from 'https';
+import { ConfigService } from '@nestjs/config';
+import { buildAccessControlHttpsAgent } from '../common/utils/access-control-https-agent.util';
 import {
     AcController,
     Door,
@@ -42,8 +43,11 @@ import { AmadeusSyncQueueModule } from './amadeus-sync-queue.module';
             AccessLevel,
             Building,
         ]),
-        HttpModule.register({
-            httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+        HttpModule.registerAsync({
+            useFactory: (configService: ConfigService) => ({
+                httpsAgent: buildAccessControlHttpsAgent(configService),
+            }),
+            inject: [ConfigService],
         }),
         WebsocketModule,
         AmadeusSyncQueueModule,

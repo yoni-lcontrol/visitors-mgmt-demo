@@ -24,11 +24,14 @@ public class AmadeusEventListenerHostedService : BackgroundService
     {
         _logger.LogInformation("Amadeus event listener hosted service starting");
 
+        var consecutiveFailures = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 await _signalRClient.ConnectAsync(stoppingToken);
+                consecutiveFailures = 0;
 
                 // Stay alive while connected; break out when disconnected so the outer loop reconnects
                 while (!stoppingToken.IsCancellationRequested)
@@ -50,9 +53,13 @@ public class AmadeusEventListenerHostedService : BackgroundService
             }
             catch (Exception ex)
             {
+                consecutiveFailures++;
+                var delaySeconds = GetBackoffDelaySeconds(consecutiveFailures);
+
                 _logger.LogError(ex,
-                    "Amadeus event listener encountered an error, retrying in {DelaySeconds} seconds",
-                    _options.ListenerReconnectDelaySeconds);
+                    "Amadeus event listener encountered an error (consecutive failure {ConsecutiveFailures}), retrying in {DelaySeconds} seconds",
+                    consecutiveFailures,
+                    delaySeconds);
 
                 try
                 {
@@ -65,9 +72,7 @@ public class AmadeusEventListenerHostedService : BackgroundService
 
                 try
                 {
-                    await Task.Delay(
-                        TimeSpan.FromSeconds(_options.ListenerReconnectDelaySeconds),
-                        stoppingToken);
+                    await Task.Delay(TimeSpan.FromSeconds(delaySeconds), stoppingToken);
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
                 {
@@ -86,5 +91,14 @@ public class AmadeusEventListenerHostedService : BackgroundService
         }
 
         _logger.LogInformation("Amadeus event listener hosted service stopped");
+    }
+
+    private int GetBackoffDelaySeconds(int consecutiveFailures)
+    {
+        // Exponential backoff from the base delay, capped so we never stop retrying
+        // but also stop hammering an unreachable gateway every few seconds.
+        var uncappedDelay = _options.ListenerReconnectDelaySeconds * Math.Pow(2, consecutiveFailures - 1);
+        var cappedDelay = Math.Min(uncappedDelay, _options.ListenerReconnectMaxDelaySeconds);
+        return (int)cappedDelay;
     }
 }

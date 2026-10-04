@@ -1,10 +1,11 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { HttpModule } from '@nestjs/axios';
-import * as https from 'https';
+import { ConfigService } from '@nestjs/config';
 import { AmadeusSyncQueue } from '../amadeus/entities/amadeus-sync-queue.entity';
 import { AmadeusSyncQueueService } from '../amadeus/services/amadeus-sync-queue.service';
 import { AccessControlApiService } from './services/ac-api.service';
+import { buildAccessControlHttpsAgent } from '../common/utils/access-control-https-agent.util';
 
 /**
  * Standalone module providing the AmadeusSyncQueueService + entity.
@@ -14,8 +15,11 @@ import { AccessControlApiService } from './services/ac-api.service';
 @Module({
     imports: [
         TypeOrmModule.forFeature([AmadeusSyncQueue]),
-        HttpModule.register({
-            httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+        HttpModule.registerAsync({
+            useFactory: (configService: ConfigService) => ({
+                httpsAgent: buildAccessControlHttpsAgent(configService),
+            }),
+            inject: [ConfigService],
         }),
     ],
     providers: [AmadeusSyncQueueService, AccessControlApiService],

@@ -218,10 +218,6 @@ import { TranslateModule } from '@ngx-translate/core';
         padding: var(--content-padding, 1.75rem);
         overflow-y: auto;
         background-color: var(--color-bg, #f5f4fa);
-        background-image: url('/images/Migdal_BG-mixed.png');
-        background-repeat: no-repeat;
-        background-position: center center;
-        background-size: cover;
       }
 
       @media (max-width: 767px) {
